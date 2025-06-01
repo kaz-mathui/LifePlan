@@ -1,0 +1,56 @@
+version: '3.8'
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: build # Use the 'build' stage from the Dockerfile
+    ports:
+      - "3000:3000" # React dev server runs on 3000
+    environment:
+      # These are still useful for when not using an env_file or for overrides
+      - REACT_APP_BACKEND_URL=http://localhost:3001/api/simulation
+      - REACT_APP_ID=compose-app-id
+      - NODE_ENV=development # For react-scripts start in dev mode (see command override)
+    env_file:
+      - ./.env # Load Firebase and other sensitive variables from .env file
+    volumes:
+      - ./frontend:/app # Mount the entire frontend directory to /app
+      # Ensure node_modules is not overwritten by the host's (if any)
+      # by adding a named volume for node_modules if issues persist, e.g., /app/node_modules
+    working_dir: /app
+    # In development, we want to use the react-scripts start for hot reloading
+    # For production, the default CMD from Dockerfile (nginx) will be used.
+    # You can switch by commenting/uncommenting the command below or using override files.
+    command: npm start # This will use react-scripts start from frontend/package.json on port 3000 (default)
+                     # Nginx on port 80 (from Dockerfile) will be mapped to host 3000
+                     # If you use npm start, you might want to map 3000:3000 instead of 3000:80
+                     # For now, let's assume we want to test the nginx setup even in dev like this.
+                     # Consider changing the port mapping to 3000:3000 if directly using npm start without nginx.
+    depends_on:
+      - backend
+    networks:
+      - lifeplan-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development # Or production for production build
+    volumes:
+      - ./backend/src:/app/src # Mount src for hot-reloading with nodemon (if configured)
+      - ./backend/tsconfig.json:/app/tsconfig.json # Explicitly mount tsconfig.json
+    # For development with nodemon, you might use a command like:
+    # command: npm run dev
+    # The default CMD ["npm", "start"] from Dockerfile is for production mode.
+    # If nodemon is configured to watch files in /app/src, it will work with the volume mount.
+    command: npm run dev # This runs "ts-node -P tsconfig.json src/server.ts"
+    networks:
+      - lifeplan-network
+
+networks:
+  lifeplan-network:
+    driver: bridge 

@@ -1,0 +1,36 @@
+# Stage 1: Build the React application
+FROM node:18-alpine AS build
+
+WORKDIR /app
+
+# Copy package.json and package-lock.json (or yarn.lock)
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# Copy the rest of the application code
+COPY . .
+
+# Set the environment variable for the backend URL
+# This will be overridden by docker-compose in development, but good for standalone builds
+ARG REACT_APP_BACKEND_URL=http://localhost:3001/api/simulation
+ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
+ARG REACT_APP_ID=docker-app-id
+ENV REACT_APP_ID=$REACT_APP_ID
+
+# Build the application
+RUN npm run build
+
+# Stage 2: Serve the application using Nginx
+FROM nginx:1.25-alpine
+
+# Copy the build output from the build stage
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Copy nginx configuration (optional, but good for routing)
+# COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"] 

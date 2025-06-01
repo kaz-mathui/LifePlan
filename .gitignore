@@ -1,0 +1,57 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json # 状況に応じて。チーム開発ではコミットすることが多い
+# yarn.lock # Yarn を使う場合
+
+# Build artifacts
+frontend/build/
+backend/dist/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+
+# Editor directories and files
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Docker - if you have local docker-compose overrides or specific envs not for repo
+# docker-compose.override.yml
+
+# Log files
+logs
+*.log
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Firebase - specific debug files if any (usually covered by node_modules)
+# firebase-debug.log
+
+# Temporary files
+*.tmp
+
+# Optional: IntelliJ files
+# *.iml
+# .idea/
+
+# Optional: WebStorm files
+# .idea 
