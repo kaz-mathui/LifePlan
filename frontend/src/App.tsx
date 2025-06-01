@@ -6,12 +6,24 @@ import AuthComponent from './components/Auth';
 import InputFormComponent from './components/InputForm';
 import SimulationResultComponent from './components/SimulationResult';
 import AssetChartComponent from './components/AssetChart';
+import LifeEventFormComponent from './components/LifeEventForm';
 
 // グローバル変数 __app_id の型 (firebase.tsでも同様の定義があるが、念のため)
 declare global {
   interface Window {
     __app_id?: string;
   }
+}
+
+// ★新規追加: ライフイベントの型
+export interface LifeEvent {
+  id: string; // Reactのkeyや編集時の識別用
+  age: number; // イベントが発生する年齢
+  description: string; // イベントの説明 (例: 子供の大学入学金)
+  type: 'income' | 'expense'; // '収入' または '支出'
+  amount: number; // 金額 (円単位)
+  frequency: 'one-time' | 'annual'; // '一回のみ' または '毎年'
+  endAge?: number; // '毎年'の場合の終了年齢 (未設定の場合は寿命まで継続)
 }
 
 // シミュレーション入力データの型
@@ -27,6 +39,7 @@ export interface SimulationInputData {
   pensionAmountPerYear: number | ''; // ★追加: 年間年金受給額
   pensionStartDate: number | ''; // ★新規追加: 年金受給開始年齢
   severancePay: number | ''; // ★新規追加: 退職金
+  lifeEvents: LifeEvent[]; // ★新規追加: ライフイベントの配列
 }
 
 // バックエンドAPIからのシミュレーション結果の型
@@ -58,6 +71,7 @@ const App: React.FC = () => {
     pensionAmountPerYear: 2000000, // ★追加: デフォルト200万円
     pensionStartDate: 65, // ★新規追加: デフォルト65歳
     severancePay: 0, // ★新規追加: デフォルト0円
+    lifeEvents: [], // ★新規追加: 初期値は空配列
   });
   const [simulationResult, setSimulationResult] = useState<BackendSimulationResult | null>(null);
   const [dbInstance, setDbInstance] = useState<FirebaseFirestore | null>(null);
@@ -88,6 +102,7 @@ const App: React.FC = () => {
           pensionAmountPerYear: data.pensionAmountPerYear ?? prev.pensionAmountPerYear, // ★追加
           pensionStartDate: data.pensionStartDate ?? prev.pensionStartDate, // ★新規追加
           severancePay: data.severancePay ?? prev.severancePay, // ★新規追加
+          lifeEvents: data.lifeEvents ?? [], // ★新規追加: Firestoreから読み込み、なければ空配列
         }));
         console.log("User data loaded from Firestore.");
       } else {
@@ -129,6 +144,14 @@ const App: React.FC = () => {
     }));
   };
 
+  // ★新規追加: ライフイベントリストの変更を処理する関数
+  const handleLifeEventsChange = (newEventList: LifeEvent[]) => {
+    setSimulationInput(prev => ({
+      ...prev,
+      lifeEvents: newEventList
+    }));
+  };
+
   const handleSaveData = async () => {
     if (!user || !userId || !dbInstance) {
       setError("ユーザーが認証されていないか、データベースに接続されていません。");
@@ -138,7 +161,6 @@ const App: React.FC = () => {
     setError(null);
     try {
       const planDocRef = doc(dbInstance, `artifacts/${appId}/users/${userId}/lifePlanData/latest`);
-      // 保存するデータにuserIdと更新時刻を追加
       const dataToSave: SimulationInputData & { userId: string; updatedAt: string } = {
         ...simulationInput,
         currentAge: simulationInput.currentAge === '' ? 0 : Number(simulationInput.currentAge),
@@ -152,6 +174,7 @@ const App: React.FC = () => {
         pensionAmountPerYear: simulationInput.pensionAmountPerYear === '' ? 0 : Number(simulationInput.pensionAmountPerYear), // ★追加
         pensionStartDate: simulationInput.pensionStartDate === '' ? 0 : Number(simulationInput.pensionStartDate), // ★新規追加
         severancePay: simulationInput.severancePay === '' ? 0 : Number(simulationInput.severancePay), // ★新規追加
+        lifeEvents: simulationInput.lifeEvents, // ★新規追加: そのまま保存
         userId: userId,
         updatedAt: new Date().toISOString(),
       };
@@ -171,7 +194,7 @@ const App: React.FC = () => {
     setError(null);
     setSimulationResult(null);
 
-    const { currentAge, retirementAge, lifeExpectancy, currentSavings, annualIncome, monthlyExpenses, investmentRatio, annualReturn, pensionAmountPerYear, pensionStartDate, severancePay } = simulationInput;
+    const { currentAge, retirementAge, lifeExpectancy, currentSavings, annualIncome, monthlyExpenses, investmentRatio, annualReturn, pensionAmountPerYear, pensionStartDate, severancePay, lifeEvents } = simulationInput;
 
     // バリデーション: 空文字やマイナス値をチェック (新しい項目も対象に)
     if ([currentAge, retirementAge, lifeExpectancy, currentSavings, annualIncome, monthlyExpenses, investmentRatio, annualReturn, pensionAmountPerYear, pensionStartDate, severancePay].some(val => val === '' || (typeof val === 'number' && val < 0))) {
@@ -216,6 +239,7 @@ const App: React.FC = () => {
         pensionAmountPerYear: Number(pensionAmountPerYear),
         pensionStartDate: Number(pensionStartDate),
         severancePay: Number(severancePay),
+        lifeEvents: lifeEvents, // ★新規追加: APIに送信
       };
       console.log("Request body for simulation API:", JSON.stringify(requestBody, null, 2)); // ★デバッグ用ログ追加
       const response = await fetch(backendUrl, {
@@ -276,6 +300,14 @@ const App: React.FC = () => {
             onSubmit={handleSimulate}
             onSave={handleSaveData}
             loading={loading}
+          />
+
+          {/* ★新規追加: ライフイベントフォームコンポーネント */}
+          <LifeEventFormComponent 
+            lifeEvents={simulationInput.lifeEvents}
+            onLifeEventsChange={handleLifeEventsChange}
+            currentAge={simulationInput.currentAge}
+            lifeExpectancy={simulationInput.lifeExpectancy}
           />
 
           {error && (

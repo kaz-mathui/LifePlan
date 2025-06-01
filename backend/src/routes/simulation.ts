@@ -1,5 +1,5 @@
 import express, { Router, Request, Response } from 'express';
-import { calculateSimulation, SimulationInput } from '../services/simulationService';
+import { calculateSimulation, SimulationInput, LifeEvent } from '../services/simulationService';
 
 const router: Router = express.Router();
 
@@ -10,6 +10,14 @@ const router: Router = express.Router();
  */
 router.post('/', (req: Request, res: Response) => {
   try {
+    // lifeEvents をリクエストボディから取得。存在しない場合は空配列をデフォルト値とする
+    const lifeEventsFromBody = req.body.lifeEvents;
+    console.log("Backend: Received lifeEvents in request body:", JSON.stringify(lifeEventsFromBody, null, 2));
+    if (lifeEventsFromBody !== undefined && !Array.isArray(lifeEventsFromBody)) {
+      return res.status(400).json({ error: 'lifeEvents must be an array.' });
+    }
+    // TODO: lifeEvents 配列内の各要素の型チェック・バリデーションもここで行うのが望ましい
+
     const input: SimulationInput = {
       currentAge: Number(req.body.currentAge),
       retirementAge: Number(req.body.retirementAge),
@@ -22,11 +30,12 @@ router.post('/', (req: Request, res: Response) => {
       pensionAmountPerYear: Number(req.body.pensionAmountPerYear),
       pensionStartDate: Number(req.body.pensionStartDate),
       severancePay: Number(req.body.severancePay),
+      lifeEvents: lifeEventsFromBody || [], // ★新規追加: lifeEventsをinputに追加
     };
+    console.log("Backend: Input for calculateSimulation:", JSON.stringify(input, null, 2));
 
-    // サービス層で詳細なバリデーションを行うため、ここではNaNチェックのみ
-    if (Object.values(input).some(val => isNaN(val as number))) {
-      return res.status(400).json({ error: 'すべての入力値は数値に変換可能である必要があります。' });
+    if (Object.values(input).some(val => typeof val !== 'object' && isNaN(val as number))) { // lifeEvents はオブジェクトなので除外
+      return res.status(400).json({ error: 'Numeric input values must be valid numbers.' });
     }
 
     const result = calculateSimulation(input);

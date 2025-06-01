@@ -10,6 +10,7 @@ export interface SimulationInput {
   pensionAmountPerYear: number;
   pensionStartDate: number;
   severancePay: number;
+  lifeEvents: LifeEvent[];
 }
 
 export interface SimulationResult {
@@ -19,126 +20,220 @@ export interface SimulationResult {
   targetRetirementFund?: number;
   message: string;
   suggestion?: string;
-  assetData: { age: number; savings: number }[];
+  assetData: AssetDataPoint[];
+}
+
+export interface LifeEvent {
+  id: string;
+  age: number;
+  description: string;
+  type: 'income' | 'expense';
+  amount: number;
+  frequency: 'one-time' | 'annual';
+  endAge?: number;
+}
+
+export interface AssetDataPoint {
+  age: number;
+  savings: number;
+  income: number;
+  expenses: number;
 }
 
 /**
  * ライフプランシミュレーション計算を行う
- * @param {SimulationInput} data - 入力データ
+ * @param {SimulationInput} input - 入力データ
  * @returns {SimulationResult} シミュレーション結果
  */
-export function calculateSimulation(data: SimulationInput): SimulationResult {
+export function calculateSimulation(input: SimulationInput): SimulationResult {
   const {
-    currentAge,
-    retirementAge,
-    lifeExpectancy,
-    currentSavings,
-    annualIncome,
-    monthlyExpenses,
-    investmentRatio,
-    annualReturn,
-    pensionAmountPerYear,
-    pensionStartDate,
-    severancePay
-  } = data;
+    currentAge, retirementAge, lifeExpectancy,
+    currentSavings, annualIncome, monthlyExpenses,
+    investmentRatio, annualReturn,
+    pensionAmountPerYear, pensionStartDate, severancePay,
+    lifeEvents
+  } = input;
 
-  if (currentAge < 0 || retirementAge < 0 || lifeExpectancy < 0 || currentSavings < 0 || annualIncome < 0 || monthlyExpenses < 0 || pensionAmountPerYear < 0 || severancePay < 0 || pensionStartDate < 0) {
-    throw new Error("年齢、貯蓄額、収入、支出、年金額、退職金、年金受給開始年齢は0以上である必要があります。");
-  }
-  if (currentAge >= retirementAge) {
-    throw new Error("リタイア目標年齢は現在の年齢より大きく設定してください。");
-  }
-  if (retirementAge > pensionStartDate) {
-    throw new Error("年金受給開始年齢はリタイア目標年齢以降に設定してください。");
-  }
-  if (pensionStartDate >= lifeExpectancy) {
-    throw new Error("寿命は年金受給開始年齢より大きく設定してください。");
-  }
-  if (investmentRatio < 0 || investmentRatio > 100) {
-    throw new Error("金融資産の割合は0から100の間で設定してください。");
-  }
-  if (annualReturn < 0) {
-    throw new Error("年間運用利回りは0以上で設定してください。");
+  // 入力値のバリデーション
+  const errors: string[] = [];
+  if (currentAge < 0) errors.push("現在の年齢が不正です。");
+  if (retirementAge < 0) errors.push("退職年齢が不正です。");
+  if (lifeExpectancy < 0) errors.push("寿命が不正です。");
+  if (currentSavings < 0) errors.push("現在の貯蓄額が不正です。");
+  if (annualIncome < 0) errors.push("年間収入が不正です。");
+  if (monthlyExpenses < 0) errors.push("毎月の支出が不正です。");
+  if (investmentRatio < 0 || investmentRatio > 100) errors.push("投資比率が不正です（0-100）。");
+  if (annualReturn < -100) errors.push("年間リターンが不正です（-100以上）。"); // マイナスリターンも許容
+  if (pensionAmountPerYear < 0) errors.push("年金年額が不正です。");
+  if (pensionStartDate < 0) errors.push("年金受給開始年齢が不正です。");
+  if (severancePay < 0) errors.push("退職金が不正です。");
+
+  if (currentAge >= retirementAge) errors.push("退職年齢は現在の年齢より大きく設定してください。");
+  if (retirementAge > lifeExpectancy) errors.push("退職年齢が寿命を超えています。");
+  if (pensionStartDate > lifeExpectancy) errors.push("年金受給開始年齢が寿命を超えています。");
+  // retirementAge <= pensionStartDate のバリデーションはフロントエンド側にあるので、ここでは一旦除外 (または必要に応じて追加)
+  if (pensionStartDate <= retirementAge && pensionAmountPerYear > 0 && retirementAge !== pensionStartDate) {
+    // 年金開始が退職より早いか同時だが、厳密には退職後の年金開始を想定しているため、状況による
+    // console.warn("年金受給開始年齢が退職年齢以前に設定されています。");
   }
 
-  let currentSavingsTotal = currentSavings;
-  const assetData: { age: number; savings: number }[] = [];
-  assetData.push({ age: currentAge, savings: Math.round(currentSavingsTotal) });
+  // lifeEvents のバリデーション
+  if (lifeEvents) {
+    lifeEvents.forEach((event, index) => {
+      if (!event || typeof event.age !== 'number' || typeof event.amount !== 'number' || !event.type || !event.frequency) {
+        errors.push(`ライフイベント ${index + 1} (${event?.description || '不明'}): データ形式が不正です。`);
+        return; // このイベントの以降のチェックはスキップ
+      }
+      if (event.age < currentAge || event.age > lifeExpectancy) {
+        errors.push(`ライフイベント ${index + 1} (${event.description}): 発生年齢 ( ${event.age} ) が不正です。現在の年齢 (${currentAge}) から寿命 (${lifeExpectancy}) の範囲で設定してください。`);
+      }
+      if (event.amount < 0) {
+        errors.push(`ライフイベント ${index + 1} (${event.description}): 金額が不正です。`);
+      }
+      if (event.frequency === 'annual' && event.endAge !== undefined && event.endAge !== null && event.endAge < event.age) {
+        errors.push(`ライフイベント ${index + 1} (${event.description}): 終了年齢が発生年齢より前です。`);
+      }
+    });
+  }
 
-  let projectedRetirementSavings = currentSavings;
+  if (errors.length > 0) {
+    const errorMessage = errors.join("\n");
+    console.error("Invalid input for simulation:", errorMessage, input);
+    // フロントエンドのBackendSimulationResultのmessageフィールドに合わせる
+    // また、エラー時でもassetDataは空配列を返すようにする
+    return {
+        yearsToRetirement: 0,
+        projectedRetirementSavings: 0,
+        annualSavingsCurrentPace: 0,
+        targetRetirementFund: 0,
+        message: `入力エラー: ${errorMessage}`,
+        suggestion: "入力値を確認してください。",
+        assetData: [] 
+    };
+  }
 
-  for (let i = 0; i < (lifeExpectancy - currentAge); i++) {
-    const age = currentAge + i + 1;
-    let yearEndSavings = currentSavingsTotal;
-    let currentYearIncome: number;
+  console.log("Calculating simulation with input:", JSON.stringify(input, null, 2));
 
-    if (age <= retirementAge) {
-        currentYearIncome = annualIncome;
-        if (age === retirementAge) {
-            console.log(`Retirement year (${age}): Income before severance pay: ${currentYearIncome}, Severance pay: ${severancePay}`);
-            currentYearIncome += severancePay;
-            console.log(`Retirement year (${age}): Income after severance pay: ${currentYearIncome}`);
+  const assetDataResult: AssetDataPoint[] = [];
+  let currentYearSavings = currentSavings;
+  let totalAccruedIncome = 0;
+  let totalAccruedExpenses = 0;
+
+  // 初年度 (currentAge) の初期状態をassetDataに追加
+  // この時点では収入・支出はまだ発生していないので0とするか、初年度の活動を見込むか設計による。
+  // ここでは初年度の活動後の年末資産を計算するため、ループ開始前に初期貯蓄のみを記録するのは避ける。
+  // ループ内で currentAge の年末資産を計算する。
+
+  for (let age = currentAge; age <= lifeExpectancy; age++) {
+    let yearlyIncome = 0;
+    let yearlyExpenses = monthlyExpenses * 12;
+
+    // ライフイベントによる収入・支出の変動
+    if (lifeEvents && lifeEvents.length > 0) {
+      lifeEvents.forEach(event => {
+        const eventAmount = Number(event.amount); //念のため数値に変換
+        if (event.frequency === 'one-time' && event.age === age) {
+          if (event.type === 'income') {
+            yearlyIncome += eventAmount;
+            console.log(`Age ${age}: Life event (one-time income) - ${event.description}, Amount: ${eventAmount}`);
+          } else {
+            yearlyExpenses += eventAmount;
+            console.log(`Age ${age}: Life event (one-time expense) - ${event.description}, Amount: ${eventAmount}`);
+          }
+        } else if (event.frequency === 'annual' && event.age <= age && (event.endAge === undefined || event.endAge === null || event.endAge >= age)) {
+          if (event.type === 'income') {
+            yearlyIncome += eventAmount;
+            console.log(`Age ${age}: Life event (annual income) - ${event.description}, Amount: ${eventAmount}`);
+          } else {
+            yearlyExpenses += eventAmount;
+            console.log(`Age ${age}: Life event (annual expense) - ${event.description}, Amount: ${eventAmount}`);
+          }
         }
-    } else {
-        if (age >= pensionStartDate) {
-            currentYearIncome = pensionAmountPerYear;
-        } else {
-            currentYearIncome = 0;
-        }
+      });
     }
 
-    const annualNetOperatingIncome = currentYearIncome - (monthlyExpenses * 12);
+    // 通常の収入（現役時代）
+    if (age < retirementAge) {
+      yearlyIncome += annualIncome;
+    }
 
-    yearEndSavings += annualNetOperatingIncome;
+    // 退職金（退職年のみ）
+    if (age === retirementAge && severancePay > 0) {
+      yearlyIncome += severancePay;
+      console.log(`Age ${age}: Severance pay added: ${severancePay}`);
+    }
 
-    const investableAmount = yearEndSavings;
-    const investmentPortion = investableAmount * (investmentRatio / 100);
-    const earnings = investmentPortion * (annualReturn / 100);
-    yearEndSavings += earnings;
+    // 年金収入（年金開始年齢以降）
+    if (age >= pensionStartDate && pensionAmountPerYear > 0) {
+      yearlyIncome += pensionAmountPerYear;
+      console.log(`Age ${age}: Pension added: ${pensionAmountPerYear}`);
+    }
+
+    totalAccruedIncome += yearlyIncome;
+    totalAccruedExpenses += yearlyExpenses;
+
+    const netIncomeForYear = yearlyIncome - yearlyExpenses;
     
-    currentSavingsTotal = yearEndSavings;
-    assetData.push({ age: age, savings: Math.round(currentSavingsTotal) });
-
-    if (age === retirementAge) {
-        projectedRetirementSavings = Math.round(currentSavingsTotal);
+    // 運用益の計算 (年初の資産に対して)
+    let investmentGains = 0;
+    if (currentYearSavings > 0) {
+      investmentGains = currentYearSavings * (investmentRatio / 100) * (annualReturn / 100);
     }
+    
+    // 年末の資産 = 年初資産 + 運用益 + 年間純収入
+    currentYearSavings = currentYearSavings + investmentGains + netIncomeForYear;
+
+    assetDataResult.push({ 
+      age,
+      savings: Math.round(currentYearSavings),
+      income: Math.round(yearlyIncome),
+      expenses: Math.round(yearlyExpenses)
+    });
+    console.log(`Age: ${age}, YearlyIncome: ${Math.round(yearlyIncome)}, YearlyExpenses: ${Math.round(yearlyExpenses)}, Net: ${Math.round(netIncomeForYear)}, InvGains: ${Math.round(investmentGains)}, StartSaving: ${Math.round(currentYearSavings - investmentGains - netIncomeForYear)}, EndSaving: ${Math.round(currentYearSavings)}`);
   }
 
-  const yearsToRetirement = Math.max(0, retirementAge - currentAge);
-  
-  const annualSavingsCurrentPaceBeforeInvestment = annualIncome - (monthlyExpenses * 12);
-  const estimatedPostRetirementAnnualExpenses = monthlyExpenses * 12;
-  const targetRetirementFund = estimatedPostRetirementAnnualExpenses * (lifeExpectancy - retirementAge);
+  const yearsToRetirementCalc = Math.max(0, retirementAge - currentAge);
+  const finalSavingsCalc = Math.round(currentYearSavings);
+  const projectedRetirementSavingsCalc = assetDataResult.find(d => d.age === retirementAge)?.savings || (retirementAge < currentAge ? currentSavings : finalSavingsCalc) ;
 
-  let message = `現在の年齢から ${lifeExpectancy}歳までの資産推移を計算しました。\nリタイア目標年齢 (${retirementAge}歳) 時点の予測貯蓄額は 約 ${projectedRetirementSavings.toLocaleString()} 円です。`;
-  let suggestion;
+  // 年間平均貯蓄ペース (現役時代のみ。投資収益は含めない単純計算)
+  const annualSavingsCurrentPaceCalc = (annualIncome - (monthlyExpenses * 12)); 
 
-  const finalSavings = assetData[assetData.length -1].savings;
-  if (finalSavings < 0) {
-    message += `\nしかし、${lifeExpectancy}歳時点で資産がマイナス (${finalSavings.toLocaleString()}円) になる予測です。`;
-    suggestion = "生活費の見直し、収入源の確保、運用計画の変更などを検討する必要があります。";
+  // 退職後の必要資金額の目安（簡易計算）
+  const yearsInRetirement = Math.max(0, lifeExpectancy - retirementAge);
+  const estimatedPostRetirementAnnualExpenses = monthlyExpenses * 12; // これは単純化しすぎ。退職後は生活費が変わる可能性大
+  const targetRetirementFundCalc = estimatedPostRetirementAnnualExpenses * yearsInRetirement;
+
+  let messageCalc = `現在の年齢から ${lifeExpectancy}歳までの資産推移を計算しました。
+リタイア目標年齢 (${retirementAge}歳) 時点の予測貯蓄額は 約 ${projectedRetirementSavingsCalc.toLocaleString()} 円です。`;
+  let suggestionCalc;
+
+  if (finalSavingsCalc < 0) { // この条件は上の currentYearSavings = 0 で発生しないはずだが、念のため
+    messageCalc += `
+しかし、${lifeExpectancy}歳時点で資産がマイナス (${finalSavingsCalc.toLocaleString()}円) になる予測です。`;
+    suggestionCalc = "生活費の見直し、収入源の確保、運用計画の変更などを検討する必要があります。";
   } else {
-    message += `\n${lifeExpectancy}歳時点での最終予測貯蓄額は 約 ${finalSavings.toLocaleString()} 円です。`;
+    messageCalc += `
+${lifeExpectancy}歳時点での最終予測貯蓄額は 約 ${finalSavingsCalc.toLocaleString()} 円です。`;
   }
 
-  if (projectedRetirementSavings < targetRetirementFund && finalSavings >=0) {
-    message += `\n${retirementAge}歳から${lifeExpectancy}歳までの必要生活費総額 (目安: ${targetRetirementFund.toLocaleString()}円) に対して、リタイア時の貯蓄では不足する可能性があります。`;
-    suggestion = (suggestion ? suggestion + "\n" : "") + "リタイア後の生活費や収入について、より詳細な計画が必要です。";
-  } else if (finalSavings >=0) {
-    // message += `\n目標とする老後資金額を達成できる見込みです。素晴らしいですね！`;
+  if (projectedRetirementSavingsCalc < targetRetirementFundCalc && finalSavingsCalc >=0) {
+    messageCalc += `
+${retirementAge}歳から${lifeExpectancy}歳までの必要生活費総額の目安 (約 ${targetRetirementFundCalc.toLocaleString()}円) に対して、リタイア時の貯蓄では不足する可能性があります。`;
+    suggestionCalc = (suggestionCalc ? suggestionCalc + "\n" : "") + "リタイア後の生活費や収入について、より詳細な計画が必要です。";
   }
 
-  if (annualIncome - (monthlyExpenses * 12) < 0 && currentAge < retirementAge) {
-    suggestion = (suggestion ? suggestion + "\n" : "") + "現役時代の収支が赤字のようです。収入を増やすか支出を見直すことをお勧めします。";
+  if (annualSavingsCurrentPaceCalc < 0 && currentAge < retirementAge) {
+    suggestionCalc = (suggestionCalc ? suggestionCalc + "\n" : "") + "現役時代の毎年の収支が赤字のようです。収入を増やすか支出を見直すことをお勧めします。";
   }
 
   return {
-    yearsToRetirement,
-    projectedRetirementSavings,
-    annualSavingsCurrentPace: annualSavingsCurrentPaceBeforeInvestment,
-    targetRetirementFund,
-    message,
-    suggestion,
-    assetData,
+    yearsToRetirement: yearsToRetirementCalc,
+    projectedRetirementSavings: projectedRetirementSavingsCalc,
+    annualSavingsCurrentPace: annualSavingsCurrentPaceCalc,
+    targetRetirementFund: targetRetirementFundCalc,
+    message: messageCalc,
+    suggestion: suggestionCalc,
+    assetData: assetDataResult,
   };
 } 
