@@ -1,47 +1,35 @@
 import React from 'react';
-
-// App.tsxからimportすることを想定 (ここでは仮置き)
-interface SimulationInputData {
-  currentAge: number | '';
-  retirementAge: number | '';
-  lifeExpectancy: number | '';
-  currentSavings: number | '';
-  annualIncome: number | '';
-  monthlyExpenses: number | '';
-  investmentRatio: number | '';
-  annualReturn: number | '';
-  pensionAmountPerYear: number | '';
-  pensionStartDate: number | '';
-  severancePay: number | '';
-}
+import { SimulationInputData } from '../App'; // App.tsxからインポート
 
 interface InputFieldProps {
   label: string;
   type: string;
-  name: keyof SimulationInputData; // nameをSimulationInputDataのキーに限定
-  value: number | '';
+  name: keyof SimulationInputData | 'planName'; // nameをSimulationInputDataのキーまたはplanNameに
+  value: string | number | ''; // planName は string
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   placeholder?: string;
   unit?: string;
   min?: string;
   step?: string;
   max?: string;
+  required?: boolean;
 }
 
-const InputField: React.FC<InputFieldProps> = ({ label, type, name, value, onChange, placeholder, unit, min, step, max }) => (
+const InputField: React.FC<InputFieldProps> = ({ label, type, name, value, onChange, placeholder, unit, min, step, max, required }) => (
   <div className="mb-4">
-    <label htmlFor={name} className="block text-sm font-medium text-slate-700 mb-1">{label}:</label>
+    <label htmlFor={name as string} className="block text-sm font-medium text-slate-700 mb-1">{label}:</label>
     <div className="flex items-center">
       <input
         type={type}
-        id={name}
-        name={name}
+        id={name as string}
+        name={name as string}
         value={value}
         onChange={onChange}
         placeholder={placeholder}
         min={min}
         step={step}
         max={max}
+        required={required}
         className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
       />
       {unit && <span className="ml-2 text-slate-600">{unit}</span>}
@@ -55,9 +43,11 @@ interface InputFormProps {
   onSubmit: () => void;
   onSave: () => void;
   loading: boolean;
+  planName: string;
+  onPlanNameChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onSubmit, onSave, loading }) => {
+const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onSubmit, onSave, loading, planName, onPlanNameChange }) => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     onSubmit();
@@ -66,6 +56,17 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onSubmit, o
   return (
     <form onSubmit={handleSubmit} className="space-y-6 mb-8">
       <h2 className="text-2xl font-semibold text-sky-700 mb-6 border-b pb-2">入力情報</h2>
+      
+      <InputField 
+        label="プラン名"
+        type="text"
+        name="planName"
+        value={planName} 
+        onChange={onPlanNameChange} 
+        placeholder="例: 基本プラン"
+        required 
+      />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <InputField label="現在の年齢" type="number" name="currentAge" value={input.currentAge} onChange={onInputChange} unit="歳" min="0" />
         <InputField label="リタイア目標年齢" type="number" name="retirementAge" value={input.retirementAge} onChange={onInputChange} unit="歳" min="0" />
