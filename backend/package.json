@@ -7,7 +7,8 @@
     "start": "node dist/server.js",
     "build": "tsc",
     "dev": "nodemon --watch \"src/**/*.ts\" --exec \"ts-node\" -P tsconfig.json src/server.ts",
-    "test": "jest"
+    "test": "jest",
+    "test:docker": "NODE_ENV=test jest"
   },
   "dependencies": {
     "cors": "^2.8.5",

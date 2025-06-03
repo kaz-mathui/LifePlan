@@ -98,7 +98,10 @@ export function calculateSimulation(input: SimulationInput): SimulationResult {
 
   if (errors.length > 0) {
     const errorMessage = errors.join("\n");
-    console.error("Invalid input for simulation:", errorMessage, input);
+    // NODE_ENV が 'test' でない場合のみ console.error を実行
+    if (process.env.NODE_ENV !== 'test') {
+      console.error("Invalid input for simulation:", errorMessage, input);
+    }
     // フロントエンドのBackendSimulationResultのmessageフィールドに合わせる
     // また、エラー時でもassetDataは空配列を返すようにする
     return {
@@ -112,7 +115,7 @@ export function calculateSimulation(input: SimulationInput): SimulationResult {
     };
   }
 
-  console.log("Calculating simulation with input:", JSON.stringify(input, null, 2));
+  // console.log("Calculating simulation with input:", JSON.stringify(input, null, 2));
 
   const assetDataResult: AssetDataPoint[] = [];
   let currentYearSavings = currentSavings;
@@ -135,18 +138,18 @@ export function calculateSimulation(input: SimulationInput): SimulationResult {
         if (event.frequency === 'one-time' && event.age === age) {
           if (event.type === 'income') {
             yearlyIncome += eventAmount;
-            console.log(`Age ${age}: Life event (one-time income) - ${event.description}, Amount: ${eventAmount}`);
+            // console.log(`Age ${age}: Life event (one-time income) - ${event.description}, Amount: ${eventAmount}`);
           } else {
             yearlyExpenses += eventAmount;
-            console.log(`Age ${age}: Life event (one-time expense) - ${event.description}, Amount: ${eventAmount}`);
+            // console.log(`Age ${age}: Life event (one-time expense) - ${event.description}, Amount: ${eventAmount}`);
           }
         } else if (event.frequency === 'annual' && event.age <= age && (event.endAge === undefined || event.endAge === null || event.endAge >= age)) {
           if (event.type === 'income') {
             yearlyIncome += eventAmount;
-            console.log(`Age ${age}: Life event (annual income) - ${event.description}, Amount: ${eventAmount}`);
+            // console.log(`Age ${age}: Life event (annual income) - ${event.description}, Amount: ${eventAmount}`);
           } else {
             yearlyExpenses += eventAmount;
-            console.log(`Age ${age}: Life event (annual expense) - ${event.description}, Amount: ${eventAmount}`);
+            // console.log(`Age ${age}: Life event (annual expense) - ${event.description}, Amount: ${eventAmount}`);
           }
         }
       });
@@ -160,13 +163,13 @@ export function calculateSimulation(input: SimulationInput): SimulationResult {
     // 退職金（退職年のみ）
     if (age === retirementAge && severancePay > 0) {
       yearlyIncome += severancePay;
-      console.log(`Age ${age}: Severance pay added: ${severancePay}`);
+      // console.log(`Age ${age}: Severance pay added: ${severancePay}`);
     }
 
     // 年金収入（年金開始年齢以降）
     if (age >= pensionStartDate && pensionAmountPerYear > 0) {
       yearlyIncome += pensionAmountPerYear;
-      console.log(`Age ${age}: Pension added: ${pensionAmountPerYear}`);
+      // console.log(`Age ${age}: Pension added: ${pensionAmountPerYear}`);
     }
 
     totalAccruedIncome += yearlyIncome;
@@ -189,7 +192,7 @@ export function calculateSimulation(input: SimulationInput): SimulationResult {
       income: Math.round(yearlyIncome),
       expenses: Math.round(yearlyExpenses)
     });
-    console.log(`Age: ${age}, YearlyIncome: ${Math.round(yearlyIncome)}, YearlyExpenses: ${Math.round(yearlyExpenses)}, Net: ${Math.round(netIncomeForYear)}, InvGains: ${Math.round(investmentGains)}, StartSaving: ${Math.round(currentYearSavings - investmentGains - netIncomeForYear)}, EndSaving: ${Math.round(currentYearSavings)}`);
+    // console.log(`Age: ${age}, YearlyIncome: ${Math.round(yearlyIncome)}, YearlyExpenses: ${Math.round(yearlyExpenses)}, Net: ${Math.round(netIncomeForYear)}, InvGains: ${Math.round(investmentGains)}, StartSaving: ${Math.round(currentYearSavings - investmentGains - netIncomeForYear)}, EndSaving: ${Math.round(currentYearSavings)}`);
   }
 
   const yearsToRetirementCalc = Math.max(0, retirementAge - currentAge);

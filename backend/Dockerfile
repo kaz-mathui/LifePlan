@@ -2,16 +2,15 @@
 FROM node:18-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install # 빌드에 필요한 devDependencies 포함
+RUN npm install 
 COPY . .
 RUN npm run build
 
 # Stage 2: Production and Test environment (최종 실행 환경)
 FROM node:18-alpine
 WORKDIR /app
-COPY package*.json ./ 
-RUN npm install       
-COPY . .              
+COPY . .                             
+RUN npm install                      
 COPY --from=builder /app/dist ./dist 
 
 EXPOSE 3001
