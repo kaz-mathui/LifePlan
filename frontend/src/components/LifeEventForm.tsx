@@ -120,7 +120,7 @@ const LifeEventForm: React.FC<LifeEventFormProps> = ({ lifeEvents, onLifeEventsC
         ...eventToEdit,
         age: eventToEdit.age, // numberなのでそのまま
         amount: eventToEdit.amount, // numberなのでそのまま
-        endAge: eventToEdit.endAge === undefined ? '' : eventToEdit.endAge, // undefinedなら空文字に
+        endAge: eventToEdit.endAge == null ? '' : eventToEdit.endAge, // undefinedまたはnullなら空文字に
     });
   };
 

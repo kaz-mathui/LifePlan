@@ -23,7 +23,7 @@ export interface LifeEvent {
   type: 'income' | 'expense'; // '収入' または '支出'
   amount: number; // 金額 (円単位)
   frequency: 'one-time' | 'annual'; // '一回のみ' または '毎年'
-  endAge?: number; // '毎年'の場合の終了年齢 (未設定の場合は寿命まで継続)
+  endAge?: number | null; // '毎年'の場合の終了年齢 (未設定の場合は寿命まで継続)
 }
 
 // シミュレーション入力データの型
@@ -161,6 +161,12 @@ const App: React.FC = () => {
     setError(null);
     try {
       const planDocRef = doc(dbInstance, `artifacts/${appId}/users/${userId}/lifePlanData/latest`);
+
+      const cleanedLifeEvents = simulationInput.lifeEvents.map(event => ({
+        ...event,
+        endAge: event.endAge === undefined ? null : event.endAge,
+      }));
+
       const dataToSave: SimulationInputData & { userId: string; updatedAt: string } = {
         ...simulationInput,
         currentAge: simulationInput.currentAge === '' ? 0 : Number(simulationInput.currentAge),
@@ -174,7 +180,7 @@ const App: React.FC = () => {
         pensionAmountPerYear: simulationInput.pensionAmountPerYear === '' ? 0 : Number(simulationInput.pensionAmountPerYear), // ★追加
         pensionStartDate: simulationInput.pensionStartDate === '' ? 0 : Number(simulationInput.pensionStartDate), // ★新規追加
         severancePay: simulationInput.severancePay === '' ? 0 : Number(simulationInput.severancePay), // ★新規追加
-        lifeEvents: simulationInput.lifeEvents, // ★新規追加: そのまま保存
+        lifeEvents: cleanedLifeEvents, 
         userId: userId,
         updatedAt: new Date().toISOString(),
       };
