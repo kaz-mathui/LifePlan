@@ -1,14 +1,5 @@
 import React from 'react';
-
-// backend/src/services/simulationService.ts からの型定義と一致させることを想定
-interface BackendSimulationResult {
-  yearsToRetirement: number;
-  projectedRetirementSavings: number;
-  annualSavingsCurrentPace: number;
-  targetRetirementFund?: number;
-  message: string;
-  suggestion?: string;
-}
+import { BackendSimulationResult } from '../types';
 
 interface ResultItemProps {
   label: string;

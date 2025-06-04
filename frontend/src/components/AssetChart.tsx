@@ -1,11 +1,12 @@
 import React from 'react';
 import { Chart } from 'react-chartjs-2';
 import type { ChartData, ChartOptions } from 'chart.js';
+import { AssetDataPoint } from '../types';
 
 // ChartJS.register は index.tsx で呼び出されている想定
 
 interface AssetChartProps {
-    assetData: { age: number; savings: number }[]; 
+    assetData: AssetDataPoint[];
 }
 
 const AssetChart: React.FC<AssetChartProps> = ({ assetData }) => {

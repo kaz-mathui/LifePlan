@@ -1,11 +1,12 @@
 import React from 'react';
+import { PlanListItem } from '../types';
 
 // App.tsxから渡されるプランの型 (App.tsxのsavedPlansステートの要素の型に合わせる)
-interface PlanListItem {
-  id: string;
-  planName: string;
-  updatedAt: string;
-}
+// interface PlanListItem {
+//   id: string;
+//   planName: string;
+//   updatedAt: string;
+// }
 
 interface PlanManagerProps {
   savedPlans: PlanListItem[];

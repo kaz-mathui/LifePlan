@@ -1,5 +1,6 @@
 import React from 'react';
-import { SimulationInputData } from '../App'; // App.tsxからインポート
+// import { SimulationInputData } from '../App'; // App.tsxからインポート
+import { SimulationInputData } from '../types'; // ★ インポート元を types.ts に変更
 
 interface InputFieldProps {
   label: string;

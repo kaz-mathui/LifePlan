@@ -9,6 +9,8 @@ import AssetChartComponent from './components/AssetChart';
 import LifeEventFormComponent from './components/LifeEventForm';
 import PlanManager from './components/PlanManager';
 import toast, { Toaster } from 'react-hot-toast';
+import { usePlanData } from './hooks/usePlanData';
+import { LifeEvent, SimulationInputData, BackendSimulationResult, PlanListItem } from './types';
 
 // グローバル変数 __app_id の型 (firebase.tsでも同様の定義があるが、念のため)
 declare global {
@@ -17,51 +19,11 @@ declare global {
   }
 }
 
-// ★新規追加: ライフイベントの型
-export interface LifeEvent {
-  id: string; // Reactのkeyや編集時の識別用
-  age: number; // イベントが発生する年齢
-  description: string; // イベントの説明 (例: 子供の大学入学金)
-  type: 'income' | 'expense'; // '収入' または '支出'
-  amount: number; // 金額 (円単位)
-  frequency: 'one-time' | 'annual'; // '一回のみ' または '毎年'
-  endAge?: number | null; // '毎年'の場合の終了年齢 (未設定の場合は寿命まで継続)
-}
-
-// シミュレーション入力データの型
-export interface SimulationInputData {
-  id?: string; // ★追加: プランID (FirestoreドキュメントIDに対応)
-  planName: string; // ★追加: プラン名
-  currentAge: number | ''; // 初期値や空入力を許容するため '' も
-  retirementAge: number | '';
-  lifeExpectancy: number | ''; // ★追加: 寿命
-  currentSavings: number | '';
-  annualIncome: number | '';
-  monthlyExpenses: number | '';
-  investmentRatio: number | ''; // 金融資産の割合 (0-100)
-  annualReturn: number | ''; // 年間運用利回り (%)
-  pensionAmountPerYear: number | ''; // ★追加: 年間年金受給額
-  pensionStartDate: number | ''; // ★新規追加: 年金受給開始年齢
-  severancePay: number | ''; // ★新規追加: 退職金
-  lifeEvents: LifeEvent[]; // ★新規追加: ライフイベントの配列
-}
-
-// バックエンドAPIからのシミュレーション結果の型
-export interface BackendSimulationResult {
-  yearsToRetirement: number;
-  projectedRetirementSavings: number;
-  annualSavingsCurrentPace: number;
-  targetRetirementFund?: number;
-  message: string;
-  suggestion?: string;
-  assetData: { age: number; savings: number }[];
-}
-
 const App: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [simulationLoading, setSimulationLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const initialSimulationInput: SimulationInputData = {
     id: undefined,
@@ -83,115 +45,83 @@ const App: React.FC = () => {
   const [simulationResult, setSimulationResult] = useState<BackendSimulationResult | null>(null);
   const [dbInstance, setDbInstance] = useState<FirebaseFirestore | null>(null);
   const [authInstance, setAuthInstance] = useState<FirebaseAuth | null>(null);
-  // ★追加: 保存済みプラン一覧を保持するステート (簡易的な型情報のみ)
-  const [savedPlans, setSavedPlans] = useState<{id: string, planName: string, updatedAt: string}[]>([]);
+  const [savedPlans, setSavedPlans] = useState<PlanListItem[]>([]);
 
-  // process.env経由でREACT_APP_IDを取得。未設定ならデフォルト値。
   const appId: string = process.env.REACT_APP_ID || 'default-app-id';
 
-  // ★修正: 特定のプランIDのデータを読み込む関数
-  const loadSpecificPlanData = useCallback(async (uid: string, planId: string) => {
-    if (!dbInstance || !uid || !planId) return;
-    setLoading(true);
-    try {
-      const planDocRef = doc(dbInstance, `artifacts/${appId}/users/${uid}/lifePlans/${planId}`);
-      const docSnap = await getDoc(planDocRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data() as DocumentData;
-        setSimulationInput(prev => ({
-          ...prev,
-          id: data.id ?? planId, // ドキュメントIDをidとして設定
-          planName: data.planName ?? prev.planName, // ★プラン名も読み込む
-          currentAge: data.currentAge ?? prev.currentAge,
-          retirementAge: data.retirementAge ?? prev.retirementAge,
-          lifeExpectancy: data.lifeExpectancy ?? prev.lifeExpectancy,
-          currentSavings: data.currentSavings ?? prev.currentSavings,
-          annualIncome: data.annualIncome ?? prev.annualIncome,
-          monthlyExpenses: data.monthlyExpenses ?? prev.monthlyExpenses,
-          investmentRatio: data.investmentRatio ?? prev.investmentRatio,
-          annualReturn: data.annualReturn ?? prev.annualReturn,
-          pensionAmountPerYear: data.pensionAmountPerYear ?? prev.pensionAmountPerYear,
-          pensionStartDate: data.pensionStartDate ?? prev.pensionStartDate,
-          severancePay: data.severancePay ?? prev.severancePay,
-          lifeEvents: data.lifeEvents ?? [], 
-        }));
-        console.log(`User data for plan ${planId} loaded from Firestore.`);
-      } else {
-        console.log(`No existing user data found in Firestore for plan ${planId}. Using defaults or current state.`);
-        // プランが見つからない場合、IDをリセットして新規プラン扱いにすることも検討
-        setSimulationInput(prev => ({...prev, id: undefined, planName: '新しいプラン'})); 
-      }
-    } catch (err: any) {
-      console.error("Error loading specific plan data:", err);
-      setError("プランデータの読み込みに失敗しました: " + (err.message || 'Unknown error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [dbInstance, appId]);
-
-  // ★追加: ユーザーの保存済みプラン一覧を読み込む関数
-  const loadUserPlans = useCallback(async (uid: string) => {
-    if (!dbInstance || !uid) return;
-    setLoading(true);
-    try {
-      const plansCollectionRef = collection(dbInstance, `artifacts/${appId}/users/${uid}/lifePlans`);
-      const q = query(plansCollectionRef, orderBy("updatedAt", "desc")); // updatedAtで降順ソート
-      const querySnapshot = await getDocs(q);
-      const plans: {id: string, planName: string, updatedAt: string}[] = [];
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        plans.push({ 
-            id: doc.id, 
-            planName: data.planName || '名称未設定プラン', 
-            updatedAt: data.updatedAt 
-        });
-      });
-      setSavedPlans(plans);
-      console.log("User plans loaded:", plans);
-
-      if (plans.length > 0) {
-        // 最新のプラン (リストの先頭) をデフォルトで読み込む
-        await loadSpecificPlanData(uid, plans[0].id);
-      } else {
-        // 保存されているプランがない場合は、現在のデフォルト入力 (新規プラン扱い)
-        setSimulationInput(prev => ({
-            ...prev, // 既存のデフォルト値を維持しつつ
-            id: undefined, // IDは未設定
-            planName: 'マイプラン' // プラン名も初期化
-        }));
-        console.log("No saved plans found. Initializing as a new plan.");
-      }
-    } catch (err: any) {
-      console.error("Error loading user plans:", err);
-      setError("保存済みプラン一覧の読み込みに失敗しました: " + (err.message || 'Unknown error'));
-    } finally {
-      setLoading(false);
-    }
-  }, [dbInstance, appId, loadSpecificPlanData]);
+  const {
+    savePlan,
+    isSaving: isSavingPlan,
+    saveError,
+    loadPlans,
+    isLoadingPlans,
+    loadPlansError,
+    loadSpecificPlan,
+    isLoadingSpecificPlan,
+    loadSpecificPlanError,
+    deletePlan,
+    isDeletingPlan,
+    deletePlanError
+  } = usePlanData({ db: dbInstance, appId, userId });
 
   useEffect(() => {
     setDbInstance(db);
     setAuthInstance(firebaseAuth);
 
     if (firebaseAuth) {
-      const unsubscribe = onAuthStateChanged(firebaseAuth, (currentUser) => {
+      const unsubscribe = onAuthStateChanged(firebaseAuth, async (currentUser) => {
         setUser(currentUser);
-        setUserId(currentUser ? currentUser.uid : crypto.randomUUID());
+        const currentUid = currentUser ? currentUser.uid : crypto.randomUUID();
+        setUserId(currentUid);
         setIsAuthReady(true);
+
         if (currentUser) {
-          loadUserPlans(currentUser.uid); // ★プラン一覧読み込みをトリガー
+          setError(null);
+          const plansResult = await loadPlans();
+          if (plansResult.success && plansResult.plans) {
+            setSavedPlans(plansResult.plans);
+            if (plansResult.plans.length > 0) {
+              const latestPlanId = plansResult.plans[0].id;
+              const specificPlanResult = await loadSpecificPlan(latestPlanId);
+              if (specificPlanResult.success && specificPlanResult.planData) {
+                const loadedPlanData = specificPlanResult.planData;
+                setSimulationInput(prev => ({ 
+                  ...initialSimulationInput, 
+                  ...prev, 
+                  ...loadedPlanData,
+                  id: loadedPlanData.id ?? latestPlanId 
+                }));
+              } else if (specificPlanResult.notFound) {
+                toast.error(`プラン(ID: ${latestPlanId})が見つかりませんでした。新しいプランを開始します。`);
+                handleCreateNewPlan();
+              } else if (specificPlanResult.error) {
+                setError("プランの読み込みに失敗しました: " + specificPlanResult.error);
+                toast.error("プランの読み込みに失敗しました: " + specificPlanResult.error);
+                handleCreateNewPlan();
+              }
+            } else {
+              handleCreateNewPlan();
+            }
+          } else if (plansResult.error) {
+            setError("保存済みプラン一覧の読み込みに失敗しました: " + plansResult.error);
+            toast.error("保存済みプラン一覧の読み込みに失敗しました: " + plansResult.error);
+            handleCreateNewPlan();
+          }
         } else {
-          // ユーザーがログアウトした場合や未認証の場合の処理
           setSimulationInput(initialSimulationInput);
           setSavedPlans([]);
+          setError(null);
         }
       });
       return () => unsubscribe();
     } else {
       console.error("Firebase auth instance is not available from firebase.ts.");
       setIsAuthReady(true);
+      setError("認証サービスに接続できません。ゲストとして利用します。");
+      setUserId(crypto.randomUUID());
+      handleCreateNewPlan();
     }
-  }, [appId, loadUserPlans]); // ★loadUserPlans を依存配列に追加
+  }, [appId, loadPlans, loadSpecificPlan]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
@@ -201,7 +131,6 @@ const App: React.FC = () => {
     }));
   };
 
-  // ★追加: プラン名変更ハンドラ
   const handlePlanNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSimulationInput(prev => ({
       ...prev,
@@ -217,114 +146,75 @@ const App: React.FC = () => {
   };
 
   const handleSaveData = async () => {
-    if (!user || !userId || !dbInstance) {
-      setError("ユーザーが認証されていないか、データベースに接続されていません。");
-      toast.error("ユーザーが認証されていないか、データベースに接続されていません。");
-      return;
-    }
-    if (!simulationInput.planName.trim()) {
-        toast.error("プラン名を入力してください。");
-        return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const planIdToSave = simulationInput.id || crypto.randomUUID();
-      const isNewPlan = !simulationInput.id;
+    const result = await savePlan(simulationInput);
 
-      const planDocRef = doc(dbInstance, `artifacts/${appId}/users/${userId}/lifePlans/${planIdToSave}`);
-
-      const cleanedLifeEvents = simulationInput.lifeEvents.map(event => ({
-        ...event,
-        endAge: event.endAge === undefined ? null : event.endAge,
-      }));
-
-      const dataToSave = {
-        currentAge: simulationInput.currentAge === '' ? 0 : Number(simulationInput.currentAge),
-        retirementAge: simulationInput.retirementAge === '' ? 0 : Number(simulationInput.retirementAge),
-        lifeExpectancy: simulationInput.lifeExpectancy === '' ? 0 : Number(simulationInput.lifeExpectancy),
-        currentSavings: simulationInput.currentSavings === '' ? 0 : Number(simulationInput.currentSavings),
-        annualIncome: simulationInput.annualIncome === '' ? 0 : Number(simulationInput.annualIncome),
-        monthlyExpenses: simulationInput.monthlyExpenses === '' ? 0 : Number(simulationInput.monthlyExpenses),
-        investmentRatio: simulationInput.investmentRatio === '' ? 0 : Number(simulationInput.investmentRatio),
-        annualReturn: simulationInput.annualReturn === '' ? 0 : Number(simulationInput.annualReturn),
-        pensionAmountPerYear: simulationInput.pensionAmountPerYear === '' ? 0 : Number(simulationInput.pensionAmountPerYear),
-        pensionStartDate: simulationInput.pensionStartDate === '' ? 0 : Number(simulationInput.pensionStartDate),
-        severancePay: simulationInput.severancePay === '' ? 0 : Number(simulationInput.severancePay),
-        lifeEvents: cleanedLifeEvents,
-        
-        id: planIdToSave, 
-        planName: simulationInput.planName.trim(), // ★planNameも保存、trimする
-        userId: userId,
-        updatedAt: new Date().toISOString(),
-        ...(isNewPlan && { createdAt: new Date().toISOString() }), 
-      };
-
-      await setDoc(planDocRef, dataToSave, { merge: true });
-      
-      setSimulationInput(prev => ({...prev, id: planIdToSave, planName: dataToSave.planName})); // planNameも更新
-      
-      // 保存されたプランを savedPlans ステートにも反映 (新規または更新)
+    if (result.success && result.planId && result.planName && result.updatedAt) {
+      setSimulationInput(prev => ({...prev, id: result.planId, planName: result.planName!}));
       setSavedPlans(prevPlans => {
-        const existingPlanIndex = prevPlans.findIndex(p => p.id === planIdToSave);
-        const updatedPlanEntry = {id: planIdToSave, planName: dataToSave.planName, updatedAt: dataToSave.updatedAt};
+        const existingPlanIndex = prevPlans.findIndex(p => p.id === result.planId);
+        const updatedPlanEntry = {id: result.planId!, planName: result.planName!, updatedAt: result.updatedAt!};
         if (existingPlanIndex > -1) {
           const newPlans = [...prevPlans];
           newPlans[existingPlanIndex] = updatedPlanEntry;
-          return newPlans.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()); // 更新日時でソート
+          return newPlans.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
         } else {
           return [...prevPlans, updatedPlanEntry].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
         }
       });
-
       toast.success("データが保存されました！");
-    } catch (err: any) {
-      console.error("Error saving data to Firestore:", err);
-      const errorMessage = "データの保存に失敗しました: " + (err.message || 'Unknown error');
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
+    } else if (result.error) {
+      setError(result.error);
+      toast.error(result.error);
     }
   };
 
   const handleSimulate = async () => {
-    setLoading(true);
+    setSimulationLoading(true);
     setError(null);
     setSimulationResult(null);
 
     const { currentAge, retirementAge, lifeExpectancy, currentSavings, annualIncome, monthlyExpenses, investmentRatio, annualReturn, pensionAmountPerYear, pensionStartDate, severancePay, lifeEvents, planName } = simulationInput;
 
-    if (!planName.trim()) { // シミュレーション前にもプラン名チェック
+    if (!planName.trim()) {
         toast.error("プラン名を入力してください。");
-        setLoading(false);
+        setSimulationLoading(false);
         return;
     }
 
     if ([currentAge, retirementAge, lifeExpectancy, currentSavings, annualIncome, monthlyExpenses, investmentRatio, annualReturn, pensionAmountPerYear, pensionStartDate, severancePay].some(val => val === '' || (typeof val === 'number' && val < 0))) {
-        setError("すべての項目を正しく入力してください（0以上の数値を入力）。");
-        setLoading(false);
+        const msg = "すべての項目を正しく入力してください（0以上の数値を入力）。";
+        setError(msg);
+        toast.error(msg);
+        setSimulationLoading(false);
         return;
     }
     if (typeof currentAge !== 'number' || typeof retirementAge !== 'number' || typeof lifeExpectancy !== 'number' || typeof pensionStartDate !== 'number') {
-        setError("年齢に関する項目は数値を入力してください。");
-        setLoading(false);
+        const msg = "年齢に関する項目は数値を入力してください。";
+        setError(msg);
+        toast.error(msg);
+        setSimulationLoading(false);
         return;
     }
 
     if (currentAge >= retirementAge) {
-        setError("リタイア目標年齢は現在の年齢より大きく設定してください。");
-        setLoading(false);
+        const msg = "リタイア目標年齢は現在の年齢より大きく設定してください。";
+        setError(msg);
+        toast.error(msg);
+        setSimulationLoading(false);
         return;
     }
     if (retirementAge > pensionStartDate) {
-        setError("年金受給開始年齢はリタイア目標年齢以降に設定してください。");
-        setLoading(false);
+        const msg = "年金受給開始年齢はリタイア目標年齢以降に設定してください。";
+        setError(msg);
+        toast.error(msg);
+        setSimulationLoading(false);
         return;
     }
     if (pensionStartDate >= lifeExpectancy) { 
-        setError("寿命は年金受給開始年齢より大きく設定してください。");
-        setLoading(false);
+        const msg = "寿命は年金受給開始年齢より大きく設定してください。";
+        setError(msg);
+        toast.error(msg);
+        setSimulationLoading(false);
         return;
     }
 
@@ -367,83 +257,84 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error("Simulation API error:", err);
       setError(`シミュレーションの実行に失敗しました: ${err.message || 'Unknown error'}`);
+      toast.error(`シミュレーションの実行に失敗しました: ${err.message || 'Unknown error'}`);
     } finally {
-      setLoading(false);
+      setSimulationLoading(false);
     }
   };
 
-  // ★追加: 新しいプランを作成する処理
   const handleCreateNewPlan = () => {
     setSimulationInput(prev => ({
-        ...initialSimulationInput, // 基本的な初期値を使用
-        planName: `新しいプラン ${new Date().toLocaleTimeString()}` // ユニーク性を少し持たせる
+        ...initialSimulationInput,
+        id: undefined,
+        planName: `新しいプラン ${new Date().toLocaleTimeString()}`
     }));
-    setSimulationResult(null); // シミュレーション結果もクリア
-    setError(null); // エラーもクリア
-    // プラン選択ドロップダウンの value は simulationInput.id に依存するため、
-    // id が undefined になれば自動的に「新しいプランとして開始」が選択されるはず
+    setSimulationResult(null);
+    setError(null);
     console.log("New plan creation initiated.");
   };
 
-  // ★追加: PlanManagerからプランが選択されたときの処理
-  const handleSelectPlan = (planId: string) => {
+  const handleSelectPlan = async (planId: string) => {
     if (userId && planId) {
-      loadSpecificPlanData(userId, planId);
+      setError(null);
+      const result = await loadSpecificPlan(planId);
+      if (result.success && result.planData) {
+        const loadedPlanData = result.planData;
+        setSimulationInput(prev => ({ 
+          ...initialSimulationInput, 
+          ...prev, 
+          ...loadedPlanData,
+          id: loadedPlanData.id ?? planId
+        }));
+        setSimulationResult(null);
+      } else if (result.notFound) {
+        toast.error(`プラン(ID: ${planId})が見つかりませんでした。新しいプランを開始します。`);
+        handleCreateNewPlan();
+      } else if (result.error) {
+        setError("プランの読み込みに失敗しました: " + result.error);
+        toast.error("プランの読み込みに失敗しました: " + result.error);
+      }
     }
   };
 
-  // ★追加: プランを削除する処理
   const handleDeletePlan = async (planIdToDelete: string) => {
-    if (!dbInstance || !userId || !planIdToDelete) {
-      const errorMessage = 'プランの削除に必要な情報が不足しています。';
-      setError(errorMessage);
-      toast.error(errorMessage);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const planDocRef = doc(dbInstance, `artifacts/${appId}/users/${userId}/lifePlans/${planIdToDelete}`);
-      await deleteDoc(planDocRef);
+    const result = await deletePlan(planIdToDelete);
 
-      setSavedPlans(prevPlans => {
-        const updatedPlans = prevPlans.filter(plan => plan.id !== planIdToDelete);
+    if (result.success) {
+      toast.success('プランが削除されました。');
+      const updatedPlans = savedPlans.filter(plan => plan.id !== planIdToDelete);
+      setSavedPlans(updatedPlans);
 
-        if (simulationInput.id === planIdToDelete) {
-          // アクティブなプランを削除した場合
-          if (updatedPlans.length > 0) {
-            const latestPlan = [...updatedPlans].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
-            if (userId) {
-              loadSpecificPlanData(userId, latestPlan.id);
-              // loadSpecificPlanData が simulationResult をリセットしない場合があるので、ここで明示的にリセットを検討
-              // simulationResult の管理は loadSpecificPlanData や handleCreateNewPlan に委ねるのが一貫性があるか
+      if (simulationInput.id === planIdToDelete) {
+        if (updatedPlans.length > 0) {
+          const latestPlan = [...updatedPlans].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+          if (userId) {
+            const loadResult = await loadSpecificPlan(latestPlan.id);
+            if (loadResult.success && loadResult.planData) {
+              const loadedPlanData = loadResult.planData;
+              setSimulationInput(prev => ({ 
+                ...initialSimulationInput, 
+                ...prev, 
+                ...loadedPlanData,
+                id: loadedPlanData.id ?? latestPlan.id
+              }));
+              setSimulationResult(null);
+            } else {
+              toast.error("削除後のプラン再読み込みに失敗しました。");
+              handleCreateNewPlan();
             }
-          } else {
-            // アクティブだった最後のプランを削除した場合
-            handleCreateNewPlan();
           }
         } else {
-          // アクティブではないプランを削除した場合
-          if (updatedPlans.length === 0) {
-            // 結果としてプランが全て無くなった場合
-            // 現在アクティブなプラン情報が残っているがおかしくなるので、新規プラン状態にする
-            handleCreateNewPlan();
-          }
-          // アクティブなプランはそのままなので、表示上の変更は不要
+          handleCreateNewPlan();
         }
-
-        toast.success('プランが削除されました。');
-        console.log(`Plan ${planIdToDelete} deleted successfully.`);
-        return updatedPlans;
-      });
-
-    } catch (err: any) {
-      console.error("Error deleting plan:", err);
-      const errorMessage = "プランの削除に失敗しました: " + (err.message || 'Unknown error');
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setLoading(false);
+      } else {
+        if (updatedPlans.length === 0) {
+          handleCreateNewPlan();
+        }
+      }
+    } else if (result.error) {
+      setError("プランの削除に失敗しました: " + result.error);
+      toast.error("プランの削除に失敗しました: " + result.error);
     }
   };
 
@@ -473,7 +364,6 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          {/* ★「新しいプランを作成」ボタンは PlanManager の外に配置、または PlanManager に含めることも検討 */} 
           <div className="flex justify-end mb-4">
             <button
                 onClick={handleCreateNewPlan}
@@ -483,7 +373,6 @@ const App: React.FC = () => {
             </button>
           </div>
           
-          {/* ★既存のプラン選択ドロップダウンを PlanManager コンポーネントに置き換え */} 
           {savedPlans.length > 0 ? (
             <PlanManager 
               savedPlans={savedPlans}
@@ -502,7 +391,7 @@ const App: React.FC = () => {
             onInputChange={handleInputChange}
             onSubmit={handleSimulate}
             onSave={handleSaveData}
-            loading={loading}
+            loading={simulationLoading || isSavingPlan || isLoadingPlans || isLoadingSpecificPlan || isDeletingPlan}
             planName={simulationInput.planName} 
             onPlanNameChange={handlePlanNameChange} 
           />
@@ -514,14 +403,18 @@ const App: React.FC = () => {
             lifeExpectancy={simulationInput.lifeExpectancy}
           />
 
-          {error && (
+          {(error || saveError || loadPlansError || loadSpecificPlanError || deletePlanError) && (
             <div className="mt-6 p-4 bg-red-100 text-red-700 border border-red-300 rounded-lg">
               <p className="font-semibold">エラー</p>
-              <p>{error}</p>
+              {error && <p>基本エラー: {error}</p>}
+              {saveError && <p>保存エラー: {saveError}</p>}
+              {loadPlansError && <p>プラン一覧読込エラー: {loadPlansError}</p>}
+              {loadSpecificPlanError && <p>プラン読込エラー: {loadSpecificPlanError}</p>}
+              {deletePlanError && <p>削除エラー: {deletePlanError}</p>}
             </div>
           )}
 
-          {simulationResult && !error && (
+          {simulationResult && !error && !saveError && !loadPlansError && !loadSpecificPlanError && !deletePlanError && (
             <>
               <SimulationResultComponent result={simulationResult} />
               {simulationResult.assetData && simulationResult.assetData.length > 0 && (

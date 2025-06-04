@@ -1,5 +1,6 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
-import { LifeEvent } from '../App'; // App.tsx から LifeEvent 型をインポート
+// import { LifeEvent } from '../App'; // App.tsx から LifeEvent 型をインポート
+import { LifeEvent } from '../types'; // ★ インポート元を types.ts に変更
 
 interface LifeEventFormProps {
   lifeEvents: LifeEvent[];
