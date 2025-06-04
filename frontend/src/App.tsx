@@ -1,12 +1,14 @@
 import React, { useState, useEffect, ChangeEvent, useCallback } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, setDoc, getDoc, DocumentData, collection, query, orderBy, getDocs, limit, where } from 'firebase/firestore';
+import { doc, setDoc, getDoc, DocumentData, collection, query, orderBy, getDocs, limit, where, deleteDoc } from 'firebase/firestore';
 import { db, auth as firebaseAuth, FirebaseAuth, FirebaseFirestore } from './services/firebase';
 import AuthComponent from './components/Auth';
 import InputFormComponent from './components/InputForm';
 import SimulationResultComponent from './components/SimulationResult';
 import AssetChartComponent from './components/AssetChart';
 import LifeEventFormComponent from './components/LifeEventForm';
+import PlanManager from './components/PlanManager';
+import toast, { Toaster } from 'react-hot-toast';
 
 // グローバル変数 __app_id の型 (firebase.tsでも同様の定義があるが、念のため)
 declare global {
@@ -61,22 +63,23 @@ const App: React.FC = () => {
   const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [simulationInput, setSimulationInput] = useState<SimulationInputData>({
-    id: undefined, // ★追加
-    planName: 'マイプラン', // ★追加
+  const initialSimulationInput: SimulationInputData = {
+    id: undefined,
+    planName: 'マイプラン',
     currentAge: 30,
     retirementAge: 65,
-    lifeExpectancy: 95, // ★追加: デフォルト95歳
+    lifeExpectancy: 95,
     currentSavings: 5000000,
     annualIncome: 6000000,
     monthlyExpenses: 250000,
     investmentRatio: 50,
     annualReturn: 3,
-    pensionAmountPerYear: 2000000, // ★追加: デフォルト200万円
-    pensionStartDate: 65, // ★新規追加: デフォルト65歳
-    severancePay: 0, // ★新規追加: デフォルト0円
-    lifeEvents: [], // ★新規追加: 初期値は空配列
-  });
+    pensionAmountPerYear: 2000000,
+    pensionStartDate: 65,
+    severancePay: 0,
+    lifeEvents: [],
+  };
+  const [simulationInput, setSimulationInput] = useState<SimulationInputData>(initialSimulationInput);
   const [simulationResult, setSimulationResult] = useState<BackendSimulationResult | null>(null);
   const [dbInstance, setDbInstance] = useState<FirebaseFirestore | null>(null);
   const [authInstance, setAuthInstance] = useState<FirebaseAuth | null>(null);
@@ -179,22 +182,7 @@ const App: React.FC = () => {
           loadUserPlans(currentUser.uid); // ★プラン一覧読み込みをトリガー
         } else {
           // ユーザーがログアウトした場合や未認証の場合の処理
-          setSimulationInput({
-            id: undefined,
-            planName: 'マイプラン',
-            currentAge: 30,
-            retirementAge: 65,
-            lifeExpectancy: 95,
-            currentSavings: 5000000,
-            annualIncome: 6000000,
-            monthlyExpenses: 250000,
-            investmentRatio: 50,
-            annualReturn: 3,
-            pensionAmountPerYear: 2000000,
-            pensionStartDate: 65,
-            severancePay: 0,
-            lifeEvents: [],
-          });
+          setSimulationInput(initialSimulationInput);
           setSavedPlans([]);
         }
       });
@@ -231,10 +219,11 @@ const App: React.FC = () => {
   const handleSaveData = async () => {
     if (!user || !userId || !dbInstance) {
       setError("ユーザーが認証されていないか、データベースに接続されていません。");
+      toast.error("ユーザーが認証されていないか、データベースに接続されていません。");
       return;
     }
     if (!simulationInput.planName.trim()) {
-        alert("プラン名を入力してください。");
+        toast.error("プラン名を入力してください。");
         return;
     }
     setLoading(true);
@@ -288,11 +277,12 @@ const App: React.FC = () => {
         }
       });
 
-      alert("データが保存されました！");
+      toast.success("データが保存されました！");
     } catch (err: any) {
       console.error("Error saving data to Firestore:", err);
-      setError("データの保存に失敗しました: " + (err.message || 'Unknown error'));
-      alert(`保存エラー: ${err.message || 'Unknown error'}`);
+      const errorMessage = "データの保存に失敗しました: " + (err.message || 'Unknown error');
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -306,7 +296,7 @@ const App: React.FC = () => {
     const { currentAge, retirementAge, lifeExpectancy, currentSavings, annualIncome, monthlyExpenses, investmentRatio, annualReturn, pensionAmountPerYear, pensionStartDate, severancePay, lifeEvents, planName } = simulationInput;
 
     if (!planName.trim()) { // シミュレーション前にもプラン名チェック
-        alert("プラン名を入力してください。");
+        toast.error("プラン名を入力してください。");
         setLoading(false);
         return;
     }
@@ -382,12 +372,88 @@ const App: React.FC = () => {
     }
   };
 
+  // ★追加: 新しいプランを作成する処理
+  const handleCreateNewPlan = () => {
+    setSimulationInput(prev => ({
+        ...initialSimulationInput, // 基本的な初期値を使用
+        planName: `新しいプラン ${new Date().toLocaleTimeString()}` // ユニーク性を少し持たせる
+    }));
+    setSimulationResult(null); // シミュレーション結果もクリア
+    setError(null); // エラーもクリア
+    // プラン選択ドロップダウンの value は simulationInput.id に依存するため、
+    // id が undefined になれば自動的に「新しいプランとして開始」が選択されるはず
+    console.log("New plan creation initiated.");
+  };
+
+  // ★追加: PlanManagerからプランが選択されたときの処理
+  const handleSelectPlan = (planId: string) => {
+    if (userId && planId) {
+      loadSpecificPlanData(userId, planId);
+    }
+  };
+
+  // ★追加: プランを削除する処理
+  const handleDeletePlan = async (planIdToDelete: string) => {
+    if (!dbInstance || !userId || !planIdToDelete) {
+      const errorMessage = 'プランの削除に必要な情報が不足しています。';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const planDocRef = doc(dbInstance, `artifacts/${appId}/users/${userId}/lifePlans/${planIdToDelete}`);
+      await deleteDoc(planDocRef);
+
+      setSavedPlans(prevPlans => {
+        const updatedPlans = prevPlans.filter(plan => plan.id !== planIdToDelete);
+
+        if (simulationInput.id === planIdToDelete) {
+          // アクティブなプランを削除した場合
+          if (updatedPlans.length > 0) {
+            const latestPlan = [...updatedPlans].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())[0];
+            if (userId) {
+              loadSpecificPlanData(userId, latestPlan.id);
+              // loadSpecificPlanData が simulationResult をリセットしない場合があるので、ここで明示的にリセットを検討
+              // simulationResult の管理は loadSpecificPlanData や handleCreateNewPlan に委ねるのが一貫性があるか
+            }
+          } else {
+            // アクティブだった最後のプランを削除した場合
+            handleCreateNewPlan();
+          }
+        } else {
+          // アクティブではないプランを削除した場合
+          if (updatedPlans.length === 0) {
+            // 結果としてプランが全て無くなった場合
+            // 現在アクティブなプラン情報が残っているがおかしくなるので、新規プラン状態にする
+            handleCreateNewPlan();
+          }
+          // アクティブなプランはそのままなので、表示上の変更は不要
+        }
+
+        toast.success('プランが削除されました。');
+        console.log(`Plan ${planIdToDelete} deleted successfully.`);
+        return updatedPlans;
+      });
+
+    } catch (err: any) {
+      console.error("Error deleting plan:", err);
+      const errorMessage = "プランの削除に失敗しました: " + (err.message || 'Unknown error');
+      setError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!isAuthReady) {
     return <div className="flex justify-center items-center h-screen text-xl">認証情報を読み込み中...</div>;
   }
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 flex flex-col items-center p-4 sm:p-8 font-inter">
+      <Toaster position="top-center" reverseOrder={false} />
       <header className="w-full max-w-4xl mb-8 text-center">
         <h1 className="text-4xl font-bold text-sky-700">ライフプランシミュレーター</h1>
         {userId && <p className="text-xs text-slate-500 mt-1">UserID: {userId}</p>}
@@ -407,37 +473,27 @@ const App: React.FC = () => {
             </button>
           </div>
 
-          {/* プラン選択UI (将来的にここに追加) */}
-          {/* savedPlans があればドロップダウンなどでプランを選択できるようにする */}
-          {savedPlans.length > 0 && (
-            <div className="mb-4">
-              <label htmlFor="planSelector" className="block text-sm font-medium text-slate-700">保存済みプラン:</label>
-              <select 
-                id="planSelector"
-                value={simulationInput.id || ''} 
-                onChange={(e) => {
-                    const selectedPlanId = e.target.value;
-                    if (selectedPlanId && userId) {
-                        loadSpecificPlanData(userId, selectedPlanId);
-                    } else if (!selectedPlanId) {
-                        // 「新しいプラン」的な選択肢が選ばれた場合
-                        setSimulationInput({
-                            id: undefined,
-                            planName: '新しいプラン',
-                            currentAge: 30, retirementAge: 65, lifeExpectancy: 95,
-                            currentSavings: 5000000, annualIncome: 6000000, monthlyExpenses: 250000,
-                            investmentRatio: 50, annualReturn: 3, pensionAmountPerYear: 2000000,
-                            pensionStartDate: 65, severancePay: 0, lifeEvents: []
-                        });
-                    }
-                }}
-                className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm"
-              >
-                <option value="">--- 新しいプランとして開始 ---</option> {/* 新規作成用 */} 
-                {savedPlans.map(plan => (
-                  <option key={plan.id} value={plan.id}>{plan.planName} (最終更新: {new Date(plan.updatedAt).toLocaleString()})</option>
-                ))}
-              </select>
+          {/* ★「新しいプランを作成」ボタンは PlanManager の外に配置、または PlanManager に含めることも検討 */} 
+          <div className="flex justify-end mb-4">
+            <button
+                onClick={handleCreateNewPlan}
+                className={`px-4 py-2 text-sm font-semibold rounded-lg shadow-md transition duration-150 bg-green-500 hover:bg-green-600 text-white`}
+            >
+                新しいプランを作成
+            </button>
+          </div>
+          
+          {/* ★既存のプラン選択ドロップダウンを PlanManager コンポーネントに置き換え */} 
+          {savedPlans.length > 0 ? (
+            <PlanManager 
+              savedPlans={savedPlans}
+              currentPlanId={simulationInput.id}
+              onSelectPlan={handleSelectPlan}
+              onDeletePlan={handleDeletePlan}
+            />
+          ) : (
+            <div className="mb-4 p-4 bg-slate-100 rounded-lg text-center">
+              <p className="text-slate-600 text-sm">保存されているプランはありません。「新しいプランを作成」ボタンから開始してください。</p>
             </div>
           )}
 
