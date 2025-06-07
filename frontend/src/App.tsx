@@ -10,7 +10,7 @@ import Auth from './components/Auth';
 import PlanManager from './components/PlanManager';
 import LifeEventForm from './components/LifeEventForm';
 import { Toaster, toast } from 'react-hot-toast';
-import { initialSimulationInput } from '../constants';
+import { initialSimulationInput } from './constants';
 
 const App: React.FC = () => {
   const { user } = useAuth();
