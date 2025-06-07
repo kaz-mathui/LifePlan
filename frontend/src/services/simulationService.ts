@@ -2,35 +2,6 @@
 
 import { SimulationInputData, SimulationResult, LifeEvent, BackendSimulationResult } from '../types';
 
-// 教育費の標準データ (万円/年)
-const EDUCATION_COSTS = {
-  public: { elementary: 40, middle: 50, high: 50, university: 100 },
-  private_liberal: { elementary: 160, middle: 140, high: 100, university: 150 },
-  private_science: { elementary: 160, middle: 140, high: 100, university: 180 },
-  custom: { elementary: 0, middle: 0, high: 0, university: 0 }, // カスタムは入力値を使用
-};
-
-const getEducationCost = (age: number, plan: keyof typeof EDUCATION_COSTS, customAmount: number = 0): number => {
-  if (plan === 'custom') {
-    return (age >= 19 && age <= 22) ? customAmount : 0; // 簡単化: 大学費用のみ
-  }
-  if (age >= 7 && age <= 12) return EDUCATION_COSTS[plan].elementary * 10000;
-  if (age >= 13 && age <= 15) return EDUCATION_COSTS[plan].middle * 10000;
-  if (age >= 16 && age <= 18) return EDUCATION_COSTS[plan].high * 10000;
-  if (age >= 19 && age <= 22) return EDUCATION_COSTS[plan].university * 10000;
-  return 0;
-};
-
-// 元利均等返済の年間返済額
-const calculateAnnualLoanPayment = (loanAmount: number, interestRate: number, loanTerm: number): number => {
-  if (loanAmount <= 0 || interestRate < 0 || loanTerm <= 0) return 0;
-  const monthlyRate = interestRate / 100 / 12;
-  const numberOfPayments = loanTerm * 12;
-  if (monthlyRate === 0) return loanAmount / loanTerm;
-  const monthlyPayment = loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) / (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
-  return monthlyPayment * 12;
-};
-
 // メインの計算ロジック
 export const calculateSimulation = (
   input: SimulationInputData, 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { db, auth } from './services/firebase';
+import { auth } from './services/firebase';
 import { useAuth } from './hooks/useAuth';
 import { usePlanData } from './hooks/usePlanData';
 import { SimulationInputData, LifeEvent, Child, BackendSimulationResult } from './types';
@@ -28,7 +28,7 @@ const App: React.FC = () => {
   } = usePlanData(user);
 
   const [simulationInput, setSimulationInput] = useState<SimulationInputData>(initialSimulationInput);
-  const [isLifeEventModalOpen, setLifeEventModalOpen] = useState(false);
+  // const [isLifeEventModalOpen, setLifeEventModalOpen] = useState(false);
 
   const handleCreateNewPlan = useCallback(async () => {
     const newPlanId = await createNewPlan();

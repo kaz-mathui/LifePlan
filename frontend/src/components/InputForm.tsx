@@ -1,4 +1,4 @@
-import React, { ChangeEvent, useState } from 'react';
+import React, { ChangeEvent } from 'react';
 import { SimulationInputData } from '../types';
 import FormSection from './FormSection';
 import { FaCalculator, FaSave, FaFileImport, FaFileExport } from 'react-icons/fa';

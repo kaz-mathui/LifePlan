@@ -1,31 +1,17 @@
 import React from 'react';
-import { signInAnonymously, GoogleAuthProvider, signInWithPopup, Auth as FirebaseAuth } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithRedirect, Auth as FirebaseAuth } from 'firebase/auth';
 import { FaGoogle } from 'react-icons/fa';
 import Icon from './Icon';
 
 interface AuthProps {
-  auth: FirebaseAuth | null; // FirebaseのAuthインスタンス、または初期化前はnull
+  auth: FirebaseAuth;
 }
 
 const Auth: React.FC<AuthProps> = ({ auth }) => {
-  if (!auth) {
-    return <p className="text-red-500">認証サービスが利用できません。</p>;
-  }
-
-  const handleAnonymousSignIn = async () => {
-    try {
-      await signInAnonymously(auth);
-      console.log("Signed in anonymously");
-    } catch (error: any) { // エラーオブジェクトの型をanyまたはErrorに
-      console.error("Error signing in anonymously:", error);
-      alert(`匿名ログインエラー: ${error.message}`);
-    }
-  };
-
   const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      await signInWithRedirect(auth, provider);
     } catch (error) {
       console.error("Googleログインエラー:", error);
     }

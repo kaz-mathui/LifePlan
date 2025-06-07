@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react';
-import { doc, setDoc, getDoc, collection, query, orderBy, getDocs, DocumentData, Timestamp, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDocs, collection, query, orderBy, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../services/firebase';
-import { LifeEvent, SimulationInputData, PlanListItem, Plan } from '../types'; // ★ 追加: 型定義をtypes.tsからインポート
-import toast from 'react-hot-toast';
 import { User } from 'firebase/auth';
 import { initialSimulationInput } from '../constants';
+import toast from 'react-hot-toast';
+import { Plan, SimulationInputData } from '../types';
 
 export const usePlanData = (user: User | null) => {
   const [plans, setPlans] = useState<Plan[]>([]);
