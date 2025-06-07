@@ -90,7 +90,7 @@ const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) 
       </div>
 
       <div className="h-96 bg-white p-4 rounded-lg shadow">
-        <AssetChart data={result.assetData} />
+        <AssetChart assetData={result.assetData} />
       </div>
     </div>
     
