@@ -201,14 +201,14 @@ cd ..
 
 ### 予想されるAWS費用 (月額)
 
-- **公開中 (`start_services.sh` 実行後):**
-  - **Application Load Balancer:** 約 $19 / 月
-  - **ECS Fargate:** 約 $15 / 月 (vCPU, Memoryによる)
-  - **NAT Gateway:** 約 $4 / 月 (データ転送量により変動)
-  - **合計:** 約 $38 - $45 / 月
+**公開中 (`start_services.sh` 実行後):**
+- Application Load Balancer: 約 $19 / 月
+- ECS Fargate: 約 $15 / 月 (vCPU, Memoryによる)
+- NAT Gateway: 約 $4 / 月 (データ転送量により変動)
+- **合計:** 約 $38 - $45 / 月
 
-- **停止中 (`stop_services.sh` 実行後):**
-  - **S3 (Terraform state), ECR (Docker image):** ほぼ無料 (ごく僅かなストレージ料金)
-  - **合計:** 約 $0.1 / 月未満
+**停止中 (`stop_services.sh` 実行後):**
+- S3 (Terraform state), ECR (Docker image): ほぼ無料 (ごく僅かなストレージ料金)
+- **合計:** 約 $0.1 / 月未満
 
 **定期的に利用しない場合は、必ず `stop_services.sh` を実行してください。**
