@@ -99,7 +99,7 @@ router.post('/', (req: Request, res: Response) => {
     }
     
     const validatedInput: SimulationInputData = parseResult.data;
-    
+
     const result = calculateSimulation(validatedInput);
     res.json(result);
   } catch (error: any) {
