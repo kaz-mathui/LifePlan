@@ -3,6 +3,7 @@ import { doc, setDoc, getDoc, collection, query, orderBy, getDocs, DocumentData,
 import { FirebaseFirestore } from '../services/firebase'; // FirebaseFirestore の型をインポート
 import { LifeEvent, SimulationInputData, PlanListItem } from '../types'; // ★ 追加: 型定義をtypes.tsからインポート
 import toast from 'react-hot-toast';
+import { User } from 'firebase/auth';
 
 interface UsePlanDataProps {
   db: FirebaseFirestore | null;

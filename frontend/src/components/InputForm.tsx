@@ -1,5 +1,5 @@
-import React, { ChangeEvent, ReactNode } from 'react';
-import { SimulationInputData, HousingLoanData, EducationData, CarData, SeniorData } from '../types';
+import React, { ChangeEvent, useState } from 'react';
+import { SimulationInputData } from '../types';
 import FormSection from './FormSection';
 import { FaCalculator, FaSave, FaFileImport, FaFileExport } from 'react-icons/fa';
 import Icon from './Icon';

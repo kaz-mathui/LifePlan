@@ -1,8 +1,9 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import type { ChartData, ChartOptions } from 'chart.js';
 import { AssetDataPoint } from '../types';
+import 'chartjs-adapter-date-fns';
 
 ChartJS.register(
   CategoryScale,
