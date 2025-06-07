@@ -7,6 +7,7 @@ on:
   push:
     tags:
       - 'v*' # vから始まるタグがpushされたら起動 (例: v1.0.0, v2.0.3-alpha)
+  workflow_dispatch: # 手動実行を許可
 
 jobs:
   test-backend:
@@ -60,8 +61,8 @@ jobs:
     name: "Build and Push to ECR"
     needs: [test-backend, test-frontend]
     runs-on: ubuntu-latest
-    # vから始まるタグがpushされた時のみ実行
-    if: startsWith(github.ref, 'refs/tags/v')
+    # vから始まるタグがpushされた時、または手動実行された時のみ実行
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     
     steps:
       - name: Checkout Code

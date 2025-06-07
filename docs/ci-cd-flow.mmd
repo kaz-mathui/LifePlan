@@ -1,0 +1,27 @@
+graph TD
+    subgraph "Trigger"
+        A["Git Push (v* tag)"] --> B{"Start CI/CD"};
+        PR["Pull Request (to main)"] --> B;
+    end
+
+    subgraph "CI: Pull Request / Tag Push"
+        B --> C["Test Backend"];
+        B --> D["Test & Build Frontend"];
+    end
+
+    subgraph "CD: Tag Push Only"
+        C -- on success --> E{"Ready to Deploy"};
+        D -- on success --> E;
+        E --> F["Configure AWS & Login ECR"];
+        F --> G["Build & Push Backend Image to ECR"];
+        F --> H["Build & Push Frontend Image to ECR"];
+    end
+
+    subgraph "Next Step"
+        I("ECR Image updated")
+        G --> I
+        H --> I
+        I --> J["Update ECS Service to pull new image"]
+    end
+
+    style J fill:#f9f,stroke:#333,stroke-width:2px 

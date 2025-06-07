@@ -24,52 +24,7 @@
 
 ### インフラ構成図
 
-```mermaid
-graph TD
-    subgraph "インターネット"
-        User[ユーザー]
-    end
-
-    subgraph "AWS Cloud"
-        subgraph "VPC"
-            ALB[Application Load Balancer]
-
-            subgraph "Public Subnet"
-                ALB -- ポート80 --> FE_Service
-            end
-            
-            subgraph "Private Subnet"
-                FE_Service[ECS Service: Frontend]
-                BE_Service[ECS Service: Backend]
-            end
-
-            FE_Service -- "/api/*" --> ALB
-            ALB -- "/api/*" --> BE_Service
-            BE_Service -- 外部API --> IGW[Internet Gateway]
-        end
-        
-        subgraph "CI/CD Pipeline"
-            ECR_FE[ECR: Frontend]
-            ECR_BE[ECR: Backend]
-        end
-
-        subgraph "External Services"
-            Firebase[Firebase Firestore]
-        end
-    end
-
-    subgraph "GitHub"
-        GHA[GitHub Actions]
-    end
-
-    User -- HTTPS --> ALB
-    BE_Service -- データ読書 --> Firebase
-    
-    GHA -- Git Tag Push --> ECR_FE
-    GHA -- Git Tag Push --> ECR_BE
-    GHA -- Deploy --> FE_Service & BE_Service
-
-```
+![Infrastructure Diagram](./docs/infra.png)
 
 ### CI/CD フロー
 
@@ -166,6 +121,17 @@ cd ..
     ```
 
     これにより、テスト、ビルド、ECRへのイメージプッシュ、ECSへのデプロイが自動的に実行されます。
+
+### 3. 手動でのデプロイ (タグなし)
+
+開発中のバージョンをデプロイしたい場合など、Gitタグを付けずにデプロイすることも可能です。
+
+1.  GitHubリポジトリの **Actions** タブに移動します。
+2.  左のサイドバーから **CI/CD Pipeline** ワークフローを選択します。
+3.  **Run workflow** ドロップダウンボタンをクリックします。
+4.  デプロイしたいブランチ（通常は `main`）を選択し、緑色の **Run workflow** ボタンをクリックして実行します。
+
+これにより、指定したブランチの最新コードがビルドされ、ECRにデプロイされます。
 
 ---
 

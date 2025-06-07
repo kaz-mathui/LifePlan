@@ -1,0 +1,43 @@
+graph TD
+    subgraph "インターネット"
+        User[ユーザー]
+    end
+
+    subgraph "AWS Cloud"
+        subgraph "VPC"
+            ALB[Application Load Balancer]
+
+            subgraph "Public Subnet"
+                ALB -- ポート80 --> FE_Service
+            end
+            
+            subgraph "Private Subnet"
+                FE_Service[ECS Service: Frontend]
+                BE_Service[ECS Service: Backend]
+            end
+
+            FE_Service -- "/api/*" --> ALB
+            ALB -- "/api/*" --> BE_Service
+            BE_Service -- 外部API --> IGW[Internet Gateway]
+        end
+        
+        subgraph "CI/CD Pipeline"
+            ECR_FE[ECR: Frontend]
+            ECR_BE[ECR: Backend]
+        end
+
+        subgraph "External Services"
+            Firebase[Firebase Firestore]
+        end
+    end
+
+    subgraph "GitHub"
+        GHA[GitHub Actions]
+    end
+
+    User -- HTTPS --> ALB
+    BE_Service -- データ読書 --> Firebase
+    
+    GHA -- Git Tag Push --> ECR_FE
+    GHA -- Git Tag Push --> ECR_BE
+    GHA -- Deploy --> FE_Service & BE_Service 

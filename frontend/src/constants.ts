@@ -1,6 +1,7 @@
 /**
  * アプリケーション全体で使用する定数を管理するファイル
  */
+import { SimulationInputData } from './types';
 
 // API関連の定数
 export const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
@@ -13,8 +14,6 @@ export const API_ENDPOINTS = {
 
 // その他の定数
 // export const DEFAULT_USER_NAME = 'ゲスト'; 
-
-import { SimulationInputData } from './types';
 
 export const initialSimulationInput: SimulationInputData = {
   id: '',
