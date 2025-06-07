@@ -17,7 +17,7 @@ const housingLoanSchema = z.object({
 });
 
 const educationChildSchema = z.object({
-  birthYear: z.number().int().min(1950).max(new Date().getFullYear() + 5),
+  birthYear: z.number().int().min(1950).max(new Date().getFullYear() + 100),
   plan: z.enum(['public', 'private_liberal', 'private_science', 'custom']),
   customAmount: z.number().min(0).optional(),
 });

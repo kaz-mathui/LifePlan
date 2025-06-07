@@ -88,3 +88,4 @@ export interface BackendSimulationResult {
   advice?: string;
   calculationSummary?: string;
 } 
+ 

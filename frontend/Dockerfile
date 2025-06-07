@@ -1,36 +1,48 @@
-# Stage 1: Build the React application
+# 1. ビルドステージ
 FROM node:18-alpine AS build
 
+# 作業ディレクトリを設定
 WORKDIR /app
 
-# Copy package.json and package-lock.json (or yarn.lock)
+# package.jsonとpackage-lock.jsonをコピー
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install
+# 依存パッケージをインストール
+RUN npm ci
 
-# Copy the rest of the application code
+# ソースコードをコピー
 COPY . .
 
-# Set the environment variable for the backend URL
-# This will be passed in from docker-compose during the build
+# ビルド時にバックエンドURLを受け取るためのARG
 ARG REACT_APP_BACKEND_URL
-ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
-ARG REACT_APP_ID
-ENV REACT_APP_ID=$REACT_APP_ID
+ENV REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
 
-# Build the application
+# Firebase設定をビルド時に受け取る
+ARG REACT_APP_FIREBASE_API_KEY
+ENV REACT_APP_FIREBASE_API_KEY=${REACT_APP_FIREBASE_API_KEY}
+ARG REACT_APP_FIREBASE_AUTH_DOMAIN
+ENV REACT_APP_FIREBASE_AUTH_DOMAIN=${REACT_APP_FIREBASE_AUTH_DOMAIN}
+ARG REACT_APP_FIREBASE_PROJECT_ID
+ENV REACT_APP_FIREBASE_PROJECT_ID=${REACT_APP_FIREBASE_PROJECT_ID}
+ARG REACT_APP_FIREBASE_STORAGE_BUCKET
+ENV REACT_APP_FIREBASE_STORAGE_BUCKET=${REACT_APP_FIREBASE_STORAGE_BUCKET}
+ARG REACT_APP_FIREBASE_MESSAGING_SENDER_ID
+ENV REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${REACT_APP_FIREBASE_MESSAGING_SENDER_ID}
+ARG REACT_APP_FIREBASE_APP_ID
+ENV REACT_APP_FIREBASE_APP_ID=${REACT_APP_FIREBASE_APP_ID}
+
+# Reactアプリをビルド
 RUN npm run build
 
-# Stage 2: Serve the application using Nginx
+# 2. 本番ステージ
 FROM nginx:1.25-alpine
 
-# Copy the build output from the build stage
+# ビルドステージからビルド成果物（静的ファイル）をnginxの公開ディレクトリにコピー
 COPY --from=build /app/build /usr/share/nginx/html
 
-# Copy nginx configuration (optional, but good for routing)
-# COPY nginx.conf /etc/nginx/conf.d/default.conf
-
+# nginxがリッスンするポートを公開
 EXPOSE 80
 
+# nginxをフォアグラウンドで実行
 CMD ["nginx", "-g", "daemon off;"] 
+ 

@@ -1,20 +1,46 @@
-# Stage 1: Build the application (빌드 전용)
+# 1. ビルドステージ
 FROM node:18-alpine AS builder
+
+# 作業ディレクトリを設定
 WORKDIR /app
+
+# package.jsonとpackage-lock.jsonをコピー
 COPY package*.json ./
-RUN npm install 
+
+# 依存パッケージをインストール
+RUN npm ci
+
+# ソースコードをコピー
 COPY . .
+
+# TypeScriptをJavaScriptにコンパイル
 RUN npm run build
 
-# Stage 2: Production and Test environment (최종 실행 환경)
-FROM node:18-alpine
-WORKDIR /app
-COPY . .                             
-RUN npm install                      
-COPY --from=builder /app/dist ./dist 
 
-EXPOSE 3001
-CMD ["node", "dist/server.js"]
+# 2. 本番ステージ
+FROM node:18-alpine
+
+# 作業ディレクトリを設定
+WORKDIR /app
+
+# package.jsonとpackage-lock.jsonをコピー (本番用の依存関係のみインストールするため)
+COPY package*.json ./
+
+# 本番用の依存パッケージのみをインストール
+RUN npm ci --omit=dev
+
+# ビルドステージからコンパイル済みのファイルとnode_modulesをコピー
+COPY --from=builder /app/dist ./dist
+
+# ポート番号を環境変数から受け取るようにする (デフォルトは3001)
+ENV PORT 3001
+
+# コンテナがリッスンするポートを公開
+EXPOSE ${PORT}
+
+# アプリケーションを起動
+CMD [ "npm", "start" ]
 
 # CMD ["npm", "start"] # This would be for production using dist
 # For development, docker-compose will override this with `npm run dev` 
+ 

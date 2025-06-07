@@ -76,19 +76,19 @@ export function calculateSimulation(input: SimulationInputData): BackendSimulati
       yearlyIncome += income;
       incomeDetails['給与収入'] = income;
       currentAnnualIncome *= (1 + salaryIncreaseRate / 100); // 昇給
-    }
+  }
     if (age === retirementAge && severancePay > 0) {
       yearlyIncome += severancePay;
       incomeDetails['退職金'] = severancePay;
       summaryEvents.push(`${age}歳: 退職。収入が年金に切り替わります。退職金${(severancePay/10000).toFixed(0)}万円が加算されます。`);
-    }
+  }
     if (age >= pensionStartDate) {
       const pension = pensionAmountPerYear;
       yearlyIncome += pension;
       incomeDetails['年金収入'] = pension;
       if (age === pensionStartDate) {
         summaryEvents.push(`${age}歳: 年金受給開始。年間${(pensionAmountPerYear/10000).toFixed(0)}万円の収入が始まります。`);
-      }
+  }
     }
 
     // 支出計算

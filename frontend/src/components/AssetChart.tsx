@@ -1,9 +1,18 @@
-import React from 'react';
-import { Chart } from 'react-chartjs-2';
+import React, { useRef, useEffect } from 'react';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+import { Line } from 'react-chartjs-2';
 import type { ChartData, ChartOptions } from 'chart.js';
 import { AssetDataPoint } from '../types';
 
-// ChartJS.register は index.tsx で呼び出されている想定
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 interface AssetChartProps {
     assetData: AssetDataPoint[];
@@ -87,7 +96,7 @@ const AssetChart: React.FC<AssetChartProps> = ({ assetData }) => {
         <div className="mt-8 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
             <h2 className="text-2xl font-semibold text-sky-700 mb-4 border-b pb-2">資産推移グラフ</h2>
             <div style={{ height: '400px' }}>
-                <Chart type='line' options={options} data={data} />
+                <Line options={options} data={data} />
             </div>
         </div>
     );

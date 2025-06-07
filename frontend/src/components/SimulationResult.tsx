@@ -66,8 +66,8 @@ const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) 
 
   return (
     <>
-      <div className="mt-8 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
-        <h2 className="text-2xl font-semibold text-sky-700 mb-6 border-b pb-2">シミュレーション結果</h2>
+    <div className="mt-8 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
+      <h2 className="text-2xl font-semibold text-sky-700 mb-6 border-b pb-2">シミュレーション結果</h2>
         
         {result.advice && (
           <div className="mb-6 p-4 bg-sky-50 border border-sky-200 rounded-lg text-sky-800 flex items-start">
@@ -75,9 +75,9 @@ const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) 
             <div>
               <p className="font-semibold">アドバイス:</p>
               <p className="text-sm">{result.advice}</p>
-            </div>
-          </div>
-        )}
+      </div>
+        </div>
+      )}
 
         <div className="space-y-3 mb-8">
           <ResultItem label="リタイアまでの年数" value={yearsToRetirement > 0 ? yearsToRetirement : 0} unit="年" />

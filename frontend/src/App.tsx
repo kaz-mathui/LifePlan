@@ -410,7 +410,7 @@ const App: React.FC = () => {
           setError(`入力値が無効です。詳細は通知を確認してください。`);
         } else {
           throw new Error(data.error || `HTTP error! status: ${response.status}`);
-        }
+      }
         return;
       }
       
