@@ -1,5 +1,7 @@
 import React from 'react';
 import { PlanListItem } from '../types';
+import { FaPlus, FaTrash } from 'react-icons/fa';
+import Icon from './Icon';
 
 // App.tsxから渡されるプランの型 (App.tsxのsavedPlansステートの要素の型に合わせる)
 // interface PlanListItem {
@@ -13,60 +15,76 @@ interface PlanManagerProps {
   currentPlanId?: string; // 現在選択されているプランのID (オプショナル)
   onSelectPlan: (planId: string) => void;
   onDeletePlan: (planId: string) => void;
-  // onCreateNewPlan: () => void; // App.tsx側でボタンを持つので、必須ではない
+  onCreateNewPlan: () => void;
 }
 
-const PlanManager: React.FC<PlanManagerProps> = ({ savedPlans, currentPlanId, onSelectPlan, onDeletePlan }) => {
-  if (!savedPlans || savedPlans.length === 0) {
-    return (
-      <div className="mb-4 p-4 bg-slate-100 rounded-lg text-center">
-        <p className="text-slate-600 text-sm">保存されているプランはありません。</p>
-        {/* ここに「新しいプランを作成」ボタンを配置することも検討できるが、App.tsx側で統一的に持つ方が管理しやすいか */}
-      </div>
-    );
-  }
+const PlanManager: React.FC<PlanManagerProps> = ({ savedPlans, currentPlanId, onSelectPlan, onDeletePlan, onCreateNewPlan }) => {
 
-  const handleDeleteClick = (e: React.MouseEvent<HTMLButtonElement>, planId: string) => {
-    e.stopPropagation(); // 親要素(プラン選択)のonClickイベントが発火しないようにする
-    if (window.confirm('このプランを削除してもよろしいですか？元に戻すことはできません。')) {
-      onDeletePlan(planId);
+  const handleDeleteClick = () => {
+    if (!currentPlanId) {
+      alert("削除するプランが選択されていません。");
+      return;
+    }
+    if (window.confirm(`現在編集中のプラン「${savedPlans.find(p => p.id === currentPlanId)?.planName || '無名のプラン'}」を削除してもよろしいですか？\nこの操作は元に戻せません。`)) {
+      onDeletePlan(currentPlanId);
+    }
+  };
+
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedId = e.target.value;
+    if (selectedId) {
+      onSelectPlan(selectedId);
     }
   };
 
   return (
-    <div className="mb-6">
-      <h3 className="text-lg font-semibold text-slate-700 mb-3 border-b pb-2">保存済みプラン一覧</h3>
-      <ul className="space-y-2 max-h-60 overflow-y-auto pr-2"> {/* スクロール可能にする */} 
-        {savedPlans.map(plan => (
-          <li key={plan.id} className="flex items-center justify-between p-1 rounded-lg hover:bg-slate-50 transition-colors duration-100
-            ${plan.id === currentPlanId ? 'bg-sky-50' : '' }
-          ">
-            <button
-              onClick={() => onSelectPlan(plan.id)}
-              className={`flex-grow text-left px-3 py-2 rounded-md
-                ${plan.id === currentPlanId 
-                  ? 'text-sky-700 font-semibold' 
-                  : 'text-slate-800'}
-              `}
-            >
-              <div>
-                {plan.planName || '名称未設定プラン'}
-                {plan.id === currentPlanId && <span className="text-xs text-sky-600 ml-2">(編集中)</span>}
-              </div>
-              <div className="text-xs opacity-70">
-                最終更新: {new Date(plan.updatedAt).toLocaleString()}
-              </div>
-            </button>
-            <button 
-              onClick={(e) => handleDeleteClick(e, plan.id)}
-              className="ml-2 px-3 py-1 text-xs text-red-500 hover:text-red-700 border border-red-300 hover:bg-red-50 rounded-md transition-colors duration-150 focus:outline-none focus:ring-1 focus:ring-red-400"
-              aria-label={`プラン「${plan.planName || '名称未設定プラン'}」を削除`}
-            >
-              削除
-            </button>
-          </li>
-        ))}
-      </ul>
+    <div className="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        
+        {/* プラン選択ドロップダウン */}
+        <div className="flex-grow">
+          <label htmlFor="plan-select" className="block text-sm font-medium text-slate-700 mb-1">
+            編集するプランを選択
+          </label>
+          <select
+            id="plan-select"
+            value={currentPlanId || ''}
+            onChange={handleSelectChange}
+            disabled={savedPlans.length === 0}
+            className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-base"
+          >
+            {savedPlans.length === 0 ? (
+              <option value="">保存済みのプランはありません</option>
+            ) : (
+              savedPlans.map(plan => (
+                <option key={plan.id} value={plan.id}>
+                  {plan.planName || '名称未設定プラン'}
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+        
+        {/* 操作ボタン */}
+        <div className="flex items-center justify-end space-x-2 pt-2 sm:pt-6">
+          <button
+            onClick={onCreateNewPlan}
+            className="flex items-center px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 transition duration-150 text-sm"
+          >
+            <Icon as={FaPlus} className="mr-2" />
+            <span>新しいプラン</span>
+          </button>
+          <button 
+            onClick={handleDeleteClick}
+            disabled={!currentPlanId || savedPlans.length === 0}
+            className="flex items-center px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 transition duration-150 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="現在選択中のプランを削除"
+          >
+            <Icon as={FaTrash} />
+          </button>
+        </div>
+
+      </div>
     </div>
   );
 };

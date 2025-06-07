@@ -66,50 +66,21 @@ const App: React.FC = () => {
     deletePlanError
   } = usePlanData({ db: dbInstance, appId, userId });
 
+  // 1. 認証状態の監視とユーザー情報の設定に特化したuseEffect
   useEffect(() => {
     setDbInstance(db);
     setAuthInstance(firebaseAuth);
 
     if (firebaseAuth) {
-      const unsubscribe = onAuthStateChanged(firebaseAuth, async (currentUser) => {
+      const unsubscribe = onAuthStateChanged(firebaseAuth, (currentUser) => {
         setUser(currentUser);
+        // ログイン状態に関わらずユニークなIDを割り当てる
         const currentUid = currentUser ? currentUser.uid : crypto.randomUUID();
         setUserId(currentUid);
         setIsAuthReady(true);
-
-        if (currentUser) {
-          setError(null);
-          const plansResult = await loadPlans();
-          if (plansResult.success && plansResult.plans) {
-            setSavedPlans(plansResult.plans);
-            if (plansResult.plans.length > 0) {
-              const latestPlanId = plansResult.plans[0].id;
-              const specificPlanResult = await loadSpecificPlan(latestPlanId);
-              if (specificPlanResult.success && specificPlanResult.planData) {
-                const loadedPlanData = specificPlanResult.planData;
-                setSimulationInput(prev => ({ 
-                  ...initialSimulationInput, 
-                  ...prev, 
-                  ...loadedPlanData,
-                  id: loadedPlanData.id ?? latestPlanId 
-                }));
-              } else if (specificPlanResult.notFound) {
-                toast.error(`プラン(ID: ${latestPlanId})が見つかりませんでした。新しいプランを開始します。`);
-                handleCreateNewPlan();
-              } else if (specificPlanResult.error) {
-                setError("プランの読み込みに失敗しました: " + specificPlanResult.error);
-                toast.error("プランの読み込みに失敗しました: " + specificPlanResult.error);
-                handleCreateNewPlan();
-              }
-            } else {
-              handleCreateNewPlan();
-            }
-          } else if (plansResult.error) {
-            setError("保存済みプラン一覧の読み込みに失敗しました: " + plansResult.error);
-            toast.error("保存済みプラン一覧の読み込みに失敗しました: " + plansResult.error);
-            handleCreateNewPlan();
-          }
-        } else {
+        
+        // ログアウト時にはプラン情報をクリア
+        if (!currentUser) {
           setSimulationInput(initialSimulationInput);
           setSavedPlans([]);
           setError(null);
@@ -121,9 +92,58 @@ const App: React.FC = () => {
       setIsAuthReady(true);
       setError("認証サービスに接続できません。ゲストとして利用します。");
       setUserId(crypto.randomUUID());
+    }
+  }, []); // 初回マウント時のみ実行
+
+  // 2. ユーザーIDが確定した後に、データの読み込みを行うuseEffect
+  useEffect(() => {
+    // 認証準備ができていない、またはユーザーIDがない場合は何もしない
+    if (!isAuthReady || !userId) return;
+
+    // ログインユーザーの場合のみプランを読み込む
+    if (user) {
+      const loadUserPlans = async () => {
+        setError(null);
+        const plansResult = await loadPlans();
+        if (plansResult.success && plansResult.plans) {
+          setSavedPlans(plansResult.plans);
+          if (plansResult.plans.length > 0) {
+            // 最新のプランを読み込む
+            const latestPlanId = plansResult.plans[0].id;
+            const specificPlanResult = await loadSpecificPlan(latestPlanId);
+            if (specificPlanResult.success && specificPlanResult.planData) {
+              const loadedPlanData = specificPlanResult.planData;
+              setSimulationInput(prev => ({ 
+                ...initialSimulationInput, 
+                ...prev, 
+                ...loadedPlanData,
+                id: loadedPlanData.id ?? latestPlanId 
+              }));
+            } else if (specificPlanResult.notFound) {
+              toast.error(`プラン(ID: ${latestPlanId})が見つかりませんでした。新しいプランを開始します。`);
+              handleCreateNewPlan();
+            } else if (specificPlanResult.error) {
+              setError("プランの読み込みに失敗しました: " + specificPlanResult.error);
+              toast.error("プランの読み込みに失敗しました: " + specificPlanResult.error);
+              handleCreateNewPlan();
+            }
+          } else {
+            // 保存されたプランがない場合は新規作成
+            handleCreateNewPlan();
+          }
+        } else if (plansResult.error) {
+          setError("保存済みプラン一覧の読み込みに失敗しました: " + plansResult.error);
+          toast.error("保存済みプラン一覧の読み込みに失敗しました: " + plansResult.error);
+          handleCreateNewPlan();
+        }
+      };
+      loadUserPlans();
+    } else {
+      // ゲストユーザーの場合は常に新しいプランから開始
       handleCreateNewPlan();
     }
-  }, [appId, loadPlans, loadSpecificPlan]);
+    // isAuthReady, userId, userのいずれかが変更されたときにこのeffectを実行
+  }, [isAuthReady, userId, user]);
 
   const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
@@ -365,46 +385,36 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-100 text-slate-800 flex flex-col items-center p-4 sm:p-8 font-inter">
       <Toaster position="top-center" reverseOrder={false} />
-      <header className="w-full max-w-4xl mb-8 text-center">
-        <h1 className="text-4xl font-bold text-sky-700">ライフプランシミュレーター</h1>
-        {userId && <p className="text-xs text-slate-500 mt-1">UserID: {userId}</p>}
+      <header className="w-full max-w-5xl mb-8 text-center">
+        <h1 className="text-4xl sm:text-5xl font-bold text-sky-800 tracking-tight">ライフプランシミュレーター</h1>
+        <p className="mt-3 text-lg text-slate-600">あなたの未来の家計を、分かりやすく予測します。</p>
+        {userId && <p className="text-xs text-slate-500 mt-2">UserID: {userId}</p>}
       </header>
 
       {!user || !authInstance ? (
         <AuthComponent auth={authInstance} />
       ) : (
-        <div className="w-full max-w-4xl bg-white p-6 sm:p-8 rounded-xl shadow-2xl">
-          <div className="mb-6 text-right">
-            <p className="text-sm text-slate-600">ようこそ、{user.isAnonymous ? 'ゲスト' : user.displayName || user.email || 'ユーザー'} さん</p>
+        <div className="w-full max-w-5xl bg-white p-4 sm:p-8 rounded-2xl shadow-xl">
+          <div className="flex justify-between items-start mb-6">
+            <p className="text-sm text-slate-600 leading-tight">
+              ようこそ、<br/>
+              <span className="font-semibold text-base">{user.isAnonymous ? 'ゲスト' : user.displayName || user.email || 'ユーザー'}</span> さん
+            </p>
             <button
               onClick={() => authInstance.signOut()}
-              className="mt-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-150 text-sm"
+              className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition duration-150 text-sm font-semibold"
             >
               ログアウト
             </button>
           </div>
 
-          <div className="flex justify-end mb-4">
-            <button
-                onClick={handleCreateNewPlan}
-                className={`px-4 py-2 text-sm font-semibold rounded-lg shadow-md transition duration-150 bg-green-500 hover:bg-green-600 text-white`}
-            >
-                新しいプランを作成
-            </button>
-          </div>
-          
-          {savedPlans.length > 0 ? (
-            <PlanManager 
-              savedPlans={savedPlans}
-              currentPlanId={simulationInput.id}
-              onSelectPlan={handleSelectPlan}
-              onDeletePlan={handleDeletePlan}
-            />
-          ) : (
-            <div className="mb-4 p-4 bg-slate-100 rounded-lg text-center">
-              <p className="text-slate-600 text-sm">保存されているプランはありません。「新しいプランを作成」ボタンから開始してください。</p>
-            </div>
-          )}
+          <PlanManager 
+            savedPlans={savedPlans}
+            currentPlanId={simulationInput.id}
+            onSelectPlan={handleSelectPlan}
+            onDeletePlan={handleDeletePlan}
+            onCreateNewPlan={handleCreateNewPlan}
+          />
 
           <InputFormComponent
             input={simulationInput}
@@ -426,29 +436,31 @@ const App: React.FC = () => {
           />
 
           {(error || saveError || loadPlansError || loadSpecificPlanError || deletePlanError) && (
-            <div className="mt-6 p-4 bg-red-100 text-red-700 border border-red-300 rounded-lg">
-              <p className="font-semibold">エラー</p>
-              {error && <p>基本エラー: {error}</p>}
-              {saveError && <p>保存エラー: {saveError}</p>}
-              {loadPlansError && <p>プラン一覧読込エラー: {loadPlansError}</p>}
-              {loadSpecificPlanError && <p>プラン読込エラー: {loadSpecificPlanError}</p>}
-              {deletePlanError && <p>削除エラー: {deletePlanError}</p>}
+            <div className="mt-8 p-4 bg-red-100 text-red-700 border border-red-300 rounded-lg">
+              <p className="font-semibold mb-2">エラーが発生しました</p>
+              <div className="text-sm space-y-1">
+                {error && <p>基本エラー: {error}</p>}
+                {saveError && <p>保存エラー: {saveError}</p>}
+                {loadPlansError && <p>プラン一覧読込エラー: {loadPlansError}</p>}
+                {loadSpecificPlanError && <p>プラン読込エラー: {loadSpecificPlanError}</p>}
+                {deletePlanError && <p>削除エラー: {deletePlanError}</p>}
+              </div>
             </div>
           )}
 
           {simulationResult && !error && !saveError && !loadPlansError && !loadSpecificPlanError && !deletePlanError && (
-            <>
+            <div className="mt-8">
               <SimulationResultComponent result={simulationResult} />
               {simulationResult.assetData && simulationResult.assetData.length > 0 && (
                 <AssetChartComponent assetData={simulationResult.assetData} />
               )}
-            </>
+            </div>
           )}
         </div>
       )}
-      <footer className="mt-12 text-center text-sm text-slate-500">
+      <footer className="mt-16 mb-8 text-center text-sm text-slate-500">
         <p>&copy; {new Date().getFullYear()} ライフプランニング App. All rights reserved.</p>
-        <p className="text-xs mt-1">これはデモンストレーション用のアプリケーションです。</p>
+        <p className="text-xs mt-1">これはデモンストレーション用のアプリケーションです。シミュレーション結果は将来を保証するものではありません。</p>
       </footer>
     </div>
   );

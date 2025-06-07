@@ -5,11 +5,12 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: build # Use the 'build' stage from the Dockerfile
+      args:
+        REACT_APP_BACKEND_URL: "http://backend:3001/api/simulation"
     ports:
       - "3000:3000" # React dev server runs on 3000
     environment:
       # These are still useful for when not using an env_file or for overrides
-      - REACT_APP_BACKEND_URL=http://localhost:3001/api/simulation
       - REACT_APP_ID=compose-app-id
       - NODE_ENV=development # For react-scripts start in dev mode (see command override)
     env_file:

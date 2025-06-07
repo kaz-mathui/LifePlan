@@ -13,10 +13,10 @@ RUN npm install
 COPY . .
 
 # Set the environment variable for the backend URL
-# This will be overridden by docker-compose in development, but good for standalone builds
-ARG REACT_APP_BACKEND_URL=http://localhost:3001/api/simulation
+# This will be passed in from docker-compose during the build
+ARG REACT_APP_BACKEND_URL
 ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
-ARG REACT_APP_ID=docker-app-id
+ARG REACT_APP_ID
 ENV REACT_APP_ID=$REACT_APP_ID
 
 # Build the application
