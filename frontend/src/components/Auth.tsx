@@ -1,6 +1,7 @@
 import React from 'react';
 import { signInAnonymously, GoogleAuthProvider, signInWithPopup, Auth as FirebaseAuth } from 'firebase/auth';
 import { FaGoogle } from 'react-icons/fa';
+import Icon from './Icon';
 
 interface AuthProps {
   auth: FirebaseAuth | null; // FirebaseのAuthインスタンス、または初期化前はnull
@@ -37,7 +38,7 @@ const Auth: React.FC<AuthProps> = ({ auth }) => {
         onClick={handleGoogleLogin}
         className="flex items-center justify-center w-full px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-transform transform hover:scale-105"
       >
-        <FaGoogle className="mr-3" />
+        <Icon as={FaGoogle} className="mr-3" />
         Googleでログイン
       </button>
     </div>
