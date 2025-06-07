@@ -13,8 +13,8 @@ import Icon from './Icon';
 interface PlanManagerProps {
   savedPlans: PlanListItem[];
   currentPlanId?: string; // 現在選択されているプランのID (オプショナル)
-  onSelectPlan: (planId: string) => void;
-  onDeletePlan: (planId: string) => void;
+  onSelectPlan: (id: string) => void;
+  onDeletePlan: (id: string) => Promise<void>;
   onCreateNewPlan: () => void;
 }
 

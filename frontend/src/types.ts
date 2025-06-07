@@ -26,11 +26,13 @@ export interface HousingLoanData {
 
 export interface EducationData {
   hasChildren: boolean;
-  children: {
-    birthYear: number | '';
-    plan: 'public' | 'private_liberal' | 'private_science' | 'custom';
-    customAmount?: number | '';
-  }[];
+  children: Child[];
+}
+
+export interface Child {
+  birthYear: number | '';
+  plan: 'public' | 'private_liberal' | 'private_science' | 'custom';
+  customAmount?: number | '';
 }
 
 export interface CarData {

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { db } from './services/firebase';
+import { db, auth } from './services/firebase';
 import { useAuth } from './hooks/useAuth';
 import { usePlanData } from './hooks/usePlanData';
-import { SimulationInputData, LifeEvent } from './types';
+import { SimulationInputData, LifeEvent, Child, BackendSimulationResult } from './types';
 import { calculateSimulation } from './services/simulationService';
 import InputForm from './components/InputForm';
 import SimulationResult from './components/SimulationResult';
@@ -11,6 +11,8 @@ import PlanManager from './components/PlanManager';
 import LifeEventForm from './components/LifeEventForm';
 import { Toaster, toast } from 'react-hot-toast';
 import { initialSimulationInput } from './constants';
+
+export type NestedSectionKey = 'housing' | 'education' | 'car' | 'senior';
 
 const App: React.FC = () => {
   const { user } = useAuth();
@@ -67,7 +69,7 @@ const App: React.FC = () => {
     setSimulationInput(prev => ({ ...prev!, [name]: processedValue }));
   };
 
-  const handleNestedInputChange = (section: keyof SimulationInputData, field: string, value: any) => {
+  const handleNestedInputChange = (section: NestedSectionKey, field: string, value: any) => {
     if (!simulationInput) return;
     setSimulationInput(prev => ({
       ...prev!,
@@ -93,7 +95,7 @@ const App: React.FC = () => {
 
   const handleAddChild = () => {
     if (!simulationInput) return;
-    const newChild = { birthYear: new Date().getFullYear(), plan: 'public' };
+    const newChild: Child = { birthYear: new Date().getFullYear(), plan: 'public' };
     setSimulationInput(prev => ({
       ...prev!,
       education: {
@@ -139,11 +141,13 @@ const App: React.FC = () => {
   };
 
   // シミュレーション結果の計算
-  const simulationResult = simulationInput ? calculateSimulation(simulationInput, simulationInput.lifeEvents) : null;
+  const simulationResult: BackendSimulationResult | null = simulationInput ? calculateSimulation(simulationInput, simulationInput.lifeEvents) : null;
 
   if (!user) {
     return (
-      <div className="flex justify-center items-center h-screen text-xl">認証情報を読み込み中...</div>
+      <div className="flex justify-center items-center h-screen">
+        <Auth auth={auth} />
+      </div>
     );
   }
 
@@ -156,64 +160,60 @@ const App: React.FC = () => {
         {user && <p className="text-xs text-slate-500 mt-2">UserID: {user.uid}</p>}
       </header>
 
-      {!user ? (
-        <Auth />
-      ) : (
-        <div className="w-full max-w-5xl bg-white p-4 sm:p-8 rounded-2xl shadow-xl">
-          <div className="flex justify-between items-start mb-6">
-            <p className="text-sm text-slate-600 leading-tight">
-              ようこそ、<br/>
-              <span className="font-semibold text-base">{user.isAnonymous ? 'ゲスト' : user.displayName || user.email || 'ユーザー'}</span> さん
-            </p>
-            <button
-              onClick={() => {}}
-              className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition duration-150 text-sm font-semibold"
-            >
-              ログアウト
-            </button>
-          </div>
+      <div className="w-full max-w-5xl bg-white p-4 sm:p-8 rounded-2xl shadow-xl">
+        <div className="flex justify-between items-start mb-6">
+          <p className="text-sm text-slate-600 leading-tight">
+            ようこそ、<br/>
+            <span className="font-semibold text-base">{user.isAnonymous ? 'ゲスト' : user.displayName || user.email || 'ユーザー'}</span> さん
+          </p>
+          <button
+            onClick={() => auth.signOut()}
+            className="px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition duration-150 text-sm font-semibold"
+          >
+            ログアウト
+          </button>
+        </div>
 
-          <PlanManager 
-            savedPlans={plans}
-            currentPlanId={selectedPlanId}
-            onSelectPlan={setSelectedPlanId}
-            onDeletePlan={deletePlan}
-            onCreateNewPlan={handleCreateNewPlan}
-          />
+        <PlanManager 
+          savedPlans={plans}
+          currentPlanId={selectedPlanId || undefined}
+          onSelectPlan={setSelectedPlanId}
+          onDeletePlan={deletePlan}
+          onCreateNewPlan={handleCreateNewPlan}
+        />
 
-          <InputForm
-            input={simulationInput}
-            onInputChange={handleInputChange}
-            onNestedChange={handleNestedInputChange}
-            onChildrenChange={handleChildrenChange}
-            onAddChild={handleAddChild}
-            onRemoveChild={handleRemoveChild}
-            onSubmit={() => {
+        <InputForm
+          input={simulationInput}
+          onInputChange={handleInputChange}
+          onNestedChange={handleNestedInputChange}
+          onChildrenChange={handleChildrenChange}
+          onAddChild={handleAddChild}
+          onRemoveChild={handleRemoveChild}
+          onSubmit={() => {
                 if(simulationInput) {
                     // ここで再計算のトリガーなど
                     toast.success("シミュレーションを再計算しました！");
                 }
             }}
-            onSave={handleSavePlan}
-            loading={isSaving}
-            onExport={() => { /* TODO: export logic */ }}
-            onImport={(e) => { /* TODO: import logic */ }}
-          />
+          onSave={handleSavePlan}
+          loading={isSaving}
+          onExport={() => { /* TODO: export logic */ }}
+          onImport={(e) => { /* TODO: import logic */ }}
+        />
 
-          <LifeEventForm 
-            lifeEvents={simulationInput?.lifeEvents || []}
-            onLifeEventsChange={handleUpdateLifeEvent}
-            currentAge={Number(simulationInput?.currentAge)}
-            lifeExpectancy={Number(simulationInput?.lifeExpectancy)}
-          />
+        <LifeEventForm 
+          lifeEvents={simulationInput?.lifeEvents || []}
+          onLifeEventsChange={handleUpdateLifeEvent}
+          currentAge={Number(simulationInput?.currentAge)}
+          lifeExpectancy={Number(simulationInput?.lifeExpectancy)}
+        />
 
-          {simulationResult && (
-            <div className="mt-8">
-              <SimulationResult result={simulationResult} />
-            </div>
-          )}
-        </div>
-      )}
+        {simulationResult && (
+          <div className="mt-8">
+            <SimulationResult result={simulationResult} />
+          </div>
+        )}
+      </div>
       <footer className="mt-16 mb-8 text-center text-sm text-slate-500">
         <p>&copy; {new Date().getFullYear()} ライフプランニング App. All rights reserved.</p>
         <p className="text-xs mt-1">これはデモンストレーション用のアプリケーションです。シミュレーション結果は将来を保証するものではありません。</p>

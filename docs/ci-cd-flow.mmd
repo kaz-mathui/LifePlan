@@ -1,27 +1,27 @@
 graph TD
-    subgraph "Trigger"
-        A["Git Push (v* tag)"] --> B{"Start CI/CD"};
-        PR["Pull Request (to main)"] --> B;
+    subgraph "トリガー"
+        A["Git Push (v* タグ)"] --> B{"CI/CD開始"};
+        PR["Pull Request (mainへ)"] --> B;
     end
 
-    subgraph "CI: Pull Request / Tag Push"
-        B --> C["Test Backend"];
-        B --> D["Test & Build Frontend"];
+    subgraph "CI: Pull Request / タグPush時"
+        B --> C["バックエンドのテスト"];
+        B --> D["フロントエンドのテスト & ビルド"];
     end
 
-    subgraph "CD: Tag Push Only"
-        C -- on success --> E{"Ready to Deploy"};
-        D -- on success --> E;
-        E --> F["Configure AWS & Login ECR"];
-        F --> G["Build & Push Backend Image to ECR"];
-        F --> H["Build & Push Frontend Image to ECR"];
+    subgraph "CD: タグPush時のみ"
+        C -- "成功" --> E{"デプロイ準備完了"};
+        D -- "成功" --> E;
+        E --> F["AWS設定 & ECRログイン"];
+        F --> G["バックエンドイメージをビルド & ECRへPush"];
+        F --> H["フロントエンドイメージをビルド & ECRへPush"];
     end
 
-    subgraph "Next Step"
-        I("ECR Image updated")
+    subgraph "次のステップ (手動)"
+        I("ECR イメージ更新完了")
         G --> I
         H --> I
-        I --> J["Update ECS Service to pull new image"]
+        I --> J["ECSサービスを更新して新イメージを適用"]
     end
 
     style J fill:#f9f,stroke:#333,stroke-width:2px 

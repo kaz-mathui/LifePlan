@@ -4,6 +4,7 @@ import FormSection from './FormSection';
 import Icon from './Icon';
 import { FaInfoCircle } from 'react-icons/fa';
 import Modal from './Modal';
+import AssetChart from './AssetChart';
 
 interface ResultItemProps {
   label: string;
@@ -29,7 +30,7 @@ const ResultItem: React.FC<ResultItemProps> = ({ label, value, unit = '', isEmph
 };
 
 interface SimulationResultComponentProps {
-  result: BackendSimulationResult | null;
+  result: BackendSimulationResult;
 }
 
 const DetailRow: React.FC<{label: string; value: number}> = ({ label, value }) => (
@@ -42,7 +43,11 @@ const DetailRow: React.FC<{label: string; value: number}> = ({ label, value }) =
 const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) => {
   const [selectedYear, setSelectedYear] = useState<SimulationResultYear | null>(null);
 
-  if (!result || !result.assetData || result.assetData.length === 0) return null;
+  const formatYen = (value: number) => {
+    return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(value);
+  };
+  
+  const finalSavings = result.assetData[result.assetData.length - 1]?.savings || 0;
 
   // リタイアまでの年数
   const yearsToRetirement = result.retirementAge - result.currentAge;
@@ -66,6 +71,29 @@ const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) 
 
   return (
     <>
+    <div className="mt-8 p-6 bg-slate-50 rounded-xl shadow-inner">
+      <h2 className="text-2xl font-bold text-center text-sky-800 mb-6">シミュレーション結果</h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-6">
+        <div className="p-4 bg-white rounded-lg shadow">
+          <p className="text-sm text-slate-500">最終資産</p>
+          <p className="text-2xl font-bold text-emerald-600">{formatYen(finalSavings)}</p>
+        </div>
+        <div className="p-4 bg-white rounded-lg shadow">
+          <p className="text-sm text-slate-500">想定寿命</p>
+          <p className="text-2xl font-bold">{result.lifeExpectancy} 歳</p>
+        </div>
+        <div className="p-4 bg-white rounded-lg shadow">
+          <p className="text-sm text-slate-500">リタイア年齢</p>
+          <p className="text-2xl font-bold">{result.retirementAge} 歳</p>
+        </div>
+      </div>
+
+      <div className="h-96 bg-white p-4 rounded-lg shadow">
+        <AssetChart data={result.assetData} />
+      </div>
+    </div>
+    
     <div className="mt-8 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
       <h2 className="text-2xl font-semibold text-sky-700 mb-6 border-b pb-2">シミュレーション結果</h2>
         

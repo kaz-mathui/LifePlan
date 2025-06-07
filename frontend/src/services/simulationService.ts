@@ -1,6 +1,6 @@
 // フロントエンド用に調整したシミュレーションサービス
 
-import { SimulationInputData, SimulationResult, LifeEvent } from '../types';
+import { SimulationInputData, SimulationResult, LifeEvent, BackendSimulationResult } from '../types';
 
 // 教育費の標準データ (万円/年)
 const EDUCATION_COSTS = {
@@ -32,14 +32,18 @@ const calculateAnnualLoanPayment = (loanAmount: number, interestRate: number, lo
 };
 
 // メインの計算ロジック
-export function calculateSimulation(input: SimulationInputData, lifeEvents: LifeEvent[]): SimulationResult[] {
+export const calculateSimulation = (
+  input: SimulationInputData, 
+  lifeEvents: LifeEvent[]
+): BackendSimulationResult => {
+
   const assetData: SimulationResult[] = [];
+  let currentSavings = Number(input.currentSavings);
   
   // inputから数値を取得（空文字列や未定義は0として扱う）
   const currentAge = Number(input.currentAge) || 0;
   const retirementAge = Number(input.retirementAge) || 0;
   const lifeExpectancy = Number(input.lifeExpectancy) || 100;
-  let currentSavings = Number(input.currentSavings) || 0;
   let annualIncome = Number(input.annualIncome) || 0;
   const salaryIncreaseRate = Number(input.salaryIncreaseRate) || 0;
   const investmentRatio = Number(input.investmentRatio) || 0;
@@ -102,7 +106,7 @@ export function calculateSimulation(input: SimulationInputData, lifeEvents: Life
         currentSavings = 0; // 資産はマイナスにならない
     }
 
-    assetData.push({
+    const currentYearResult: SimulationResult = {
       year,
       age,
       income,
@@ -111,8 +115,16 @@ export function calculateSimulation(input: SimulationInputData, lifeEvents: Life
       savings: currentSavings,
       incomeDetails,
       expenseDetails,
-    });
+    };
+    assetData.push(currentYearResult);
   }
 
-  return assetData;
-} 
+  return {
+    assetData,
+    finalSavings: currentSavings,
+    lifeExpectancy: Number(input.lifeExpectancy),
+    retirementAge: Number(input.retirementAge),
+    currentAge: Number(input.currentAge),
+    pensionStartDate: Number(input.pensionStartDate),
+  };
+}; 

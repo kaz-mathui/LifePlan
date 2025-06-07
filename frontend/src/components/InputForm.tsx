@@ -3,11 +3,12 @@ import { SimulationInputData } from '../types';
 import FormSection from './FormSection';
 import { FaCalculator, FaSave, FaFileImport, FaFileExport } from 'react-icons/fa';
 import Icon from './Icon';
+import { NestedSectionKey } from '../App';
 
 interface InputFormProps {
   input: SimulationInputData;
   onInputChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
-  onNestedChange: (section: keyof SimulationInputData, field: string, value: any) => void;
+  onNestedChange: (section: NestedSectionKey, field: string, value: any) => void;
   onChildrenChange: (index: number, field: string, value: any) => void;
   onAddChild: () => void;
   onRemoveChild: (index: number) => void;
@@ -46,7 +47,7 @@ const InputField: React.FC<InputFieldProps> = ({ label, unit, ...props }) => (
 
 
 const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedChange, onChildrenChange, onAddChild, onRemoveChild, onSubmit, onSave, loading, onExport, onImport }) => {
-  const handleNestedInputChange = (section: keyof SimulationInputData) => (e: ChangeEvent<HTMLInputElement>) => {
+  const handleNestedInputChange = (section: NestedSectionKey) => (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
     const processedValue = type === 'number' ? (value === '' ? '' : Number(value)) : value;
     onNestedChange(section, name, processedValue);
