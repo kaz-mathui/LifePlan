@@ -46,9 +46,11 @@ interface InputFormProps {
   loading: boolean;
   planName: string;
   onPlanNameChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onExport: () => void;
+  onImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
 
-const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onSubmit, onSave, loading, planName, onPlanNameChange }) => {
+const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onSubmit, onSave, loading, planName, onPlanNameChange, onExport, onImport }) => {
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     onSubmit();
@@ -96,6 +98,21 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onSubmit, o
           className="w-full sm:w-auto flex-1 px-6 py-3 bg-emerald-500 text-white font-semibold rounded-lg shadow-md hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 transition duration-150 disabled:opacity-50"
         >
           {loading ? '保存中...' : '入力内容を保存'}
+        </button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 mt-4 pt-4 border-t border-slate-200">
+        <label className="w-full sm:w-auto flex-1 cursor-pointer px-6 py-3 bg-slate-600 text-white font-semibold rounded-lg shadow-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition duration-150 text-center">
+          インポート (CSV)
+          <input type="file" accept=".csv" onChange={onImport} className="hidden" />
+        </label>
+        <button
+          type="button"
+          onClick={onExport}
+          disabled={loading}
+          className="w-full sm:w-auto flex-1 px-6 py-3 bg-slate-600 text-white font-semibold rounded-lg shadow-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition duration-150 disabled:opacity-50"
+        >
+          エクスポート (CSV)
         </button>
       </div>
     </form>

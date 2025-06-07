@@ -54,67 +54,7 @@ export function calculateSimulation(input: SimulationInput): SimulationResult {
     lifeEvents
   } = input;
 
-  // 入力値のバリデーション
-  const errors: string[] = [];
-  if (currentAge < 0) errors.push("現在の年齢が不正です。");
-  if (retirementAge < 0) errors.push("退職年齢が不正です。");
-  if (lifeExpectancy < 0) errors.push("寿命が不正です。");
-  if (currentSavings < 0) errors.push("現在の貯蓄額が不正です。");
-  if (annualIncome < 0) errors.push("年間収入が不正です。");
-  if (monthlyExpenses < 0) errors.push("毎月の支出が不正です。");
-  if (investmentRatio < 0 || investmentRatio > 100) errors.push("投資比率が不正です（0-100）。");
-  if (annualReturn < -100) errors.push("年間リターンが不正です（-100以上）。"); // マイナスリターンも許容
-  if (pensionAmountPerYear < 0) errors.push("年金年額が不正です。");
-  if (pensionStartDate < 0) errors.push("年金受給開始年齢が不正です。");
-  if (severancePay < 0) errors.push("退職金が不正です。");
-
-  if (currentAge >= retirementAge) errors.push("退職年齢は現在の年齢より大きく設定してください。");
-  if (retirementAge > lifeExpectancy) errors.push("退職年齢が寿命を超えています。");
-  if (pensionStartDate > lifeExpectancy) errors.push("年金受給開始年齢が寿命を超えています。");
-  // retirementAge <= pensionStartDate のバリデーションはフロントエンド側にあるので、ここでは一旦除外 (または必要に応じて追加)
-  if (pensionStartDate <= retirementAge && pensionAmountPerYear > 0 && retirementAge !== pensionStartDate) {
-    // 年金開始が退職より早いか同時だが、厳密には退職後の年金開始を想定しているため、状況による
-    // console.warn("年金受給開始年齢が退職年齢以前に設定されています。");
-  }
-
-  // lifeEvents のバリデーション
-  if (lifeEvents) {
-    lifeEvents.forEach((event, index) => {
-      if (!event || typeof event.age !== 'number' || typeof event.amount !== 'number' || !event.type || !event.frequency) {
-        errors.push(`ライフイベント ${index + 1} (${event?.description || '不明'}): データ形式が不正です。`);
-        return; // このイベントの以降のチェックはスキップ
-      }
-      if (event.age < currentAge || event.age > lifeExpectancy) {
-        errors.push(`ライフイベント ${index + 1} (${event.description}): 発生年齢 ( ${event.age} ) が不正です。現在の年齢 (${currentAge}) から寿命 (${lifeExpectancy}) の範囲で設定してください。`);
-      }
-      if (event.amount < 0) {
-        errors.push(`ライフイベント ${index + 1} (${event.description}): 金額が不正です。`);
-      }
-      if (event.frequency === 'annual' && event.endAge !== undefined && event.endAge !== null && event.endAge < event.age) {
-        errors.push(`ライフイベント ${index + 1} (${event.description}): 終了年齢が発生年齢より前です。`);
-      }
-    });
-  }
-
-  if (errors.length > 0) {
-    const errorMessage = errors.join("\n");
-    // NODE_ENV が 'test' でない場合のみ console.error を実行
-    if (process.env.NODE_ENV !== 'test') {
-      console.error("Invalid input for simulation:", errorMessage, input);
-    }
-    // フロントエンドのBackendSimulationResultのmessageフィールドに合わせる
-    // また、エラー時でもassetDataは空配列を返すようにする
-    return {
-        yearsToRetirement: 0,
-        projectedRetirementSavings: 0,
-        annualSavingsCurrentPace: 0,
-        targetRetirementFund: 0,
-        message: `入力エラー: ${errorMessage}`,
-        suggestion: "入力値を確認してください。",
-        assetData: [] 
-    };
-  }
-
+  // ルーティング側でzodによるバリデーションが追加されたため、ここでのバリデーションは不要
   // console.log("Calculating simulation with input:", JSON.stringify(input, null, 2));
 
   const assetDataResult: AssetDataPoint[] = [];

@@ -11,6 +11,8 @@ import PlanManager from './components/PlanManager';
 import toast, { Toaster } from 'react-hot-toast';
 import { usePlanData } from './hooks/usePlanData';
 import { LifeEvent, SimulationInputData, BackendSimulationResult, PlanListItem } from './types';
+import { exportPlanToCsv, importPlanFromCsv } from './utils/csvUtils';
+import { API_ENDPOINTS } from './constants';
 
 // グローバル変数 __app_id の型 (firebase.tsでも同様の定義があるが、念のため)
 declare global {
@@ -173,7 +175,7 @@ const App: React.FC = () => {
     setError(null);
     setSimulationResult(null);
 
-    const { currentAge, retirementAge, lifeExpectancy, currentSavings, annualIncome, monthlyExpenses, investmentRatio, annualReturn, pensionAmountPerYear, pensionStartDate, severancePay, lifeEvents, planName } = simulationInput;
+    const { lifeEvents, planName } = simulationInput;
 
     if (!planName.trim()) {
         toast.error("プラン名を入力してください。");
@@ -181,60 +183,32 @@ const App: React.FC = () => {
         return;
     }
 
-    if ([currentAge, retirementAge, lifeExpectancy, currentSavings, annualIncome, monthlyExpenses, investmentRatio, annualReturn, pensionAmountPerYear, pensionStartDate, severancePay].some(val => val === '' || (typeof val === 'number' && val < 0))) {
-        const msg = "すべての項目を正しく入力してください（0以上の数値を入力）。";
-        setError(msg);
-        toast.error(msg);
-        setSimulationLoading(false);
-        return;
-    }
-    if (typeof currentAge !== 'number' || typeof retirementAge !== 'number' || typeof lifeExpectancy !== 'number' || typeof pensionStartDate !== 'number') {
-        const msg = "年齢に関する項目は数値を入力してください。";
-        setError(msg);
-        toast.error(msg);
-        setSimulationLoading(false);
-        return;
-    }
-
-    if (currentAge >= retirementAge) {
-        const msg = "リタイア目標年齢は現在の年齢より大きく設定してください。";
-        setError(msg);
-        toast.error(msg);
-        setSimulationLoading(false);
-        return;
-    }
-    if (retirementAge > pensionStartDate) {
-        const msg = "年金受給開始年齢はリタイア目標年齢以降に設定してください。";
-        setError(msg);
-        toast.error(msg);
-        setSimulationLoading(false);
-        return;
-    }
-    if (pensionStartDate >= lifeExpectancy) { 
-        const msg = "寿命は年金受給開始年齢より大きく設定してください。";
-        setError(msg);
-        toast.error(msg);
-        setSimulationLoading(false);
-        return;
-    }
-
     try {
-      const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001/api/simulation';
+      const backendUrl = API_ENDPOINTS.SIMULATION;
+      
+      const sanitizedLifeEvents = (lifeEvents || []).map(event => ({
+        ...event,
+        endAge: (event.endAge as any) == null || (event.endAge as any) === '' ? undefined : Number(event.endAge)
+      }));
+
       const requestBody = {
-        currentAge: Number(currentAge),
-        retirementAge: Number(retirementAge),
-        lifeExpectancy: Number(lifeExpectancy),
-        currentSavings: Number(currentSavings),
-        annualIncome: Number(annualIncome),
-        monthlyExpenses: Number(monthlyExpenses),
-        investmentRatio: Number(investmentRatio),
-        annualReturn: Number(annualReturn),
-        pensionAmountPerYear: Number(pensionAmountPerYear),
-        pensionStartDate: Number(pensionStartDate),
-        severancePay: Number(severancePay),
-        lifeEvents: lifeEvents, 
+        ...simulationInput,
+        currentAge: Number(simulationInput.currentAge),
+        retirementAge: Number(simulationInput.retirementAge),
+        lifeExpectancy: Number(simulationInput.lifeExpectancy),
+        currentSavings: Number(simulationInput.currentSavings),
+        annualIncome: Number(simulationInput.annualIncome),
+        monthlyExpenses: Number(simulationInput.monthlyExpenses),
+        investmentRatio: Number(simulationInput.investmentRatio),
+        annualReturn: Number(simulationInput.annualReturn),
+        pensionAmountPerYear: Number(simulationInput.pensionAmountPerYear),
+        pensionStartDate: Number(simulationInput.pensionStartDate),
+        severancePay: Number(simulationInput.severancePay),
+        lifeEvents: sanitizedLifeEvents, 
       };
+      
       console.log("Request body for simulation API:", JSON.stringify(requestBody, null, 2)); 
+      
       const response = await fetch(backendUrl, {
         method: 'POST',
         headers: {
@@ -243,12 +217,25 @@ const App: React.FC = () => {
         body: JSON.stringify(requestBody),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "APIからのエラーレスポンスが不正です。" }));
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
+      const data = await response.json();
 
-      const data: BackendSimulationResult = await response.json();
+      if (!response.ok) {
+        if (data && data.details) {
+          const errorMessages = Object.entries(data.details).map(([field, messages]) => 
+            `${field}: ${(messages as string[]).join(', ')}`
+          );
+          const fullErrorMessage = `入力エラー:\n- ${errorMessages.join('\n- ')}`;
+          toast.error(fullErrorMessage, {
+            duration: 6000,
+            style: { whiteSpace: 'pre-line', maxWidth: '500px' }
+          });
+          setError(`入力値が無効です。詳細は通知を確認してください。`);
+        } else {
+          throw new Error(data.error || `HTTP error! status: ${response.status}`);
+        }
+        return;
+      }
+      
       console.log("Simulation API response data:", data); 
       if (data.assetData) {
         console.log("Received assetData:", JSON.stringify(data.assetData, null, 2)); 
@@ -256,8 +243,9 @@ const App: React.FC = () => {
       setSimulationResult(data);
     } catch (err: any) {
       console.error("Simulation API error:", err);
-      setError(`シミュレーションの実行に失敗しました: ${err.message || 'Unknown error'}`);
-      toast.error(`シミュレーションの実行に失敗しました: ${err.message || 'Unknown error'}`);
+      const errorMessage = `シミュレーションの実行に失敗しました: ${err.message || 'Unknown error'}`;
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setSimulationLoading(false);
     }
@@ -294,6 +282,38 @@ const App: React.FC = () => {
         setError("プランの読み込みに失敗しました: " + result.error);
         toast.error("プランの読み込みに失敗しました: " + result.error);
       }
+    }
+  };
+
+  const handleExport = () => {
+    try {
+      exportPlanToCsv(simulationInput);
+      toast.success('プランをCSVファイルにエクスポートしました。');
+    } catch (error: any) {
+      toast.error('エクスポートに失敗しました: ' + error.message);
+    }
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    try {
+      const importedData = await importPlanFromCsv(file);
+      setSimulationInput(prev => ({
+        ...initialSimulationInput,
+        ...importedData,
+        id: undefined,
+        planName: importedData.planName || 'インポートされたプラン'
+      }));
+      setSimulationResult(null);
+      toast.success('プランをインポートしました。内容を確認して保存してください。');
+    } catch (error: any) {
+      toast.error('インポートに失敗しました: ' + error.message);
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -394,6 +414,8 @@ const App: React.FC = () => {
             loading={simulationLoading || isSavingPlan || isLoadingPlans || isLoadingSpecificPlan || isDeletingPlan}
             planName={simulationInput.planName} 
             onPlanNameChange={handlePlanNameChange} 
+            onExport={handleExport}
+            onImport={handleImport}
           />
 
           <LifeEventFormComponent 
