@@ -33,14 +33,50 @@ const App: React.FC = () => {
     currentAge: 30,
     retirementAge: 65,
     lifeExpectancy: 95,
-    currentSavings: 5000000,
+    // Income
     annualIncome: 6000000,
-    monthlyExpenses: 250000,
+    salaryIncreaseRate: 2, // 昇給率(%)
+    // Assets
+    currentSavings: 5000000,
     investmentRatio: 50,
     annualReturn: 3,
+    severancePay: 0,
+    // Expenses
+    monthlyExpenses: 250000,
     pensionAmountPerYear: 2000000,
     pensionStartDate: 65,
-    severancePay: 0,
+    // Detailed Expenses
+    housing: {
+      hasLoan: false,
+      propertyValue: 40000000,
+      downPayment: 10000000,
+      loanAmount: 30000000,
+      interestRate: 1.5,
+      loanTerm: 35,
+      startAge: 35,
+      propertyTaxRate: 0.3,
+    },
+    education: {
+      hasChildren: false,
+      children: [],
+    },
+    car: {
+      hasCar: false,
+      price: 3000000,
+      downPayment: 1000000,
+      loanAmount: 2000000,
+      loanTerm: 5,
+      interestRate: 2.5,
+      maintenanceCost: 300000,
+      purchaseAge: 30,
+      replacementCycle: 10,
+    },
+    senior: {
+      nursingCareStartAge: 80,
+      nursingCareAnnualCost: 1000000,
+      funeralCost: 2000000,
+    },
+    // Other events
     lifeEvents: [],
   };
   const [simulationInput, setSimulationInput] = useState<SimulationInputData>(initialSimulationInput);
@@ -65,6 +101,37 @@ const App: React.FC = () => {
     isDeletingPlan,
     deletePlanError
   } = usePlanData({ db: dbInstance, appId, userId });
+
+  const createMergedPlan = (loadedData: Partial<SimulationInputData>, planId?: string): SimulationInputData => {
+    const base = initialSimulationInput;
+    // Ensure loadedData.id or the passed planId is used.
+    const dataWithId = { ...loadedData, id: loadedData.id ?? planId };
+
+    return {
+      ...base,
+      ...dataWithId,
+      housing: {
+        ...base.housing,
+        ...(dataWithId.housing || {}),
+      },
+      education: {
+        ...base.education,
+        ...(dataWithId.education || {}),
+        // Ensure children is always an array
+        children: dataWithId.education?.children || base.education.children,
+      },
+      car: {
+        ...base.car,
+        ...(dataWithId.car || {}),
+      },
+      senior: {
+        ...base.senior,
+        ...(dataWithId.senior || {}),
+      },
+      // Ensure lifeEvents is always an array
+      lifeEvents: dataWithId.lifeEvents || base.lifeEvents,
+    };
+  };
 
   // 1. 認証状態の監視とユーザー情報の設定に特化したuseEffect
   useEffect(() => {
@@ -112,13 +179,7 @@ const App: React.FC = () => {
             const latestPlanId = plansResult.plans[0].id;
             const specificPlanResult = await loadSpecificPlan(latestPlanId);
             if (specificPlanResult.success && specificPlanResult.planData) {
-              const loadedPlanData = specificPlanResult.planData;
-              setSimulationInput(prev => ({ 
-                ...initialSimulationInput, 
-                ...prev, 
-                ...loadedPlanData,
-                id: loadedPlanData.id ?? latestPlanId 
-              }));
+              setSimulationInput(createMergedPlan(specificPlanResult.planData, latestPlanId));
             } else if (specificPlanResult.notFound) {
               toast.error(`プラン(ID: ${latestPlanId})が見つかりませんでした。新しいプランを開始します。`);
               handleCreateNewPlan();
@@ -143,20 +204,69 @@ const App: React.FC = () => {
       handleCreateNewPlan();
     }
     // isAuthReady, userId, userのいずれかが変更されたときにこのeffectを実行
-  }, [isAuthReady, userId, user]);
+  }, [isAuthReady, userId, user, loadPlans, loadSpecificPlan]);
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
+    const processedValue = type === 'number' ? (value === '' ? '' : Number(value)) : value;
+
     setSimulationInput(prev => ({
       ...prev,
-      [name]: type === 'number' ? (value === '' ? '' : Number(value)) : value
+      [name]: processedValue,
+    }));
+  };
+  
+  const handleNestedInputChange = (
+    section: keyof SimulationInputData,
+    field: string,
+    value: any
+  ) => {
+    setSimulationInput(prev => {
+      const sectionData = prev[section];
+      if (typeof sectionData === 'object' && sectionData !== null && !Array.isArray(sectionData)) {
+        return {
+          ...prev,
+          [section]: {
+            ...sectionData,
+            [field]: value,
+          },
+        };
+      }
+      return prev;
+    });
+  };
+
+  const handleChildrenChange = (index: number, field: string, value: any) => {
+    setSimulationInput(prev => {
+      const updatedChildren = [...prev.education.children];
+      updatedChildren[index] = { ...updatedChildren[index], [field]: value };
+      return {
+        ...prev,
+        education: {
+          ...prev.education,
+          children: updatedChildren,
+        },
+      };
+    });
+  };
+
+  const addChild = () => {
+    setSimulationInput(prev => ({
+      ...prev,
+      education: {
+        ...prev.education,
+        children: [...prev.education.children, { birthYear: new Date().getFullYear(), plan: 'public' }],
+      },
     }));
   };
 
-  const handlePlanNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const removeChild = (index: number) => {
     setSimulationInput(prev => ({
       ...prev,
-      planName: e.target.value
+      education: {
+        ...prev.education,
+        children: prev.education.children.filter((_, i) => i !== index),
+      },
     }));
   };
 
@@ -206,26 +316,74 @@ const App: React.FC = () => {
     try {
       const backendUrl = API_ENDPOINTS.SIMULATION;
       
-      const sanitizedLifeEvents = (lifeEvents || []).map(event => ({
-        ...event,
-        endAge: (event.endAge as any) == null || (event.endAge as any) === '' ? undefined : Number(event.endAge)
-      }));
-
-      const requestBody = {
-        ...simulationInput,
-        currentAge: Number(simulationInput.currentAge),
-        retirementAge: Number(simulationInput.retirementAge),
-        lifeExpectancy: Number(simulationInput.lifeExpectancy),
-        currentSavings: Number(simulationInput.currentSavings),
-        annualIncome: Number(simulationInput.annualIncome),
-        monthlyExpenses: Number(simulationInput.monthlyExpenses),
-        investmentRatio: Number(simulationInput.investmentRatio),
-        annualReturn: Number(simulationInput.annualReturn),
-        pensionAmountPerYear: Number(simulationInput.pensionAmountPerYear),
-        pensionStartDate: Number(simulationInput.pensionStartDate),
-        severancePay: Number(simulationInput.severancePay),
-        lifeEvents: sanitizedLifeEvents, 
+      const toNumber = (val: any): number => {
+        if (val === null || val === undefined || val === '') {
+            return 0;
+        }
+        const num = Number(val);
+        return isNaN(num) ? 0 : num;
       };
+
+      const sanitizedInput = {
+        ...simulationInput,
+        currentAge: toNumber(simulationInput.currentAge),
+        retirementAge: toNumber(simulationInput.retirementAge),
+        lifeExpectancy: toNumber(simulationInput.lifeExpectancy),
+        annualIncome: toNumber(simulationInput.annualIncome),
+        salaryIncreaseRate: toNumber(simulationInput.salaryIncreaseRate),
+        currentSavings: toNumber(simulationInput.currentSavings),
+        investmentRatio: toNumber(simulationInput.investmentRatio),
+        annualReturn: toNumber(simulationInput.annualReturn),
+        severancePay: toNumber(simulationInput.severancePay),
+        monthlyExpenses: toNumber(simulationInput.monthlyExpenses),
+        pensionAmountPerYear: toNumber(simulationInput.pensionAmountPerYear),
+        pensionStartDate: toNumber(simulationInput.pensionStartDate),
+        housing: {
+          ...simulationInput.housing,
+          propertyValue: toNumber(simulationInput.housing.propertyValue),
+          downPayment: toNumber(simulationInput.housing.downPayment),
+          loanAmount: toNumber(simulationInput.housing.loanAmount),
+          interestRate: toNumber(simulationInput.housing.interestRate),
+          loanTerm: toNumber(simulationInput.housing.loanTerm),
+          startAge: toNumber(simulationInput.housing.startAge),
+          propertyTaxRate: toNumber(simulationInput.housing.propertyTaxRate),
+        },
+        car: {
+          ...simulationInput.car,
+          price: toNumber(simulationInput.car.price),
+          downPayment: toNumber(simulationInput.car.downPayment),
+          loanAmount: toNumber(simulationInput.car.loanAmount),
+          loanTerm: toNumber(simulationInput.car.loanTerm),
+          interestRate: toNumber(simulationInput.car.interestRate),
+          maintenanceCost: toNumber(simulationInput.car.maintenanceCost),
+          purchaseAge: toNumber(simulationInput.car.purchaseAge),
+          replacementCycle: toNumber(simulationInput.car.replacementCycle),
+        },
+        senior: {
+            ...simulationInput.senior,
+            nursingCareStartAge: toNumber(simulationInput.senior.nursingCareStartAge),
+            nursingCareAnnualCost: toNumber(simulationInput.senior.nursingCareAnnualCost),
+            funeralCost: toNumber(simulationInput.senior.funeralCost),
+        },
+        education: {
+          ...simulationInput.education,
+          children: simulationInput.education.children.map(child => ({
+            ...child,
+            birthYear: toNumber(child.birthYear),
+            customAmount: toNumber(child.customAmount || 0),
+          })),
+        },
+        lifeEvents: (simulationInput.lifeEvents || []).map(event => ({
+          id: event.id,
+          eventName: event.description,
+          type: event.type,
+          amount: toNumber(event.amount),
+          startAge: toNumber(event.startAge),
+          endAge: event.endAge == null || event.endAge === '' ? undefined : Number(event.endAge),
+        })),
+      };
+
+      const requestBody = sanitizedInput;
       
       console.log("Request body for simulation API:", JSON.stringify(requestBody, null, 2)); 
       
@@ -257,9 +415,6 @@ const App: React.FC = () => {
       }
       
       console.log("Simulation API response data:", data); 
-      if (data.assetData) {
-        console.log("Received assetData:", JSON.stringify(data.assetData, null, 2)); 
-      }
       setSimulationResult(data);
     } catch (err: any) {
       console.error("Simulation API error:", err);
@@ -287,13 +442,7 @@ const App: React.FC = () => {
       setError(null);
       const result = await loadSpecificPlan(planId);
       if (result.success && result.planData) {
-        const loadedPlanData = result.planData;
-        setSimulationInput(prev => ({ 
-          ...initialSimulationInput, 
-          ...prev, 
-          ...loadedPlanData,
-          id: loadedPlanData.id ?? planId
-        }));
+        setSimulationInput(createMergedPlan(result.planData, planId));
         setSimulationResult(null);
       } else if (result.notFound) {
         toast.error(`プラン(ID: ${planId})が見つかりませんでした。新しいプランを開始します。`);
@@ -322,12 +471,12 @@ const App: React.FC = () => {
 
     try {
       const importedData = await importPlanFromCsv(file);
-      setSimulationInput(prev => ({
-        ...initialSimulationInput,
-        ...importedData,
-        id: undefined,
-        planName: importedData.planName || 'インポートされたプラン'
-      }));
+      const newPlan = createMergedPlan(importedData);
+      setSimulationInput({
+        ...newPlan,
+        id: undefined, // インポート時は常に新しいプランとして扱う
+        planName: newPlan.planName || 'インポートされたプラン',
+      });
       setSimulationResult(null);
       toast.success('プランをインポートしました。内容を確認して保存してください。');
     } catch (error: any) {
@@ -351,13 +500,7 @@ const App: React.FC = () => {
           if (userId) {
             const loadResult = await loadSpecificPlan(latestPlan.id);
             if (loadResult.success && loadResult.planData) {
-              const loadedPlanData = loadResult.planData;
-              setSimulationInput(prev => ({ 
-                ...initialSimulationInput, 
-                ...prev, 
-                ...loadedPlanData,
-                id: loadedPlanData.id ?? latestPlan.id
-              }));
+              setSimulationInput(createMergedPlan(loadResult.planData, latestPlan.id));
               setSimulationResult(null);
             } else {
               toast.error("削除後のプラン再読み込みに失敗しました。");
@@ -419,11 +562,13 @@ const App: React.FC = () => {
           <InputFormComponent
             input={simulationInput}
             onInputChange={handleInputChange}
+            onNestedChange={handleNestedInputChange}
+            onChildrenChange={handleChildrenChange}
+            onAddChild={addChild}
+            onRemoveChild={removeChild}
             onSubmit={handleSimulate}
             onSave={handleSaveData}
             loading={simulationLoading || isSavingPlan || isLoadingPlans || isLoadingSpecificPlan || isDeletingPlan}
-            planName={simulationInput.planName} 
-            onPlanNameChange={handlePlanNameChange} 
             onExport={handleExport}
             onImport={handleImport}
           />
@@ -431,8 +576,8 @@ const App: React.FC = () => {
           <LifeEventFormComponent 
             lifeEvents={simulationInput.lifeEvents}
             onLifeEventsChange={handleLifeEventsChange}
-            currentAge={simulationInput.currentAge}
-            lifeExpectancy={simulationInput.lifeExpectancy}
+            currentAge={Number(simulationInput.currentAge)}
+            lifeExpectancy={Number(simulationInput.lifeExpectancy)}
           />
 
           {(error || saveError || loadPlansError || loadSpecificPlanError || deletePlanError) && (

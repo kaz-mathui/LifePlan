@@ -1,182 +1,230 @@
-export interface SimulationInput {
-  currentAge: number;
-  retirementAge: number;
-  lifeExpectancy: number;
-  currentSavings: number;
-  annualIncome: number;
-  monthlyExpenses: number;
-  investmentRatio: number; // (0-100)
-  annualReturn: number;    // (%)
-  pensionAmountPerYear: number;
-  pensionStartDate: number;
-  severancePay: number;
-  lifeEvents: LifeEvent[];
-}
+import { SimulationInputData, SimulationResult, BackendSimulationResult } from '../types';
 
-export interface SimulationResult {
-  yearsToRetirement: number;
-  projectedRetirementSavings: number;
-  annualSavingsCurrentPace: number;
-  targetRetirementFund?: number;
-  message: string;
-  suggestion?: string;
-  assetData: AssetDataPoint[];
-}
+// 教育費の標準データ (万円/年) - 出典: 文部科学省「子供の学習費調査」等を参考に簡略化
+const EDUCATION_COSTS = {
+  public: {
+    elementary: 40,   // 小学校
+    middle: 50,     // 中学校
+    high: 50,       // 高校
+    university: 100,  // 国公立大学
+  },
+  private_liberal: { // 大学私立文系
+    elementary: 160,
+    middle: 140,
+    high: 100,
+    university: 150,
+  },
+  private_science: { // 大学私立理系
+    elementary: 160,
+    middle: 140,
+    high: 100,
+    university: 180,
+  },
+};
 
-export interface LifeEvent {
-  id: string;
-  age: number;
-  description: string;
-  type: 'income' | 'expense';
-  amount: number;
-  frequency: 'one-time' | 'annual';
-  endAge?: number;
-}
+const getEducationCost = (age: number, plan: keyof typeof EDUCATION_COSTS): number => {
+  if (age >= 7 && age <= 12) return EDUCATION_COSTS[plan].elementary * 10000;
+  if (age >= 13 && age <= 15) return EDUCATION_COSTS[plan].middle * 10000;
+  if (age >= 16 && age <= 18) return EDUCATION_COSTS[plan].high * 10000;
+  if (age >= 19 && age <= 22) return EDUCATION_COSTS[plan].university * 10000;
+  return 0;
+};
 
-export interface AssetDataPoint {
-  age: number;
-  savings: number;
-  income: number;
-  expenses: number;
-}
+// 元利均等返済の年間返済額を計算するヘルパー関数
+const calculateAnnualLoanPayment = (loanAmount: number, interestRate: number, loanTerm: number): number => {
+  if (loanAmount <= 0 || interestRate < 0 || loanTerm <= 0) return 0;
+  
+  const monthlyRate = interestRate / 100 / 12;
+  const numberOfPayments = loanTerm * 12;
 
-/**
- * ライフプランシミュレーション計算を行う
- * @param {SimulationInput} input - 入力データ
- * @returns {SimulationResult} シミュレーション結果
- */
-export function calculateSimulation(input: SimulationInput): SimulationResult {
+  if (monthlyRate === 0) {
+    return loanAmount / loanTerm;
+  }
+
+  const monthlyPayment = loanAmount * (monthlyRate * Math.pow(1 + monthlyRate, numberOfPayments)) / (Math.pow(1 + monthlyRate, numberOfPayments) - 1);
+  return monthlyPayment * 12;
+};
+
+export function calculateSimulation(input: SimulationInputData): BackendSimulationResult {
   const {
-    currentAge, retirementAge, lifeExpectancy,
-    currentSavings, annualIncome, monthlyExpenses,
-    investmentRatio, annualReturn,
-    pensionAmountPerYear, pensionStartDate, severancePay,
-    lifeEvents
+    currentAge, retirementAge, lifeExpectancy, currentSavings, annualIncome,
+    monthlyExpenses, investmentRatio, annualReturn, pensionAmountPerYear,
+    pensionStartDate, severancePay, lifeEvents, housing, education, car, senior,
+    salaryIncreaseRate
   } = input;
 
-  // ルーティング側でzodによるバリデーションが追加されたため、ここでのバリデーションは不要
-  // console.log("Calculating simulation with input:", JSON.stringify(input, null, 2));
-
-  const assetDataResult: AssetDataPoint[] = [];
+  const assetData: SimulationResult[] = [];
   let currentYearSavings = currentSavings;
-  let totalAccruedIncome = 0;
-  let totalAccruedExpenses = 0;
+  let currentAnnualIncome = annualIncome;
+  let housingLoanRemainingTerm = housing.hasLoan ? housing.loanTerm : 0;
+  let carLoanRemainingTerm = car.hasCar ? car.loanTerm : 0;
+  
+  const annualHousingLoanPayment = housing.hasLoan ? calculateAnnualLoanPayment(housing.loanAmount, housing.interestRate, housing.loanTerm) : 0;
+  const annualCarLoanPayment = car.hasCar ? calculateAnnualLoanPayment(car.loanAmount, car.interestRate, car.loanTerm) : 0;
 
-  // 初年度 (currentAge) の初期状態をassetDataに追加
-  // この時点では収入・支出はまだ発生していないので0とするか、初年度の活動を見込むか設計による。
-  // ここでは初年度の活動後の年末資産を計算するため、ループ開始前に初期貯蓄のみを記録するのは避ける。
-  // ループ内で currentAge の年末資産を計算する。
+  const summaryEvents: string[] = [];
 
   for (let age = currentAge; age <= lifeExpectancy; age++) {
     let yearlyIncome = 0;
     let yearlyExpenses = monthlyExpenses * 12;
+    const incomeDetails: Record<string, number> = {};
+    const expenseDetails: Record<string, number> = { '基本生活費': monthlyExpenses * 12 };
 
-    // ライフイベントによる収入・支出の変動
-    if (lifeEvents && lifeEvents.length > 0) {
-      lifeEvents.forEach(event => {
-        const eventAmount = Number(event.amount); //念のため数値に変換
-        if (event.frequency === 'one-time' && event.age === age) {
-          if (event.type === 'income') {
-            yearlyIncome += eventAmount;
-            // console.log(`Age ${age}: Life event (one-time income) - ${event.description}, Amount: ${eventAmount}`);
-          } else {
-            yearlyExpenses += eventAmount;
-            // console.log(`Age ${age}: Life event (one-time expense) - ${event.description}, Amount: ${eventAmount}`);
-          }
-        } else if (event.frequency === 'annual' && event.age <= age && (event.endAge === undefined || event.endAge === null || event.endAge >= age)) {
-          if (event.type === 'income') {
-            yearlyIncome += eventAmount;
-            // console.log(`Age ${age}: Life event (annual income) - ${event.description}, Amount: ${eventAmount}`);
-          } else {
-            yearlyExpenses += eventAmount;
-            // console.log(`Age ${age}: Life event (annual expense) - ${event.description}, Amount: ${eventAmount}`);
-          }
-        }
-      });
-    }
-
-    // 通常の収入（現役時代）
+    // 収入計算
     if (age < retirementAge) {
-      yearlyIncome += annualIncome;
+      const income = currentAnnualIncome;
+      yearlyIncome += income;
+      incomeDetails['給与収入'] = income;
+      currentAnnualIncome *= (1 + salaryIncreaseRate / 100); // 昇給
     }
-
-    // 退職金（退職年のみ）
     if (age === retirementAge && severancePay > 0) {
       yearlyIncome += severancePay;
-      // console.log(`Age ${age}: Severance pay added: ${severancePay}`);
+      incomeDetails['退職金'] = severancePay;
+      summaryEvents.push(`${age}歳: 退職。収入が年金に切り替わります。退職金${(severancePay/10000).toFixed(0)}万円が加算されます。`);
+    }
+    if (age >= pensionStartDate) {
+      const pension = pensionAmountPerYear;
+      yearlyIncome += pension;
+      incomeDetails['年金収入'] = pension;
+      if (age === pensionStartDate) {
+        summaryEvents.push(`${age}歳: 年金受給開始。年間${(pensionAmountPerYear/10000).toFixed(0)}万円の収入が始まります。`);
+      }
     }
 
-    // 年金収入（年金開始年齢以降）
-    if (age >= pensionStartDate && pensionAmountPerYear > 0) {
-      yearlyIncome += pensionAmountPerYear;
-      // console.log(`Age ${age}: Pension added: ${pensionAmountPerYear}`);
+    // 支出計算
+    // 住宅ローン
+    if (housing.hasLoan && age >= housing.startAge) {
+       if (housingLoanRemainingTerm > 0) {
+        const loanPayment = annualHousingLoanPayment;
+        const taxPayment = housing.propertyValue * (housing.propertyTaxRate / 100);
+        yearlyExpenses += loanPayment + taxPayment;
+        expenseDetails['住宅ローン返済'] = loanPayment;
+        expenseDetails['固定資産税'] = taxPayment;
+        housingLoanRemainingTerm--;
+
+        if (age === housing.startAge) {
+            summaryEvents.push(`${age}歳: 住宅ローン返済開始。年間約${((loanPayment + taxPayment)/10000).toFixed(0)}万円の支出が${housing.loanTerm}年間発生します。`);
+        }
+       } else if (age === housing.startAge + housing.loanTerm) {
+           summaryEvents.push(`${age}歳: 住宅ローン完済。年間の支出が減少します。`);
+       }
+    }
+    // 教育費
+    if (education.hasChildren) {
+      let totalEducationCost = 0;
+      education.children.forEach((child, index) => {
+        const childAge = age - (new Date().getFullYear() - child.birthYear);
+        const costPlan = child.plan === 'custom' ? 'public' : child.plan;
+        const educationCost = getEducationCost(childAge, costPlan);
+        if (educationCost > 0) {
+            totalEducationCost += educationCost;
+            if (childAge === 7 || childAge === 13 || childAge === 16 || childAge === 19) {
+                summaryEvents.push(`${age}歳 (子供${childAge}歳): 進学により教育費が年間約${(educationCost/10000).toFixed(0)}万円発生します。`);
+            }
+        }
+      });
+      if (totalEducationCost > 0) {
+        yearlyExpenses += totalEducationCost;
+        expenseDetails['教育費'] = totalEducationCost;
+      }
+    }
+    // 自動車
+    if (car.hasCar) {
+      yearlyExpenses += car.maintenanceCost;
+      expenseDetails['自動車維持費'] = car.maintenanceCost;
+
+      if (age === car.purchaseAge) {
+        summaryEvents.push(`${age}歳: 自動車購入。車両価格${(car.price/10000).toFixed(0)}万円と、ローン・維持費の支出が始まります。`);
+      }
+      if (age >= car.purchaseAge && carLoanRemainingTerm > 0) {
+        const carLoanPayment = annualCarLoanPayment;
+        yearlyExpenses += carLoanPayment;
+        expenseDetails['自動車ローン返済'] = carLoanPayment;
+        carLoanRemainingTerm--;
+    }
+      // 買い替え
+      if (age > car.purchaseAge && (age - car.purchaseAge) % car.replacementCycle === 0) {
+        yearlyExpenses += car.price;
+        expenseDetails['自動車買い替え'] = car.price;
+        carLoanRemainingTerm = car.loanTerm; // ローン再開
+        summaryEvents.push(`${age}歳: 自動車の買い替え。再び車両価格${(car.price/10000).toFixed(0)}万円の支出が発生します。`);
+      }
+    }
+    // 老後費用
+    if (age >= senior.nursingCareStartAge) {
+        const nursingCost = senior.nursingCareAnnualCost;
+        yearlyExpenses += nursingCost;
+        expenseDetails['介護費用'] = nursingCost;
+        if (age === senior.nursingCareStartAge) {
+            summaryEvents.push(`${age}歳: 介護費用発生開始。年間${(nursingCost/10000).toFixed(0)}万円の支出を見込みます。`);
+        }
+    }
+    if (age === lifeExpectancy) {
+        const funeralCost = senior.funeralCost;
+        yearlyExpenses += funeralCost;
+        expenseDetails['葬儀費用'] = funeralCost;
+        summaryEvents.push(`${age}歳: 葬儀費用として${(funeralCost/10000).toFixed(0)}万円の支出を見込みます。`);
     }
 
-    totalAccruedIncome += yearlyIncome;
-    totalAccruedExpenses += yearlyExpenses;
-
-    const netIncomeForYear = yearlyIncome - yearlyExpenses;
-    
-    // 運用益の計算 (年初の資産に対して)
-    let investmentGains = 0;
-    if (currentYearSavings > 0) {
-      investmentGains = currentYearSavings * (investmentRatio / 100) * (annualReturn / 100);
-    }
-    
-    // 年末の資産 = 年初資産 + 運用益 + 年間純収入
-    currentYearSavings = currentYearSavings + investmentGains + netIncomeForYear;
-
-    assetDataResult.push({ 
-      age,
-      savings: Math.round(currentYearSavings),
-      income: Math.round(yearlyIncome),
-      expenses: Math.round(yearlyExpenses)
+    // ライフイベント
+    lifeEvents.forEach(event => {
+      if (age >= event.startAge && (!event.endAge || age <= event.endAge)) {
+        if (event.type === 'income') {
+            yearlyIncome += event.amount;
+            incomeDetails[event.eventName] = (incomeDetails[event.eventName] || 0) + event.amount;
+        } else {
+            yearlyExpenses += event.amount;
+            expenseDetails[event.eventName] = (expenseDetails[event.eventName] || 0) + event.amount;
+        }
+      }
     });
-    // console.log(`Age: ${age}, YearlyIncome: ${Math.round(yearlyIncome)}, YearlyExpenses: ${Math.round(yearlyExpenses)}, Net: ${Math.round(netIncomeForYear)}, InvGains: ${Math.round(investmentGains)}, StartSaving: ${Math.round(currentYearSavings - investmentGains - netIncomeForYear)}, EndSaving: ${Math.round(currentYearSavings)}`);
+
+    // 資産運用と年間収支
+    const investmentReturn = currentYearSavings * (investmentRatio / 100) * (annualReturn / 100);
+    incomeDetails['資産運用益'] = investmentReturn;
+    const investmentGains = investmentReturn; // Alias for clarity
+    const balance = yearlyIncome + investmentGains - yearlyExpenses;
+    currentYearSavings += balance;
+    
+    let isBankrupt = false;
+    if(currentYearSavings < 0) {
+        if (!isBankrupt) {
+             summaryEvents.push(`${age}歳: 貯蓄がマイナスになりました。プランの見直しが必要です。`);
+             isBankrupt = true;
+        }
+        currentYearSavings = 0; // 資産がマイナスにならない制約
+    }
+
+    assetData.push({
+      year: new Date().getFullYear() + (age - currentAge),
+      age,
+      income: Math.round(yearlyIncome + investmentGains),
+      expense: Math.round(yearlyExpenses),
+      balance: Math.round(balance),
+      savings: Math.round(currentYearSavings),
+      incomeDetails,
+      expenseDetails,
+    });
   }
 
-  const yearsToRetirementCalc = Math.max(0, retirementAge - currentAge);
-  const finalSavingsCalc = Math.round(currentYearSavings);
-  const projectedRetirementSavingsCalc = assetDataResult.find(d => d.age === retirementAge)?.savings || (retirementAge < currentAge ? currentSavings : finalSavingsCalc) ;
-
-  // 年間平均貯蓄ペース (現役時代のみ。投資収益は含めない単純計算)
-  const annualSavingsCurrentPaceCalc = (annualIncome - (monthlyExpenses * 12)); 
-
-  // 退職後の必要資金額の目安（簡易計算）
-  const yearsInRetirement = Math.max(0, lifeExpectancy - retirementAge);
-  const estimatedPostRetirementAnnualExpenses = monthlyExpenses * 12; // これは単純化しすぎ。退職後は生活費が変わる可能性大
-  const targetRetirementFundCalc = estimatedPostRetirementAnnualExpenses * yearsInRetirement;
-
-  let messageCalc = `現在の年齢から ${lifeExpectancy}歳までの資産推移を計算しました。
-リタイア目標年齢 (${retirementAge}歳) 時点の予測貯蓄額は 約 ${projectedRetirementSavingsCalc.toLocaleString()} 円です。`;
-  let suggestionCalc;
-
-  if (finalSavingsCalc < 0) { // この条件は上の currentYearSavings = 0 で発生しないはずだが、念のため
-    messageCalc += `
-しかし、${lifeExpectancy}歳時点で資産がマイナス (${finalSavingsCalc.toLocaleString()}円) になる予測です。`;
-    suggestionCalc = "生活費の見直し、収入源の確保、運用計画の変更などを検討する必要があります。";
+  const finalSavings = Math.round(currentYearSavings);
+  let advice = '';
+  if (finalSavings <= 0) {
+      advice = '最終的な貯蓄額が0円以下になる見込みです。収入を増やすか、支出を削減するなどのプラン見直しを強く推奨します。';
+  } else if (finalSavings < 5000000) {
+      advice = '老後の資金に余裕があるとは言えない状況です。可能であれば、積立投資を増やす、支出を見直すなどの対策を検討しましょう。';
   } else {
-    messageCalc += `
-${lifeExpectancy}歳時点での最終予測貯蓄額は 約 ${finalSavingsCalc.toLocaleString()} 円です。`;
-  }
-
-  if (projectedRetirementSavingsCalc < targetRetirementFundCalc && finalSavingsCalc >=0) {
-    messageCalc += `
-${retirementAge}歳から${lifeExpectancy}歳までの必要生活費総額の目安 (約 ${targetRetirementFundCalc.toLocaleString()}円) に対して、リタイア時の貯蓄では不足する可能性があります。`;
-    suggestionCalc = (suggestionCalc ? suggestionCalc + "\n" : "") + "リタイア後の生活費や収入について、より詳細な計画が必要です。";
-  }
-
-  if (annualSavingsCurrentPaceCalc < 0 && currentAge < retirementAge) {
-    suggestionCalc = (suggestionCalc ? suggestionCalc + "\n" : "") + "現役時代の毎年の収支が赤字のようです。収入を増やすか支出を見直すことをお勧めします。";
+      advice = '現在のプランでは、老後も安定した資産を維持できる可能性が高いです。今後も定期的にプランを見直しましょう。';
   }
 
   return {
-    yearsToRetirement: yearsToRetirementCalc,
-    projectedRetirementSavings: projectedRetirementSavingsCalc,
-    annualSavingsCurrentPace: annualSavingsCurrentPaceCalc,
-    targetRetirementFund: targetRetirementFundCalc,
-    message: messageCalc,
-    suggestion: suggestionCalc,
-    assetData: assetDataResult,
+    assetData,
+    finalSavings: finalSavings,
+    lifeExpectancy,
+    retirementAge,
+    currentAge,
+    pensionStartDate,
+    advice,
+    calculationSummary: summaryEvents.join('\n'),
   };
 } 

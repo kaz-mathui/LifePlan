@@ -80,31 +80,23 @@ export const usePlanData = ({ db, appId, userId }: UsePlanDataProps) => {
 
       const planDocRef = doc(db, `artifacts/${appId}/users/${userId}/lifePlans/${planIdToSave}`);
 
-      const cleanedLifeEvents = simulationInput.lifeEvents.map((event: LifeEvent) => ({
+      const cleanedLifeEvents = (simulationInput.lifeEvents || []).map((event: LifeEvent) => ({
         ...event,
         endAge: event.endAge === undefined ? null : event.endAge,
       }));
 
+      // 新しいデータ構造に合わせて保存するデータを構築
       const dataToSave = {
-        currentAge: simulationInput.currentAge === '' ? 0 : Number(simulationInput.currentAge),
-        retirementAge: simulationInput.retirementAge === '' ? 0 : Number(simulationInput.retirementAge),
-        lifeExpectancy: simulationInput.lifeExpectancy === '' ? 0 : Number(simulationInput.lifeExpectancy),
-        currentSavings: simulationInput.currentSavings === '' ? 0 : Number(simulationInput.currentSavings),
-        annualIncome: simulationInput.annualIncome === '' ? 0 : Number(simulationInput.annualIncome),
-        monthlyExpenses: simulationInput.monthlyExpenses === '' ? 0 : Number(simulationInput.monthlyExpenses),
-        investmentRatio: simulationInput.investmentRatio === '' ? 0 : Number(simulationInput.investmentRatio),
-        annualReturn: simulationInput.annualReturn === '' ? 0 : Number(simulationInput.annualReturn),
-        pensionAmountPerYear: simulationInput.pensionAmountPerYear === '' ? 0 : Number(simulationInput.pensionAmountPerYear),
-        pensionStartDate: simulationInput.pensionStartDate === '' ? 0 : Number(simulationInput.pensionStartDate),
-        severancePay: simulationInput.severancePay === '' ? 0 : Number(simulationInput.severancePay),
+        ...simulationInput, // 新しい詳細データ(housing, educationなど)をすべて含める
         lifeEvents: cleanedLifeEvents,
-        
         id: planIdToSave, 
-        planName: simulationInput.planName.trim(),
         userId: userId,
         updatedAt: new Date().toISOString(),
         ...(isNewPlan && { createdAt: new Date().toISOString() }), 
       };
+
+      // 不要なプロパティや変換が必要なものをここで処理することも可能
+      // 例: delete dataToSave.someUnwantedProp;
 
       await setDoc(planDocRef, dataToSave, { merge: true });
       
@@ -182,14 +174,19 @@ export const usePlanData = ({ db, appId, userId }: UsePlanDataProps) => {
           currentAge: data.currentAge,
           retirementAge: data.retirementAge,
           lifeExpectancy: data.lifeExpectancy,
-          currentSavings: data.currentSavings,
           annualIncome: data.annualIncome,
-          monthlyExpenses: data.monthlyExpenses,
+          salaryIncreaseRate: data.salaryIncreaseRate ?? 0, // 以前のデータにはないためデフォルト値
+          currentSavings: data.currentSavings,
           investmentRatio: data.investmentRatio,
           annualReturn: data.annualReturn,
+          severancePay: data.severancePay,
+          monthlyExpenses: data.monthlyExpenses,
           pensionAmountPerYear: data.pensionAmountPerYear,
           pensionStartDate: data.pensionStartDate,
-          severancePay: data.severancePay,
+          housing: data.housing, // 新しいデータを追加
+          education: data.education,
+          car: data.car,
+          senior: data.senior,
           lifeEvents: data.lifeEvents ?? [],
         };
         return { success: true, planData };
