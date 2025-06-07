@@ -1,162 +1,214 @@
-# ライフプランニングシミュレーションアプリ
+# LifePlan - クラウドネイティブ ライフプランシミュレーター
 
-## 1. プロジェクト概要
+このプロジェクトは、ReactとNode.jsで構築されたライフプランシミュレーションアプリケーションを、Terraform, ECS Fargate, GitHub Actions を用いたモダンなCI/CD環境でAWS上に展開するためのサンプルリポジトリです。
 
-このアプリケーションは、ユーザーが自身の財務情報やライフイベントを入力することで、将来の資産状況をシミュレーションし、ライフプランニングを支援することを目的としています。
-フロントエンドはReact、バックエンドはNode.js (Express) で構成され、Dockerを使用してコンテナ環境で動作します。
+## 概要
 
-## 2. 技術スタック
+ユーザーは自身の年齢、収入、支出、ライフイベント（結婚、住宅購入など）を入力することで、将来の資産推移をシミュレーションできます。データはFirebaseに保存され、ユーザーごとに複数のライフプランを管理できます。
 
-- **フロントエンド:** React, TypeScript
-- **バックエンド:** Node.js, Express, TypeScript
-- **テスト (バックエンド):** Jest, ts-jest
-- **コンテナ:** Docker, Docker Compose
-- **その他:** ESLint, Prettier (コード品質維持のため)
+## 技術スタック
 
-## 3. 前提条件
+- **フロントエンド**: React, TypeScript, Vite, Tailwind CSS
+- **バックエンド**: Node.js, Express, TypeScript
+- **データベース**: Firebase (Firestore)
+- **インフラストラクチャ (IaC)**: Terraform
+- **クラウドプロバイダー**: AWS
+  - **コンテナ**: ECS, Fargate
+  - **ネットワーキング**: VPC, Application Load Balancer
+  - **CI/CD**: ECR, CodePipeline (GitHub Actions経由)
+- **CI/CD**: GitHub Actions
 
-- Docker Desktop (Docker Engine および Docker Compose を含む) がインストールされていること。
-- Node.js と npm (ローカルでの型チェックや開発ツール利用のために推奨)
+---
 
-## 4. セットアップと起動方法
+## アーキテクチャ
 
-1.  **リポジトリのクローン:**
+### インフラ構成図
+
+```mermaid
+graph TD
+    subgraph "インターネット"
+        User[ユーザー]
+    end
+
+    subgraph "AWS Cloud"
+        subgraph "VPC"
+            ALB[Application Load Balancer]
+
+            subgraph "Public Subnet"
+                ALB -- ポート80 --> FE_Service
+            end
+            
+            subgraph "Private Subnet"
+                FE_Service[ECS Service: Frontend]
+                BE_Service[ECS Service: Backend]
+            end
+
+            FE_Service -- "/api/*" --> ALB
+            ALB -- "/api/*" --> BE_Service
+            BE_Service -- 外部API --> IGW[Internet Gateway]
+        end
+        
+        subgraph "CI/CD Pipeline"
+            ECR_FE[ECR: Frontend]
+            ECR_BE[ECR: Backend]
+        end
+
+        subgraph "External Services"
+            Firebase[Firebase Firestore]
+        end
+    end
+
+    subgraph "GitHub"
+        GHA[GitHub Actions]
+    end
+
+    User -- HTTPS --> ALB
+    BE_Service -- データ読書 --> Firebase
+    
+    GHA -- Git Tag Push --> ECR_FE
+    GHA -- Git Tag Push --> ECR_BE
+    GHA -- Deploy --> FE_Service & BE_Service
+
+```
+
+### CI/CD フロー
+
+```mermaid
+graph TD
+    A[1. 開発者がGit TagをPush<br>(例: v1.0.0)] --> B{2. GitHub Actions<br>ワークフロー起動};
+    B --> C{3. Frontend/Backend<br>テスト & ビルド};
+    C --> D[4. Dockerイメージをビルド];
+    D --> E[5. ECRにイメージをPush];
+    E --> F[6. 新しいタスク定義を作成];
+    F --> G[7. ECSサービスを更新<br>(新タスク定義でデプロイ)];
+```
+
+---
+
+## セットアップとローカル開発
+
+### 必要なツール
+
+- [Node.js](https://nodejs.org/) (v18以降)
+- [pnpm](https://pnpm.io/installation)
+- [Terraform](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli) (v1.5以降)
+- [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+
+### 手順
+
+1.  **リポジトリをクローン:**
     ```bash
-    git clone <リポジトリURL>
-    cd LifePlan # プロジェクトルートへ移動
+    git clone https://github.com/kaz-mathui/LifePlan.git
+    cd LifePlan
     ```
-2.  **環境変数の設定 (必要な場合):**
-    プロジェクトルートに `.env` ファイルを作成し、必要な環境変数（Firebase連携情報など）を設定します。
-    (現状、具体的な `.env` の要件は明確ではありませんが、将来的な拡張に備えて記載)
 
-3.  **Dockerコンテナのビルドと起動:**
-    初回起動時や `Dockerfile`、`docker-compose.yml`、または依存関係 (`package.json`) に変更があった場合は、以下のコマンドでイメージを再ビルドして起動します。
+2.  **依存関係をインストール:**
     ```bash
-    docker compose up --build -d
+    pnpm install --frozen-lockfile
     ```
-    通常起動時は以下のコマンドを使用します。
+
+3.  **Firebase設定:**
+    - Firebaseコンソールでプロジェクトを作成します。
+    - `frontend/` ディレクトリに `.env.local` ファイルを作成し、Firebaseプロジェクトの設定を記述します。
+      ```sh
+      # frontend/.env.local
+      VITE_FIREBASE_API_KEY="your_api_key"
+      VITE_FIREBASE_AUTH_DOMAIN="your_auth_domain"
+      VITE_FIREBASE_PROJECT_ID="your_project_id"
+      VITE_FIREBASE_STORAGE_BUCKET="your_storage_bucket"
+      VITE_FIREBASE_MESSAGING_SENDER_ID="your_sender_id"
+      VITE_FIREBASE_APP_ID="your_app_id"
+      ```
+
+4.  **AWS認証情報の設定:**
+    AWS CLIがローカル環境からAWSを操作できるよう、認証情報を設定してください。
     ```bash
-    docker compose up -d
+    aws configure
     ```
-    `-d` オプションを外すと、コンテナのログがフォアグラウンドで表示されます。
 
-4.  **アプリケーションへのアクセス:**
-    -   フロントエンド: `http://localhost:3000`
-    -   バックエンドAPI (例): `http://localhost:3001/api/simulation` (具体的なエンドポイントは `backend/src/routes/` を参照)
+5.  **ローカルサーバーの起動:**
+    - **フロントエンド:**
+      ```bash
+      pnpm --filter lifeplan-frontend dev
+      ```
+    - **バックエンド:** (別のターミナルで)
+      ```bash
+      pnpm --filter lifeplan-backend dev
+      ```
 
-5.  **コンテナの停止:**
-    ```bash
-    docker compose down
-    ```
-    ボリュームも削除する場合は `docker compose down --volumes` を使用します。
+---
 
-## 5. テストの実行方法 (バックエンド)
+## AWSインフラの構築とデプロイ
 
-バックエンド (`simulationService.ts`) の単体テストはJestを使用して記述されています。
-以下のコマンドで、Dockerコンテナ内でテストを実行できます。
+### 1. 初回インフラ構築
+
+`infra` ディレクトリ内のTerraformコードを使って、AWS上に本番環境を構築します。
 
 ```bash
-docker compose exec backend npm run test:docker
+cd infra
+terraform init
+terraform plan
+terraform apply --auto-approve
+cd ..
 ```
-このコマンドは、`backend/package.json` の `scripts."test:docker"` (`NODE_ENV=test jest`) を実行します。
+これにより、VPC, ECSクラスター, ECRリポジトリなどが作成されます。
 
-## 6. 主なテスト項目 (simulationService)
+### 2. 初回デプロイ (CI/CD)
 
-`backend/src/services/__tests__/simulationService.spec.ts` にて、以下の項目などについてテストされています。
+インフラが整ったら、アプリケーションをデプロイします。
 
--   **基本動作:**
-    -   有効な入力に対する正常な結果返却
-    -   データ配列の長さ検証
--   **入力エラー処理:**
-    -   現在の年齢が退職年齢以上の場合のエラー
--   **計算ロジック検証:**
-    -   イベントなしの場合の初年度末資産
-    -   一時的な支出イベントの正しい考慮
-    -   年次の収入イベントの正しい処理 (開始・期間中・終了後)
-    -   年次の支出イベントの正しい処理 (開始・期間中・終了後)
-    -   退職金の正しい計上と退職年の収入計算
-    -   年金支給の正しい計上 (開始・期間中)
-    -   貯蓄がマイナスの場合の運用益計算 (マイナス時は運用益ゼロ)
--   **境界値テスト:**
-    -   現在の年齢が退職年齢の1年前の場合
--   **ライフイベントの期間処理:**
-    -   年次イベントの終了年齢 (`endAge`) の正しい処理
+1.  **変更をコミット & Push:**
+    ```bash
+    git add .
+    git commit -m "feat: Initial setup for deployment"
+    git push origin main
+    ```
 
-## 7. 現在の主要機能・仕様概要 (バックエンド `simulationService`)
+2.  **Gitタグを作成 & Push:**
+    `v`で始まるセマンティックバージョニング形式のタグを付けると、GitHub Actionsが自動でトリガーされます。
 
-`simulationService` は、ユーザーの入力に基づいてライフプランのシミュレーション計算を行います。
+    ```bash
+    # 例: v0.1.0 タグを作成
+    git tag v0.1.0
+    git push origin v0.1.0
+    ```
 
--   **主な入力パラメータ (`SimulationInput`):**
-    -   `currentAge` (現在の年齢)
-    -   `retirementAge` (退職希望年齢)
-    -   `lifeExpectancy` (平均寿命)
-    -   `currentSavings` (現在の貯蓄額)
-    -   `annualIncome` (年間収入)
-    -   `monthlyExpenses` (月間支出)
-    -   `investmentRatio` (貯蓄のうち投資に回す割合 %)
-    -   `annualReturn` (投資の年利回り %)
-    -   `pensionAmountPerYear` (年間の年金受給額)
-    -   `pensionStartDate` (年金受給開始年齢)
-    -   `severancePay` (退職金)
-    -   `lifeEvents` (ライフイベントの配列):
-        -   `id`, `age`, `description`, `type` ('income' または 'expense'), `amount`, `frequency` ('one-time' または 'annual'), `endAge` (年次イベントの場合)
--   **シミュレーションロジックの概要:**
-    -   指定された平均寿命まで、1年ごとの資産状況を計算します。
-    -   各年の収入には、基本収入、年金（該当年齢）、一時的収入イベント、年次収入イベントが含まれます。
-    -   各年の支出には、基本支出、一時的支出イベント、年次支出イベントが含まれます。
-    -   退職年には退職金が収入として加算されます。
-    -   貯蓄残高がプラスの場合、指定された投資割合と利回りに基づいて運用益が計算され、資産に加算されます。貯蓄残高がマイナスの場合は運用益は発生しません。
--   **主な出力 (`SimulationResult`):**
-    -   `message`: シミュレーション結果のサマリーメッセージ (エラー含む)
-    -   `assetData`: 各年齢ごとの資産詳細 (`AssetDataPoint`) の配列。
-        -   `age`, `savings` (年末貯蓄額), `income` (年間収入総額), `expenses` (年間支出総額), `investmentReturn` (運用益)
+    これにより、テスト、ビルド、ECRへのイメージプッシュ、ECSへのデプロイが自動的に実行されます。
 
-## 8. ディレクトリ構成 (主要)
+---
 
+## アプリケーションの公開と停止 (コスト管理)
+
+このアプリケーションは、何もしないと継続的にAWS利用料金（主にALBとECS Fargate）が発生します。**使用しないときは、以下のスクリプトでインフラを停止し、コストを最小限に抑えることを強く推奨します。**
+
+### アプリケーションの停止
+
+アプリケーションを停止し、ALBを削除して課金を止めます。
+
+```bash
+./scripts/stop_services.sh
 ```
-LifePlan/
-├── backend/                # バックエンド (Node.js, Express, TypeScript)
-│   ├── src/
-│   │   ├── services/       # ビジネスロジック (simulationService.ts)
-│   │   ├── routes/         # APIルーティング
-│   │   ├── __tests__/      # Jestテストコード (simulationService.spec.ts)
-│   │   ├── server.ts       # Expressサーバーエントリーポイント
-│   │   └── (その他設定ファイル等)
-│   ├── Dockerfile
-│   ├── jest.config.js
-│   ├── package.json
-│   └── tsconfig.json
-├── frontend/               # フロントエンド (React, JavaScript - TypeScript移行想定)
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   ├── services/
-│   │   ├── App.js
-│   │   └── index.js
-│   ├── Dockerfile
-│   └── package.json
-├── .dockerignore
-├── .gitignore
-├── docker-compose.yml      # Docker Compose設定ファイル
-└── README.md               # このファイル
+このスクリプトは、ECSサービスのタスク数を0にし、Terraformを実行してALBを削除します。
+
+### アプリケーションの再公開
+
+停止したアプリケーションを再び公開状態にします。
+
+```bash
+./scripts/start_services.sh
 ```
+このスクリプトは、Terraformを実行してALBを再作成し、ECSサービスのタスク数を1に戻します。
 
-## 9. VSCode推奨拡張機能
+### 予想されるAWS費用 (月額)
 
-開発効率向上のため、以下のVSCode拡張機能の導入を推奨します。
+- **公開中 (`start_services.sh` 実行後):**
+  - **Application Load Balancer:** 約 $19 / 月
+  - **ECS Fargate:** 約 $15 / 月 (vCPU, Memoryによる)
+  - **NAT Gateway:** 約 $4 / 月 (データ転送量により変動)
+  - **合計:** 約 $38 - $45 / 月
 
--   ESLint
--   Prettier - Code formatter
--   Jest (jest-community.vscode-jest)
--   Docker (ms-azuretools.vscode-docker)
--   GitLens — Git supercharged
+- **停止中 (`stop_services.sh` 実行後):**
+  - **S3 (Terraform state), ECR (Docker image):** ほぼ無料 (ごく僅かなストレージ料金)
+  - **合計:** 約 $0.1 / 月未満
 
-## 10. 今後の課題・TODO (例)
-
--   フロントエンドのTypeScriptへの完全移行
--   詳細なエラーハンドリングとユーザーへのフィードバック強化
--   入力バリデーションの強化 (フロントエンド・バックエンド両方)
--   より複雑なライフイベント（例: 住宅ローン、子供の教育費の段階的変化）への対応
--   テストカバレッジの向上とカバレッジレポートの導入
--   CI/CDパイプラインの構築
--   Firebase Authentication / Firestore を用いたユーザーデータ保存機能の実装 (フロントエンド側)
+**定期的に利用しない場合は、必ず `stop_services.sh` を実行してください。**

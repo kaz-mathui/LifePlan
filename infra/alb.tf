@@ -26,11 +26,15 @@ resource "aws_security_group" "alb" {
 
 # Application Load Balancer
 resource "aws_lb" "main" {
+  count = var.create_alb ? 1 : 0
+
   name               = "lifeplan-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = [aws_subnet.public_a.id, aws_subnet.public_c.id]
+
+  enable_deletion_protection = false
 
   tags = {
     Name = "lifeplan-alb"
@@ -39,6 +43,8 @@ resource "aws_lb" "main" {
 
 # ターゲットグループ (Frontend)
 resource "aws_lb_target_group" "frontend" {
+  count = var.create_alb ? 1 : 0
+
   name     = "lifeplan-frontend-tg"
   port     = 80
   protocol = "HTTP"
@@ -58,6 +64,8 @@ resource "aws_lb_target_group" "frontend" {
 
 # ターゲットグループ (Backend)
 resource "aws_lb_target_group" "backend" {
+  count = var.create_alb ? 1 : 0
+
   name     = "lifeplan-backend-tg"
   port     = 3001
   protocol = "HTTP"
@@ -77,24 +85,28 @@ resource "aws_lb_target_group" "backend" {
 
 # ALBリスナー (HTTP)
 resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.main.arn
+  count = var.create_alb ? 1 : 0
+
+  load_balancer_arn = aws_lb.main[0].arn
   port              = "80"
   protocol          = "HTTP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.frontend.arn
+    target_group_arn = aws_lb_target_group.frontend[0].arn
   }
 }
 
 # ALBリスナールール (Backendへのルーティング)
 resource "aws_lb_listener_rule" "backend" {
-  listener_arn = aws_lb_listener.http.arn
+  count = var.create_alb ? 1 : 0
+
+  listener_arn = aws_lb_listener.http[0].arn
   priority     = 100
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.backend.arn
+    target_group_arn = aws_lb_target_group.backend[0].arn
   }
 
   condition {

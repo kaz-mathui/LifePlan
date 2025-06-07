@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { db, appId } from '../services/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { usePlanData } from '../hooks/usePlanData';
 import { SimulationInputData, LifeEvent } from '../types';
@@ -21,9 +22,10 @@ const App: React.FC = () => {
     savePlan,
     deletePlan,
     createNewPlan,
-  } = usePlanData(user);
+    isSaving
+  } = usePlanData({ db, appId, userId: user?.uid ?? null });
 
-  const [simulationInput, setSimulationInput] = useState<SimulationInputData | null>(initialSimulationInput);
+  const [simulationInput, setSimulationInput] = useState<SimulationInputData>(initialSimulationInput);
   const [isLifeEventModalOpen, setLifeEventModalOpen] = useState(false);
 
   const handleCreateNewPlan = useCallback(async () => {
@@ -35,17 +37,20 @@ const App: React.FC = () => {
   }, [createNewPlan, setSelectedPlanId]);
 
   useEffect(() => {
-    if (user && plans.length > 0 && !simulationInput) {
-      const latestPlan = plans[0];
-      if (latestPlan) {
+    if (user && selectedPlanId) {
+      const selectedPlan = plans.find(p => p.id === selectedPlanId);
+      if (selectedPlan && selectedPlan.data) {
+        setSimulationInput(selectedPlan.data);
+      } else if (plans.length > 0) {
+        // フォールバックとして最新のプランをセット
+        const latestPlan = plans[0];
         setSimulationInput(latestPlan.data);
         setSelectedPlanId(latestPlan.id);
       }
-    } else if (user && plans.length === 0) {
-      // プランがない場合は初期値で新規作成
-      handleCreateNewPlan();
+    } else if (user && plans.length === 0 && !isSaving) {
+       handleCreateNewPlan();
     }
-  }, [user, plans, simulationInput, setSelectedPlanId, handleCreateNewPlan]);
+  }, [user, plans, selectedPlanId, setSelectedPlanId, handleCreateNewPlan, isSaving]);
 
 
   useEffect(() => {
@@ -55,9 +60,71 @@ const App: React.FC = () => {
   }, [user, fetchPlans]);
 
 
-  const handleInputChange = (
-    if (user && selectedPlanId) {
-      await savePlan(selectedPlanId, { ...simulationInput, planName: newName });
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    if (!simulationInput) return;
+    const { name, value, type } = e.target;
+    const processedValue = type === 'number' ? (value === '' ? '' : Number(value)) : value;
+    setSimulationInput(prev => ({ ...prev!, [name]: processedValue }));
+  };
+
+  const handleNestedInputChange = (section: keyof SimulationInputData, field: string, value: any) => {
+    if (!simulationInput) return;
+    setSimulationInput(prev => ({
+      ...prev!,
+      [section]: {
+        ...prev![section],
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleChildrenChange = (index: number, field: string, value: any) => {
+    if (!simulationInput) return;
+    const newChildren = [...simulationInput.education.children];
+    newChildren[index] = { ...newChildren[index], [field]: value };
+    setSimulationInput(prev => ({
+      ...prev!,
+      education: {
+        ...prev!.education,
+        children: newChildren,
+      },
+    }));
+  };
+
+  const handleAddChild = () => {
+    if (!simulationInput) return;
+    const newChild = { birthYear: new Date().getFullYear(), plan: 'public' };
+    setSimulationInput(prev => ({
+      ...prev!,
+      education: {
+        ...prev!.education,
+        children: [...prev!.education.children, newChild],
+      },
+    }));
+  };
+
+  const handleRemoveChild = (index: number) => {
+    if (!simulationInput) return;
+    const newChildren = simulationInput.education.children.filter((_, i) => i !== index);
+    setSimulationInput(prev => ({
+      ...prev!,
+      education: {
+        ...prev!.education,
+        children: newChildren,
+      },
+    }));
+  };
+
+
+  const handleSavePlan = async () => {
+    if (user && simulationInput) {
+      const result = await savePlan({ ...simulationInput, id: selectedPlanId });
+      if (result.success) {
+        toast.success('プランを保存しました！');
+        fetchPlans();
+      } else {
+        toast.error(`保存に失敗しました: ${result.error}`);
+      }
     }
   };
 
@@ -66,7 +133,7 @@ const App: React.FC = () => {
       const updatedInput = { ...simulationInput, lifeEvents: updatedLifeEvents };
       setSimulationInput(updatedInput);
       if (user && selectedPlanId) {
-        savePlan(selectedPlanId, updatedInput); // ライフイベント更新時も自動保存
+        savePlan({ ...updatedInput, id: selectedPlanId }); // ライフイベント更新時も自動保存
       }
     }
   };
@@ -117,9 +184,20 @@ const App: React.FC = () => {
           <InputForm
             input={simulationInput}
             onInputChange={handleInputChange}
-            onSubmit={() => {}}
-            onSave={() => {}}
-            loading={false}
+            onNestedChange={handleNestedInputChange}
+            onChildrenChange={handleChildrenChange}
+            onAddChild={handleAddChild}
+            onRemoveChild={handleRemoveChild}
+            onSubmit={() => {
+                if(simulationInput) {
+                    // ここで再計算のトリガーなど
+                    toast.success("シミュレーションを再計算しました！");
+                }
+            }}
+            onSave={handleSavePlan}
+            loading={isSaving}
+            onExport={() => { /* TODO: export logic */ }}
+            onImport={(e) => { /* TODO: import logic */ }}
           />
 
           <LifeEventForm 

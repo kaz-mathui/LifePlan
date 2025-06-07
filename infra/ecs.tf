@@ -64,22 +64,28 @@ resource "aws_ecs_service" "frontend" {
   name            = "lifeplan-frontend-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.frontend.arn
-  desired_count   = 1
+  desired_count   = 1 # Start with 1 instance
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = [aws_subnet.public_a.id, aws_subnet.public_c.id]
+    subnets         = [for subnet in aws_subnet.private : subnet.id]
     security_groups = [aws_security_group.ecs_tasks.id]
-    assign_public_ip = true
   }
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.frontend.arn
-    container_name   = "lifeplan-frontend"
-    container_port   = 80
+  dynamic "load_balancer" {
+    for_each = var.create_alb ? [1] : []
+    content {
+      target_group_arn = aws_lb_target_group.frontend[0].arn
+      container_name   = "lifeplan-frontend"
+      container_port   = 80
+    }
   }
 
-  # Blue/Greenデプロイの設定は後ほどCodeDeployリソースで追加
+  lifecycle {
+    ignore_changes = [task_definition, desired_count]
+  }
+
+  depends_on = [aws_lb_listener.http]
 }
 
 
@@ -111,18 +117,26 @@ resource "aws_ecs_service" "backend" {
   name            = "lifeplan-backend-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.backend.arn
-  desired_count   = 1
+  desired_count   = 1 # Start with 1 instance
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = [aws_subnet.public_a.id, aws_subnet.public_c.id]
+    subnets         = [for subnet in aws_subnet.private : subnet.id]
     security_groups = [aws_security_group.ecs_tasks.id]
-    assign_public_ip = true
   }
 
-  load_balancer {
-    target_group_arn = aws_lb_target_group.backend.arn
-    container_name   = "lifeplan-backend"
-    container_port   = 3001
+  dynamic "load_balancer" {
+    for_each = var.create_alb ? [1] : []
+    content {
+      target_group_arn = aws_lb_target_group.backend[0].arn
+      container_name   = "lifeplan-backend"
+      container_port   = 8080
+    }
   }
+
+  lifecycle {
+    ignore_changes = [task_definition, desired_count]
+  }
+
+  depends_on = [aws_lb_listener.http]
 } 
