@@ -64,12 +64,13 @@ resource "aws_ecs_service" "frontend" {
   name            = "lifeplan-frontend-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.frontend.arn
-  desired_count   = 1 # Start with 1 instance
+  desired_count   = 1
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = [for subnet in aws_subnet.private : subnet.id]
+    subnets         = [aws_subnet.public_a.id, aws_subnet.public_c.id]
     security_groups = [aws_security_group.ecs_tasks.id]
+    assign_public_ip = true
   }
 
   dynamic "load_balancer" {
@@ -117,12 +118,13 @@ resource "aws_ecs_service" "backend" {
   name            = "lifeplan-backend-service"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.backend.arn
-  desired_count   = 1 # Start with 1 instance
+  desired_count   = 1
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = [for subnet in aws_subnet.private : subnet.id]
+    subnets         = [aws_subnet.public_a.id, aws_subnet.public_c.id]
     security_groups = [aws_security_group.ecs_tasks.id]
+    assign_public_ip = true
   }
 
   dynamic "load_balancer" {

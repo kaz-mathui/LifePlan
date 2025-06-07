@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { db, appId } from './services/firebase';
-import { useAuth } from '../hooks/useAuth';
-import { usePlanData } from '../hooks/usePlanData';
-import { SimulationInputData, LifeEvent } from '../types';
-import { calculateSimulation } from '../services/simulationService';
+import { useAuth } from './hooks/useAuth';
+import { usePlanData } from './hooks/usePlanData';
+import { SimulationInputData, LifeEvent } from './types';
+import { calculateSimulation } from './services/simulationService';
 import InputForm from './components/InputForm';
 import SimulationResult from './components/SimulationResult';
 import Auth from './components/Auth';
@@ -23,7 +23,7 @@ const App: React.FC = () => {
     deletePlan,
     createNewPlan,
     isSaving
-  } = usePlanData({ db, appId, userId: user?.uid ?? null });
+  } = usePlanData(user);
 
   const [simulationInput, setSimulationInput] = useState<SimulationInputData>(initialSimulationInput);
   const [isLifeEventModalOpen, setLifeEventModalOpen] = useState(false);
@@ -118,7 +118,7 @@ const App: React.FC = () => {
 
   const handleSavePlan = async () => {
     if (user && simulationInput) {
-      const result = await savePlan({ ...simulationInput, id: selectedPlanId });
+      const result = await savePlan(selectedPlanId, { ...simulationInput });
       if (result.success) {
         toast.success('プランを保存しました！');
         fetchPlans();
@@ -133,7 +133,7 @@ const App: React.FC = () => {
       const updatedInput = { ...simulationInput, lifeEvents: updatedLifeEvents };
       setSimulationInput(updatedInput);
       if (user && selectedPlanId) {
-        savePlan({ ...updatedInput, id: selectedPlanId }); // ライフイベント更新時も自動保存
+        savePlan(selectedPlanId, updatedInput); // ライフイベント更新時も自動保存
       }
     }
   };
