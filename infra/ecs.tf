@@ -1,0 +1,128 @@
+# ECS Cluster
+resource "aws_ecs_cluster" "main" {
+  name = "lifeplan-cluster"
+
+  tags = {
+    Name      = "lifeplan-cluster"
+    ManagedBy = "Terraform"
+  }
+}
+
+# ECSタスク用のセキュリティグループ
+resource "aws_security_group" "ecs_tasks" {
+  name        = "lifeplan-ecs-tasks-sg"
+  description = "Security group for ECS tasks"
+  vpc_id      = aws_vpc.main.id
+
+  # ALBからのトラフィックを許可
+  ingress {
+    protocol        = "tcp"
+    from_port       = 0
+    to_port         = 65535
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  # すべてのアウトバウンドトラフィックを許可
+  egress {
+    protocol    = "-1"
+    from_port   = 0
+    to_port     = 0
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "lifeplan-ecs-tasks-sg"
+  }
+}
+
+
+# --- Frontend Service ---
+resource "aws_ecs_task_definition" "frontend" {
+  family                   = "lifeplan-frontend"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "lifeplan-frontend"
+      image     = "${aws_ecr_repository.frontend.repository_url}:latest" # CodeDeployが更新
+      essential = true
+      portMappings = [
+        {
+          containerPort = 80
+          hostPort      = 80
+        }
+      ]
+    }
+  ])
+}
+
+resource "aws_ecs_service" "frontend" {
+  name            = "lifeplan-frontend-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.frontend.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets         = [aws_subnet.public_a.id, aws_subnet.public_c.id]
+    security_groups = [aws_security_group.ecs_tasks.id]
+    assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.frontend.arn
+    container_name   = "lifeplan-frontend"
+    container_port   = 80
+  }
+
+  # Blue/Greenデプロイの設定は後ほどCodeDeployリソースで追加
+}
+
+
+# --- Backend Service ---
+resource "aws_ecs_task_definition" "backend" {
+  family                   = "lifeplan-backend"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "lifeplan-backend"
+      image     = "${aws_ecr_repository.backend.repository_url}:latest" # CodeDeployが更新
+      essential = true
+      portMappings = [
+        {
+          containerPort = 3001
+          hostPort      = 3001
+        }
+      ]
+    }
+  ])
+}
+
+resource "aws_ecs_service" "backend" {
+  name            = "lifeplan-backend-service"
+  cluster         = aws_ecs_cluster.main.id
+  task_definition = aws_ecs_task_definition.backend.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets         = [aws_subnet.public_a.id, aws_subnet.public_c.id]
+    security_groups = [aws_security_group.ecs_tasks.id]
+    assign_public_ip = true
+  }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.backend.arn
+    container_name   = "lifeplan-backend"
+    container_port   = 3001
+  }
+} 

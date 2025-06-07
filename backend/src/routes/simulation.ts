@@ -5,6 +5,15 @@ import { SimulationInputData } from '../types';
 
 const router: Router = express.Router();
 
+/**
+ * @route GET /api/health
+ * @desc Health check endpoint
+ * @access Public
+ */
+router.get('/health', (req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', message: 'Backend is healthy' });
+});
+
 const housingLoanSchema = z.object({
   hasLoan: z.boolean(),
   propertyValue: z.number().min(0),
