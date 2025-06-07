@@ -73,15 +73,7 @@ graph TD
 
 ### CI/CD フロー
 
-```mermaid
-graph TD
-    A["1. Git Tag Push"] --> B["2. GitHub Actions Trigger"];
-    B --> C["3. Test & Build"];
-    C --> D["4. Build Docker Image"];
-    D --> E["5. Push to ECR"];
-    E --> F["6. Create New Task Definition"];
-    F --> G["7. Update ECS Service"];
-```
+![CI/CD Flow Diagram](./docs/ci-cd-flow.png)
 
 ---
 

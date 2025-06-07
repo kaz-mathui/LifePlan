@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { db, appId } from './services/firebase';
+import { db } from './services/firebase';
 import { useAuth } from './hooks/useAuth';
 import { usePlanData } from './hooks/usePlanData';
 import { SimulationInputData, LifeEvent } from './types';
