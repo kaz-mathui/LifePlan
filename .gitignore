@@ -43,6 +43,11 @@ logs
 # Coverage directory used by tools like istanbul
 coverage/
 
+# Terraform files
+.terraform/
+terraform.tfstate.backup
+*.tfvars
+
 # Firebase - specific debug files if any (usually covered by node_modules)
 # firebase-debug.log
 
