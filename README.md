@@ -75,12 +75,12 @@ graph TD
 
 ```mermaid
 graph TD
-    A["1. 開発者がGit TagをPush<br>(例: v1.0.0)"] --> B{"2. GitHub Actions<br>ワークフロー起動"};
-    B --> C{"3. Frontend/Backend<br>テスト & ビルド"};
-    C --> D["4. Dockerイメージをビルド"];
-    D --> E["5. ECRにイメージをPush"];
-    E --> F["6. 新しいタスク定義を作成"];
-    F --> G["7. ECSサービスを更新<br>(新タスク定義でデプロイ)"];
+    A["1. Git Tag Push"] --> B["2. GitHub Actions Trigger"];
+    B --> C["3. Test & Build"];
+    C --> D["4. Build Docker Image"];
+    D --> E["5. Push to ECR"];
+    E --> F["6. Create New Task Definition"];
+    F --> G["7. Update ECS Service"];
 ```
 
 ---

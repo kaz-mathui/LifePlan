@@ -51,8 +51,15 @@ export interface SeniorData {
   funeralCost: number | '';
 }
 
+export interface Plan {
+  id: string;
+  planName: string;
+  updatedAt: string;
+  data: SimulationInputData;
+}
+
 export interface SimulationInputData {
-  id?: string;
+  id: string;
   planName: string;
   currentAge: number | '';
   retirementAge: number | '';
