@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { SimulationInputData } from '../types';
+import { SimulationInputData, LifeEvent, Child, HousingLoanData as Housing, CarData as Car, SeniorData as Senior } from '../types';
 
 const CSV_HEADERS = [
   'id', 'planName', 'currentAge', 'retirementAge', 'lifeExpectancy', 
@@ -7,6 +7,54 @@ const CSV_HEADERS = [
   'annualReturn', 'pensionAmountPerYear', 'pensionStartDate', 'severancePay',
   'lifeEvents_json' // ライフイベントはJSON文字列として格納
 ];
+
+// ネストされたオブジェクトをフラットなキーに変換
+const flattenObject = (obj: any, parentKey = ''): Record<string, any> => {
+  return Object.keys(obj).reduce((acc, key) => {
+    const newKey = parentKey ? `${parentKey}.${key}` : key;
+    if (typeof obj[key] === 'object' && obj[key] !== null && !Array.isArray(obj[key])) {
+      Object.assign(acc, flattenObject(obj[key], newKey));
+    } else if (key === 'lifeEvents' || key === 'children') {
+        acc[newKey] = JSON.stringify(obj[key]); // 配列はJSON文字列として保存
+    } else {
+      acc[newKey] = obj[key];
+    }
+    return acc;
+  }, {} as Record<string, any>);
+};
+
+// フラットなキーからネストされたオブジェクトを再構築
+const unflattenObject = (flatData: Record<string, any>): SimulationInputData => {
+  const result: any = {};
+  for (const key in flatData) {
+    const keys = key.split('.');
+    keys.reduce((acc, part, index) => {
+      if (index === keys.length - 1) {
+        let value = flatData[key];
+        // 型変換
+        if (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '') {
+            value = Number(value);
+        } else if (value === 'true') {
+            value = true;
+        } else if (value === 'false') {
+            value = false;
+        } else if (key.endsWith('lifeEvents') || key.endsWith('children')) {
+            try {
+                value = JSON.parse(value);
+            } catch (e) {
+                console.error(`Error parsing JSON for ${key}:`, e);
+                value = [];
+            }
+        }
+        acc[part] = value;
+      } else {
+        acc[part] = acc[part] || {};
+      }
+      return acc[part];
+    }, result);
+  }
+  return result as SimulationInputData;
+};
 
 /**
  * 現在のプランデータをCSV形式でエクスポート（ダウンロード）する
@@ -108,6 +156,32 @@ export const importPlanFromCsv = (file: File): Promise<Partial<SimulationInputDa
       },
       error: (error: Error) => {
         reject(new Error('ファイルの読み込みに失敗しました: ' + error.message));
+      }
+    });
+  });
+};
+
+export const exportToCsv = (data: SimulationInputData): string => {
+  const flatData = flattenObject(data);
+  return Papa.unparse([flatData]);
+};
+
+export const importFromCsv = (csvString: string): Promise<SimulationInputData> => {
+  return new Promise((resolve, reject) => {
+    Papa.parse(csvString, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        if (results.data.length > 0) {
+          const flatData = results.data[0] as Record<string, any>;
+          const unflattenedData = unflattenObject(flatData);
+          resolve(unflattenedData);
+        } else {
+          reject(new Error('CSVファイルが空か、または無効な形式です。'));
+        }
+      },
+      error: (error: any) => {
+        reject(error);
       }
     });
   });

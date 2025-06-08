@@ -43,6 +43,15 @@ const DetailRow: React.FC<{label: string; value: number}> = ({ label, value }) =
 const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) => {
   const [selectedYear, setSelectedYear] = useState<SimulationResultYear | null>(null);
 
+  if (!result || !result.assetData || result.assetData.length === 0) {
+    return (
+      <div className="mt-8 p-6 bg-white rounded-xl shadow-lg border border-slate-200 text-center">
+        <h2 className="text-2xl font-semibold text-sky-700 mb-4">シミュレーション結果</h2>
+        <p className="text-slate-600">入力された条件（例：現在年齢が想定寿命を超えている）では、シミュレーションを実行できませんでした。入力内容をご確認の上、再計算してください。</p>
+      </div>
+    );
+  }
+
   const formatYen = (value: number) => {
     return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(value);
   };
@@ -56,7 +65,7 @@ const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) 
   const projectedRetirementSavings = result.assetData.find(d => d.age === result.retirementAge)?.savings;
   
   // 現在の年間貯蓄可能額 (シミュレーション初年度の収支)
-  const annualSavingsCurrentPace = result.assetData[0].balance;
+  const annualSavingsCurrentPace = result.assetData[0]?.balance || 0;
 
   // 目標とする老後資金額 (簡易計算: (寿命 - 年金受給開始年齢) * 年金受給中の年間支出の平均)
   const retirementExpenses = result.assetData
@@ -70,122 +79,121 @@ const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) 
   const targetRetirementFund = averageRetirementExpense * (result.lifeExpectancy - result.pensionStartDate);
 
   return (
-    <>
-    <div className="mt-8 p-6 bg-slate-50 rounded-xl shadow-inner">
-      <h2 className="text-2xl font-bold text-center text-sky-800 mb-6">シミュレーション結果</h2>
+    <div>
+      <div className="p-6 bg-slate-50 rounded-xl shadow-inner">
+        <h2 className="text-2xl font-bold text-center text-sky-800 mb-6">資産推移グラフ</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-6">
+          <div className="p-4 bg-white rounded-lg shadow">
+            <p className="text-sm text-slate-500">最終資産</p>
+            <p className="text-2xl font-bold text-emerald-600">{formatYen(finalSavings)}</p>
+          </div>
+          <div className="p-4 bg-white rounded-lg shadow">
+            <p className="text-sm text-slate-500">想定寿命</p>
+            <p className="text-2xl font-bold">{result.lifeExpectancy} 歳</p>
+          </div>
+          <div className="p-4 bg-white rounded-lg shadow">
+            <p className="text-sm text-slate-500">リタイア年齢</p>
+            <p className="text-2xl font-bold">{result.retirementAge} 歳</p>
+          </div>
+        </div>
+
+        <div className="w-full bg-white p-4 rounded-lg shadow">
+          <AssetChart assetData={result.assetData} />
+        </div>
+      </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-6">
-        <div className="p-4 bg-white rounded-lg shadow">
-          <p className="text-sm text-slate-500">最終資産</p>
-          <p className="text-2xl font-bold text-emerald-600">{formatYen(finalSavings)}</p>
-        </div>
-        <div className="p-4 bg-white rounded-lg shadow">
-          <p className="text-sm text-slate-500">想定寿命</p>
-          <p className="text-2xl font-bold">{result.lifeExpectancy} 歳</p>
-        </div>
-        <div className="p-4 bg-white rounded-lg shadow">
-          <p className="text-sm text-slate-500">リタイア年齢</p>
-          <p className="text-2xl font-bold">{result.retirementAge} 歳</p>
-        </div>
-      </div>
-
-      <div className="h-96 bg-white p-4 rounded-lg shadow">
-        <AssetChart assetData={result.assetData} />
-      </div>
-    </div>
-    
-    <div className="mt-8 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
-      <h2 className="text-2xl font-semibold text-sky-700 mb-6 border-b pb-2">シミュレーション結果</h2>
-        
-        {result.advice && (
-          <div className="mb-6 p-4 bg-sky-50 border border-sky-200 rounded-lg text-sky-800 flex items-start">
-            <Icon as={FaInfoCircle} className="w-5 h-5 mr-3 mt-1 text-sky-600 flex-shrink-0" />
-            <div>
-              <p className="font-semibold">アドバイス:</p>
-              <p className="text-sm">{result.advice}</p>
-      </div>
-        </div>
-      )}
-
-        <div className="space-y-3 mb-8">
-          <ResultItem label="リタイアまでの年数" value={yearsToRetirement > 0 ? yearsToRetirement : 0} unit="年" />
-          <ResultItem label="現在のペースでの年間貯蓄可能額" value={annualSavingsCurrentPace} isCurrency={true} />
-          <ResultItem label="目標とする老後資金額(目安)" value={targetRetirementFund > 0 ? targetRetirementFund : 0} isCurrency={true} />
-          <ResultItem label="リタイア時の予測貯蓄額" value={projectedRetirementSavings} isCurrency={true} isEmphasized={true} />
-        </div>
-        
-        {result.calculationSummary && (
-          <FormSection title="計算過程の概要">
-              <div className="mt-2 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <pre className="text-sm text-slate-600 whitespace-pre-wrap font-sans">
-                      {result.calculationSummary}
-                  </pre>
+      <div className="mt-8 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
+        <h2 className="text-2xl font-semibold text-sky-700 mb-6 border-b pb-2">シミュレーションサマリー</h2>
+          
+          {result.advice && (
+            <div className="mb-6 p-4 bg-sky-50 border border-sky-200 rounded-lg text-sky-800 flex items-start">
+              <Icon as={FaInfoCircle} className="w-5 h-5 mr-3 mt-1 text-sky-600 flex-shrink-0" />
+              <div>
+                <p className="font-semibold">アドバイス:</p>
+                <p className="text-sm">{result.advice}</p>
               </div>
-          </FormSection>
-        )}
-        
-        {result.assetData && result.assetData.length > 0 && (
-          <FormSection title="毎年の収支詳細">
-            <div className="mt-2 overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">年</th>
-                    <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">年齢</th>
-                    <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">年間収入</th>
-                    <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">年間支出</th>
-                    <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">年間収支</th>
-                    <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">年末資産</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
-                  {result.assetData.map((row) => (
-                    <tr key={row.year} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedYear(row)}>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{row.year}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{row.age}歳</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600 text-right">{Math.round(row.income / 10000).toLocaleString()}万円</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 text-right">{Math.round(row.expense / 10000).toLocaleString()}万円</td>
-                      <td className={`px-4 py-3 whitespace-nowrap text-sm text-right font-medium ${row.balance >= 0 ? 'text-slate-700' : 'text-red-600'}`}>
-                        {Math.round(row.balance / 10000).toLocaleString()}万円
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-800 text-right font-semibold">{Math.round(row.savings / 10000).toLocaleString()}万円</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
-          </FormSection>
-        )}
+          )}
 
-      </div>
-      
-      {selectedYear && (
-        <Modal 
-            isOpen={!!selectedYear} 
-            onClose={() => setSelectedYear(null)} 
-            title={`${selectedYear.year}年 (${selectedYear.age}歳) の収支詳細`}
-        >
-            <div className="space-y-4">
-                <div>
-                    <h4 className="font-semibold text-lg text-green-700 mb-2 border-b pb-1">収入の内訳</h4>
-                    <div className="space-y-1">
-                        {Object.entries(selectedYear.incomeDetails).map(([key, value]) => (
-                            <DetailRow key={key} label={key} value={value} />
-                        ))}
-                    </div>
+          <div className="space-y-3 mb-8">
+            <ResultItem label="リタイアまでの年数" value={yearsToRetirement > 0 ? yearsToRetirement : 0} unit="年" />
+            <ResultItem label="現在のペースでの年間貯蓄可能額" value={annualSavingsCurrentPace} isCurrency={true} />
+            <ResultItem label="目標とする老後資金額(目安)" value={targetRetirementFund > 0 ? targetRetirementFund : 0} isCurrency={true} />
+            <ResultItem label="リタイア時の予測貯蓄額" value={projectedRetirementSavings} isCurrency={true} isEmphasized={true} />
+          </div>
+          
+          {result.calculationSummary && (
+            <FormSection title="計算過程の概要">
+                <div className="mt-2 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <pre className="text-sm text-slate-600 whitespace-pre-wrap font-sans">
+                        {result.calculationSummary}
+                    </pre>
                 </div>
-                <div>
-                    <h4 className="font-semibold text-lg text-red-700 mb-2 border-b pb-1">支出の内訳</h4>
-                    <div className="space-y-1">
-                        {Object.entries(selectedYear.expenseDetails).map(([key, value]) => (
-                            <DetailRow key={key} label={key} value={value} />
-                        ))}
-                    </div>
-                </div>
-            </div>
-        </Modal>
-      )}
-    </>
+            </FormSection>
+          )}
+          
+          {result.assetData && result.assetData.length > 0 && (
+            <FormSection title="毎年の収支詳細">
+              <div className="mt-2 overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200">
+                  <thead className="bg-slate-50">
+                    <tr>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">年</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">年齢</th>
+                      <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">年間収入</th>
+                      <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">年間支出</th>
+                      <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">年間収支</th>
+                      <th scope="col" className="px-4 py-3 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">年末資産</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-slate-200">
+                    {result.assetData.map((row) => (
+                      <tr key={row.year} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedYear(row)}>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{row.year}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{row.age}歳</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600 text-right">{Math.round(row.income / 10000).toLocaleString()}万円</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 text-right">{Math.round(row.expense / 10000).toLocaleString()}万円</td>
+                        <td className={`px-4 py-3 whitespace-nowrap text-sm text-right font-medium ${row.balance >= 0 ? 'text-slate-700' : 'text-red-600'}`}>
+                          {Math.round(row.balance / 10000).toLocaleString()}万円
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-800 text-right font-semibold">{Math.round(row.savings / 10000).toLocaleString()}万円</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </FormSection>
+          )}
+        </div>
+        
+        {selectedYear && (
+          <Modal 
+              isOpen={!!selectedYear} 
+              onClose={() => setSelectedYear(null)} 
+              title={`${selectedYear.year}年 (${selectedYear.age}歳) の収支詳細`}
+          >
+              <div className="space-y-4">
+                  <div>
+                      <h4 className="font-semibold text-lg text-green-700 mb-2 border-b pb-1">収入の内訳</h4>
+                      <div className="space-y-1">
+                          {Object.entries(selectedYear.incomeDetails).map(([key, value]) => (
+                              <DetailRow key={key} label={key} value={value} />
+                          ))}
+                      </div>
+                  </div>
+                  <div>
+                      <h4 className="font-semibold text-lg text-red-700 mb-2 border-b pb-1">支出の内訳</h4>
+                      <div className="space-y-1">
+                          {Object.entries(selectedYear.expenseDetails).map(([key, value]) => (
+                              <DetailRow key={key} label={key} value={value} />
+                          ))}
+                      </div>
+                  </div>
+              </div>
+          </Modal>
+        )}
+    </div>
   );
 };
 

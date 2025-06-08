@@ -1,23 +1,32 @@
 # 1. ビルドステージ
-FROM node:18-alpine AS build
+FROM node:18-alpine AS builder
+
+# pnpmのインストール
+RUN npm install -g pnpm
 
 # 作業ディレクトリを設定
 WORKDIR /app
 
-# package.jsonとpackage-lock.jsonをコピー
-COPY package*.json ./
+# ワークスペース全体の依存関係定義ファイルをコピー
+COPY package.json pnpm-lock.yaml ./
 
-# 依存パッケージをインストール
-RUN npm ci
+# backendのpackage.jsonをコピー (ワークスペースの依存解決に必要)
+COPY backend/package.json ./backend/
+# frontendのpackage.jsonをコピー
+COPY frontend/package.json ./frontend/
 
-# ソースコードをコピー
-COPY . .
+# 依存関係をインストール (ビルドツールも含むため--prodは付けない)
+# --filter lifeplan-frontend... はfrontendとその依存先のみを対象
+RUN pnpm install --filter lifeplan-frontend...
 
-# ビルド時にバックエンドURLを受け取るためのARG
+# アプリケーションのソースコードをコピー
+COPY frontend/ ./frontend/
+# frontendが参照する可能性のあるbackendの型定義をコピー
+COPY backend/src/types.ts ./backend/src/
+
+# ビルド時に環境変数を渡す
 ARG REACT_APP_BACKEND_URL
 ENV REACT_APP_BACKEND_URL=${REACT_APP_BACKEND_URL}
-
-# Firebase設定をビルド時に受け取る
 ARG REACT_APP_FIREBASE_API_KEY
 ENV REACT_APP_FIREBASE_API_KEY=${REACT_APP_FIREBASE_API_KEY}
 ARG REACT_APP_FIREBASE_AUTH_DOMAIN
@@ -31,14 +40,14 @@ ENV REACT_APP_FIREBASE_MESSAGING_SENDER_ID=${REACT_APP_FIREBASE_MESSAGING_SENDER
 ARG REACT_APP_FIREBASE_APP_ID
 ENV REACT_APP_FIREBASE_APP_ID=${REACT_APP_FIREBASE_APP_ID}
 
-# Reactアプリをビルド
-RUN npm run build
+# frontendアプリをビルド
+RUN pnpm --filter lifeplan-frontend run build
 
 # 2. 本番ステージ
 FROM nginx:1.25-alpine
 
-# ビルドステージからビルド成果物（静的ファイル）をnginxの公開ディレクトリにコピー
-COPY --from=build /app/build /usr/share/nginx/html
+# ビルダーからビルド成果物（静的ファイル）をnginxの公開ディレクトリにコピー
+COPY --from=builder /app/frontend/build /usr/share/nginx/html
 
 # nginxがリッスンするポートを公開
 EXPOSE 80

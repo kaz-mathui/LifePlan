@@ -10,6 +10,7 @@ export const usePlanData = (user: User | null) => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const getPlansCollection = useCallback(() => {
     if (!user) return null;
@@ -20,22 +21,31 @@ export const usePlanData = (user: User | null) => {
     const plansCollection = getPlansCollection();
     if (!plansCollection) {
       setPlans([]);
+      setIsLoading(false);
       return;
     }
-    const q = query(plansCollection, orderBy('updatedAt', 'desc'));
-    const querySnapshot = await getDocs(q);
-    const fetchedPlans: Plan[] = querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-            id: doc.id,
-            planName: data.planName || '名称未設定',
-            updatedAt: data.updatedAt?.toDate()?.toISOString() || new Date().toISOString(),
-            data: data as SimulationInputData,
+    setIsLoading(true);
+    try {
+        const q = query(plansCollection, orderBy('updatedAt', 'desc'));
+        const querySnapshot = await getDocs(q);
+        const fetchedPlans: Plan[] = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                id: doc.id,
+                planName: data.planName || '名称未設定',
+                updatedAt: data.updatedAt?.toDate()?.toISOString() || new Date().toISOString(),
+                data: data as SimulationInputData,
+            }
+        });
+        setPlans(fetchedPlans);
+        if(fetchedPlans.length > 0 && !selectedPlanId) {
+            setSelectedPlanId(fetchedPlans[0].id);
         }
-    });
-    setPlans(fetchedPlans);
-    if(fetchedPlans.length > 0 && !selectedPlanId) {
-        setSelectedPlanId(fetchedPlans[0].id);
+    } catch (error) {
+        console.error("Error fetching plans: ", error);
+        toast.error("プランの読み込みに失敗しました。");
+    } finally {
+        setIsLoading(false);
     }
   }, [getPlansCollection, selectedPlanId]);
 
@@ -107,6 +117,6 @@ export const usePlanData = (user: User | null) => {
     }
   }, [getPlansCollection, fetchPlans, plans.length]);
 
-  return { plans, selectedPlanId, setSelectedPlanId, fetchPlans, savePlan, deletePlan, createNewPlan, isSaving };
+  return { plans, selectedPlanId, setSelectedPlanId, fetchPlans, savePlan, deletePlan, createNewPlan, isSaving, isLoading };
 }; 
  

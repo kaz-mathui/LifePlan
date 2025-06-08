@@ -14,6 +14,7 @@ const FormSection: React.FC<FormSectionProps> = ({ title, initialOpen = false, c
   return (
     <div className="mb-6 border-b border-slate-200">
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex justify-between items-center py-4 text-left text-xl font-semibold text-slate-800 focus:outline-none"
       >

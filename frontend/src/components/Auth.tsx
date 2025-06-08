@@ -1,5 +1,5 @@
 import React from 'react';
-import { GoogleAuthProvider, signInWithRedirect, Auth as FirebaseAuth } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, Auth as FirebaseAuth } from 'firebase/auth';
 import { FaGoogle } from 'react-icons/fa';
 import Icon from './Icon';
 
@@ -11,7 +11,7 @@ const Auth: React.FC<AuthProps> = ({ auth }) => {
   const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithRedirect(auth, provider);
+      await signInWithPopup(auth, provider);
     } catch (error) {
       console.error("Googleログインエラー:", error);
     }

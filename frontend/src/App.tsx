@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, ChangeEvent } from 'react';
 import { auth } from './services/firebase';
 import { useAuth } from './hooks/useAuth';
 import { usePlanData } from './hooks/usePlanData';
@@ -11,6 +11,8 @@ import PlanManager from './components/PlanManager';
 import LifeEventForm from './components/LifeEventForm';
 import { Toaster, toast } from 'react-hot-toast';
 import { initialSimulationInput } from './constants';
+import { exportToCsv, importFromCsv } from './utils/csvUtils';
+import { saveAs } from 'file-saver';
 
 export type NestedSectionKey = 'housing' | 'education' | 'car' | 'senior';
 
@@ -24,7 +26,8 @@ const App: React.FC = () => {
     savePlan,
     deletePlan,
     createNewPlan,
-    isSaving
+    isSaving,
+    isLoading
   } = usePlanData(user);
 
   const [simulationInput, setSimulationInput] = useState<SimulationInputData>(initialSimulationInput);
@@ -49,10 +52,10 @@ const App: React.FC = () => {
         setSimulationInput(latestPlan.data);
         setSelectedPlanId(latestPlan.id);
       }
-    } else if (user && plans.length === 0 && !isSaving) {
+    } else if (user && !isLoading && plans.length === 0 && !isSaving) {
        handleCreateNewPlan();
     }
-  }, [user, plans, selectedPlanId, setSelectedPlanId, handleCreateNewPlan, isSaving]);
+  }, [user, plans, selectedPlanId, setSelectedPlanId, handleCreateNewPlan, isSaving, isLoading]);
 
 
   useEffect(() => {
@@ -120,22 +123,52 @@ const App: React.FC = () => {
 
   const handleSavePlan = async () => {
     if (user && simulationInput) {
-      const result = await savePlan(selectedPlanId, { ...simulationInput });
-      if (result.success) {
-        toast.success('プランを保存しました！');
-        fetchPlans();
-      } else {
-        toast.error(`保存に失敗しました: ${result.error}`);
+      await savePlan(selectedPlanId, { ...simulationInput });
+    }
+  };
+
+  const handleExport = () => {
+    if (simulationInput) {
+      try {
+        const csvString = exportToCsv(simulationInput);
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        saveAs(blob, `${simulationInput.planName || 'lifeplan'}.csv`);
+        toast.success('プランをCSVファイルに書き出しました。');
+      } catch (error) {
+        console.error('CSVエクスポートエラー:', error);
+        toast.error('エクスポートに失敗しました。');
       }
     }
+  };
+
+  const handleImport = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const csvString = event.target?.result as string;
+          const importedData = await importFromCsv(csvString);
+          setSimulationInput(importedData);
+          toast.success('プランを読み込みました！新しいプランとして保存してください。');
+        } catch (error) {
+          console.error('CSVインポートエラー:', error);
+          toast.error('ファイルの読み込みに失敗しました。');
+        }
+      };
+      reader.readAsText(file);
+    }
+    // 同じファイルを連続で選択できるようにvalueをリセット
+    e.target.value = '';
   };
 
   const handleUpdateLifeEvent = (updatedLifeEvents: LifeEvent[]) => {
     if (simulationInput) {
       const updatedInput = { ...simulationInput, lifeEvents: updatedLifeEvents };
       setSimulationInput(updatedInput);
+      // プランが選択されている（保存済みである）場合のみ自動保存
       if (user && selectedPlanId) {
-        savePlan(selectedPlanId, updatedInput); // ライフイベント更新時も自動保存
+        savePlan(selectedPlanId, updatedInput);
       }
     }
   };
@@ -147,6 +180,14 @@ const App: React.FC = () => {
     return (
       <div className="flex justify-center items-center h-screen">
         <Auth auth={auth} />
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-screen">
+        <p>読み込み中...</p>
       </div>
     );
   }
@@ -182,34 +223,40 @@ const App: React.FC = () => {
           onCreateNewPlan={handleCreateNewPlan}
         />
 
-        <InputForm
-          input={simulationInput}
-          onInputChange={handleInputChange}
-          onNestedChange={handleNestedInputChange}
-          onChildrenChange={handleChildrenChange}
-          onAddChild={handleAddChild}
-          onRemoveChild={handleRemoveChild}
-          onSubmit={() => {
-                if(simulationInput) {
-                    // ここで再計算のトリガーなど
-                    toast.success("シミュレーションを再計算しました！");
-                }
-            }}
-          onSave={handleSavePlan}
-          loading={isSaving}
-          onExport={() => { /* TODO: export logic */ }}
-          onImport={(e) => { /* TODO: import logic */ }}
-        />
+        <div className="mt-8 pt-8 border-t border-slate-200">
+          <InputForm
+            input={simulationInput}
+            onInputChange={handleInputChange}
+            onNestedChange={handleNestedInputChange}
+            onChildrenChange={handleChildrenChange}
+            onAddChild={handleAddChild}
+            onRemoveChild={handleRemoveChild}
+            onSubmit={() => {
+                  if(simulationInput) {
+                      // ここで再計算のトリガーなど
+                      // このonSubmitはシミュレーションを再実行するトリガーとしてのみ機能すべき
+                      // そのためtoastの表示はInputForm側で行う
+                      setSimulationInput(prev => ({...prev!}));
+                  }
+              }}
+            onSave={handleSavePlan}
+            loading={isSaving}
+            onExport={handleExport}
+            onImport={handleImport}
+          />
+        </div>
 
-        <LifeEventForm 
-          lifeEvents={simulationInput?.lifeEvents || []}
-          onLifeEventsChange={handleUpdateLifeEvent}
-          currentAge={Number(simulationInput?.currentAge)}
-          lifeExpectancy={Number(simulationInput?.lifeExpectancy)}
-        />
+        <div className="mt-8 pt-8 border-t border-slate-200">
+          <LifeEventForm 
+            lifeEvents={simulationInput?.lifeEvents || []}
+            onLifeEventsChange={handleUpdateLifeEvent}
+            currentAge={Number(simulationInput?.currentAge)}
+            lifeExpectancy={Number(simulationInput?.lifeExpectancy)}
+          />
+        </div>
 
         {simulationResult && (
-          <div className="mt-8">
+          <div className="mt-8 pt-8 border-t border-slate-200">
             <SimulationResult result={simulationResult} />
           </div>
         )}

@@ -21,21 +21,21 @@ export const initialSimulationInput: SimulationInputData = {
   currentAge: 30,
   retirementAge: 65,
   lifeExpectancy: 95,
-  annualIncome: 5000000,
-  salaryIncreaseRate: 2,
-  currentSavings: 1000000,
-  investmentRatio: 20,
-  annualReturn: 3,
-  severancePay: 10000000,
-  monthlyExpenses: 200000,
-  pensionAmountPerYear: 1500000,
+  annualIncome: 500, // 万円
+  salaryIncreaseRate: 1, // %
+  currentSavings: 1000, // 万円
+  investmentRatio: 50, // %
+  annualReturn: 3, // %
+  severancePay: 1500, // 万円
+  monthlyExpenses: 20, // 万円
+  pensionAmountPerYear: 150, // 万円
   pensionStartDate: 65,
   lifeEvents: [],
   housing: {
     hasLoan: false,
-    propertyValue: 40000000,
-    downPayment: 10000000,
-    loanAmount: 30000000,
+    propertyValue: 4000,
+    downPayment: 800,
+    loanAmount: 3200,
     startAge: 35,
     loanTerm: 35,
     interestRate: 1.5,
@@ -47,18 +47,18 @@ export const initialSimulationInput: SimulationInputData = {
   },
   car: {
     hasCar: false,
-    price: 3000000,
-    downPayment: 1000000,
-    loanAmount: 2000000,
+    price: 300,
+    downPayment: 100,
+    loanAmount: 200,
     loanTerm: 5,
-    interestRate: 2.5,
-    maintenanceCost: 150000,
-    purchaseAge: 30,
+    interestRate: 2,
+    maintenanceCost: 30,
+    purchaseAge: 40,
     replacementCycle: 10,
   },
   senior: {
     nursingCareStartAge: 80,
-    nursingCareAnnualCost: 500000,
-    funeralCost: 2000000,
+    nursingCareAnnualCost: 100,
+    funeralCost: 200,
   }
 }; 

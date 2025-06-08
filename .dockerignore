@@ -1,0 +1,21 @@
+# Git
+.git
+
+# Node
+**/node_modules
+npm-debug.log
+pnpm-debug.log
+yarn-error.log
+
+# Build artifacts
+**/build/
+**/dist/
+.next/
+
+# IDE settings
+.vscode/
+.idea/
+
+# OS-specific
+.DS_Store
+Thumbs.db 

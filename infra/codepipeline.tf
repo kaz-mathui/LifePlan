@@ -258,34 +258,25 @@ data "aws_iam_policy_document" "codepipeline_policy" {
 
   statement {
     effect = "Allow"
-
     actions = [
-      "codebuild:BatchGetBuilds",
       "codebuild:StartBuild",
+      "codebuild:BatchGetBuilds",
     ]
     resources = [aws_codebuild_project.main.arn]
   }
 
-   statement {
-    effect = "Allow"
-    actions = [
-        "ecs:DescribeServices",
-        "ecs:UpdateService",
-        "ecs:RegisterTaskDefinition",
-        "ecs:DescribeTaskDefinition"
-    ]
-    resources = [
-        aws_ecs_service.frontend.id,
-        aws_ecs_service.backend.id,
-        aws_ecs_task_definition.frontend.arn,
-        aws_ecs_task_definition.backend.arn,
-        "arn:aws:ecs:ap-northeast-1:${data.aws_caller_identity.current.account_id}:task-definition/lifeplan-*:*"
-    ]
-  }
   statement {
     effect = "Allow"
-    actions = ["iam:PassRole"]
-    resources = ["*"]
+    actions = [
+      "ecs:DescribeServices",
+      "ecs:UpdateService",
+      "iam:PassRole",
+    ]
+    resources = [
+      aws_ecs_service.frontend.id,
+      aws_ecs_service.backend.id,
+      aws_iam_role.ecs_task_execution_role.arn,
+    ]
   }
 }
 

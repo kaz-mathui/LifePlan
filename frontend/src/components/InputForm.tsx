@@ -4,6 +4,7 @@ import FormSection from './FormSection';
 import { FaCalculator, FaSave, FaFileImport, FaFileExport } from 'react-icons/fa';
 import Icon from './Icon';
 import { NestedSectionKey } from '../App';
+import { toast } from 'react-hot-toast';
 
 interface InputFormProps {
   input: SimulationInputData;
@@ -56,6 +57,11 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedCha
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     onSubmit();
+    toast.success("シミュレーションを再計算しました！");
+  };
+
+  const handleSaveClick = async () => {
+    onSave();
   };
 
   return (
@@ -72,17 +78,17 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedCha
 
       <FormSection title="収入・資産">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-            <InputField label="手取り年収" name="annualIncome" type="number" value={input.annualIncome} onChange={onInputChange} unit="円" />
+            <InputField label="手取り年収" name="annualIncome" type="number" value={input.annualIncome} onChange={onInputChange} unit="万円" />
             <InputField label="昇給率" name="salaryIncreaseRate" type="number" value={input.salaryIncreaseRate} onChange={onInputChange} unit="％" step="0.1" />
-            <InputField label="現在資産" name="currentSavings" type="number" value={input.currentSavings} onChange={onInputChange} unit="円" />
-            <InputField label="退職金" name="severancePay" type="number" value={input.severancePay} onChange={onInputChange} unit="円" />
+            <InputField label="現在資産" name="currentSavings" type="number" value={input.currentSavings} onChange={onInputChange} unit="万円" />
+            <InputField label="退職金" name="severancePay" type="number" value={input.severancePay} onChange={onInputChange} unit="万円" />
         </div>
       </FormSection>
 
       <FormSection title="支出・年金">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-            <InputField label="毎月の生活費" name="monthlyExpenses" type="number" value={input.monthlyExpenses} onChange={onInputChange} unit="円" />
-            <InputField label="年金（年間）" name="pensionAmountPerYear" type="number" value={input.pensionAmountPerYear} onChange={onInputChange} unit="円" />
+            <InputField label="毎月の生活費" name="monthlyExpenses" type="number" value={input.monthlyExpenses} onChange={onInputChange} unit="万円" />
+            <InputField label="年金（年間）" name="pensionAmountPerYear" type="number" value={input.pensionAmountPerYear} onChange={onInputChange} unit="万円" />
             <InputField label="年金開始年齢" name="pensionStartDate" type="number" value={input.pensionStartDate} onChange={onInputChange} unit="歳" />
         </div>
       </FormSection>
@@ -117,9 +123,9 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedCha
 
             {input.housing.hasLoan && (
               <div className="pt-4 mt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                <InputField label="物件価格" name="propertyValue" type="number" value={input.housing.propertyValue} onChange={handleNestedInputChange('housing')} unit="円" />
-                <InputField label="頭金" name="downPayment" type="number" value={input.housing.downPayment} onChange={handleNestedInputChange('housing')} unit="円" />
-                <InputField label="ローン借入額" name="loanAmount" type="number" value={input.housing.loanAmount} onChange={handleNestedInputChange('housing')} unit="円" />
+                <InputField label="物件価格" name="propertyValue" type="number" value={input.housing.propertyValue} onChange={handleNestedInputChange('housing')} unit="万円" />
+                <InputField label="頭金" name="downPayment" type="number" value={input.housing.downPayment} onChange={handleNestedInputChange('housing')} unit="万円" />
+                <InputField label="ローン借入額" name="loanAmount" type="number" value={input.housing.loanAmount} onChange={handleNestedInputChange('housing')} unit="万円" />
                 <InputField label="ローン開始年齢" name="startAge" type="number" value={input.housing.startAge} onChange={handleNestedInputChange('housing')} unit="歳" />
                 <InputField label="返済期間" name="loanTerm" type="number" value={input.housing.loanTerm} onChange={handleNestedInputChange('housing')} unit="年" />
                 <InputField label="金利（年率）" name="interestRate" type="number" value={input.housing.interestRate} onChange={handleNestedInputChange('housing')} unit="％" step="0.01" />
@@ -210,12 +216,12 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedCha
 
             {input.car.hasCar && (
               <div className="pt-4 mt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                <InputField label="車両価格" name="price" type="number" value={input.car.price} onChange={handleNestedInputChange('car')} unit="円" />
-                <InputField label="購入時の頭金" name="downPayment" type="number" value={input.car.downPayment} onChange={handleNestedInputChange('car')} unit="円" />
-                <InputField label="ローン借入額" name="loanAmount" type="number" value={input.car.loanAmount} onChange={handleNestedInputChange('car')} unit="円" />
+                <InputField label="車両価格" name="price" type="number" value={input.car.price} onChange={handleNestedInputChange('car')} unit="万円" />
+                <InputField label="購入時の頭金" name="downPayment" type="number" value={input.car.downPayment} onChange={handleNestedInputChange('car')} unit="万円" />
+                <InputField label="ローン借入額" name="loanAmount" type="number" value={input.car.loanAmount} onChange={handleNestedInputChange('car')} unit="万円" />
                 <InputField label="ローン返済期間" name="loanTerm" type="number" value={input.car.loanTerm} onChange={handleNestedInputChange('car')} unit="年" />
                 <InputField label="ローン金利（年率）" name="interestRate" type="number" value={input.car.interestRate} onChange={handleNestedInputChange('car')} unit="％" step="0.1" />
-                <InputField label="年間維持費" name="maintenanceCost" type="number" value={input.car.maintenanceCost} onChange={handleNestedInputChange('car')} unit="円" />
+                <InputField label="年間維持費" name="maintenanceCost" type="number" value={input.car.maintenanceCost} onChange={handleNestedInputChange('car')} unit="万円" />
                 <InputField label="初回購入年齢" name="purchaseAge" type="number" value={input.car.purchaseAge} onChange={handleNestedInputChange('car')} unit="歳" />
                 <InputField label="買い替えサイクル" name="replacementCycle" type="number" value={input.car.replacementCycle} onChange={handleNestedInputChange('car')} unit="年" />
               </div>
@@ -225,8 +231,8 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedCha
         <FormSection title="老後の備え">
           <div className="pt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
             <InputField label="介護費用の開始年齢" name="nursingCareStartAge" type="number" value={input.senior.nursingCareStartAge} onChange={handleNestedInputChange('senior')} unit="歳" />
-            <InputField label="年間介護費用" name="nursingCareAnnualCost" type="number" value={input.senior.nursingCareAnnualCost} onChange={handleNestedInputChange('senior')} unit="円" />
-            <InputField label="葬儀費用（一括）" name="funeralCost" type="number" value={input.senior.funeralCost} onChange={handleNestedInputChange('senior')} unit="円" />
+            <InputField label="年間介護費用" name="nursingCareAnnualCost" type="number" value={input.senior.nursingCareAnnualCost} onChange={handleNestedInputChange('senior')} unit="万円" />
+            <InputField label="葬儀費用（一括）" name="funeralCost" type="number" value={input.senior.funeralCost} onChange={handleNestedInputChange('senior')} unit="万円" />
           </div>
         </FormSection>
       </div>
@@ -238,7 +244,7 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedCha
         </button>
       </div>
       <div className="flex items-center justify-center space-x-4 mt-4 text-sm">
-        <button type="button" onClick={onSave} disabled={loading} className="flex items-center px-4 py-2 bg-emerald-500 text-white font-semibold rounded-lg shadow-md hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 transition duration-150 disabled:opacity-50">
+        <button type="button" onClick={handleSaveClick} disabled={loading} className="flex items-center px-4 py-2 bg-emerald-500 text-white font-semibold rounded-lg shadow-md hover:bg-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 transition duration-150 disabled:opacity-50">
           <Icon as={FaSave} className="mr-2" />
           <span>保存</span>
         </button>
