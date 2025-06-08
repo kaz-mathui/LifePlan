@@ -1,6 +1,8 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
-// import { LifeEvent } from '../App'; // App.tsx から LifeEvent 型をインポート
-import { LifeEvent } from '../types'; // ★ インポート元を types.ts に変更
+import { LifeEvent } from '../types';
+import { FormSection } from './InputForm';
+import { FaPlus, FaEdit, FaTrash, FaRegCalendarAlt, FaYenSign, FaSyncAlt, FaExclamationCircle, FaArrowRight } from 'react-icons/fa';
+import Icon from './Icon';
 
 interface LifeEventFormProps {
   lifeEvents: LifeEvent[];
@@ -128,6 +130,7 @@ const LifeEventForm: React.FC<LifeEventFormProps> = ({ lifeEvents, onLifeEventsC
         amount: eventToEdit.amount,
         endAge: eventToEdit.endAge,
     });
+    window.scrollTo({ top: document.getElementById('life-event-form')?.offsetTop || 0, behavior: 'smooth' });
   };
 
   const handleDelete = (eventId: string) => {
@@ -145,74 +148,103 @@ const LifeEventForm: React.FC<LifeEventFormProps> = ({ lifeEvents, onLifeEventsC
   const currentMaxAge = typeof lifeExpectancy === 'number' && lifeExpectancy > 0 ? lifeExpectancy.toString() : "120";
 
   return (
-    <div className="mt-8 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
-      <h2 className="text-xl font-semibold text-sky-700 mb-4 border-b pb-2">ライフイベント設定</h2>
-      <form onSubmit={handleSubmit} className="space-y-4 mb-6">
-        <div>
-          <label htmlFor="description" className="block text-sm font-medium text-slate-700">イベント内容:</label>
-          <input type="text" name="description" id="description" value={newEvent.description} onChange={handleInputChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <FormSection title="ライフイベント設定" icon={<Icon as={FaRegCalendarAlt} />}>
+      <div id="life-event-form" className="p-4 bg-sky-50 border border-sky-200 rounded-lg mb-6">
+        <h3 className="text-lg font-semibold text-sky-800 mb-4">{editingEventId ? 'イベント編集' : '新規イベント追加'}</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="startAge" className="block text-sm font-medium text-slate-700">発生年齢 (歳):</label>
-            <input type="number" name="startAge" id="startAge" value={newEvent.startAge} onChange={handleInputChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" min={currentMinAge} max={currentMaxAge} />
+            <label htmlFor="description" className="block text-sm font-medium text-slate-700 mb-1">イベント内容:</label>
+            <input type="text" name="description" id="description" value={newEvent.description} onChange={handleInputChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" placeholder="例：子供の大学入学" />
           </div>
-          <div>
-            <label htmlFor="amount" className="block text-sm font-medium text-slate-700">金額 (円):</label>
-            <input type="number" name="amount" id="amount" value={newEvent.amount} onChange={handleInputChange} required className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" min="0" step="10000" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="startAge" className="block text-sm font-medium text-slate-700 mb-1">発生年齢:</label>
+              <div className="relative">
+                <input type="number" name="startAge" id="startAge" value={newEvent.startAge} onChange={handleInputChange} required className="pl-3 pr-12 py-2 w-full border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" min={currentMinAge} max={currentMaxAge} />
+                <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500">歳</span>
+              </div>
+            </div>
+            <div>
+              <label htmlFor="amount" className="block text-sm font-medium text-slate-700 mb-1">金額:</label>
+              <div className="relative">
+                <input type="number" name="amount" id="amount" value={newEvent.amount} onChange={handleInputChange} required className="pl-3 pr-12 py-2 w-full border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" min="0" step="1" placeholder='100' />
+                <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500">万円</span>
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="type" className="block text-sm font-medium text-slate-700">種類:</label>
-            <select name="type" id="type" value={newEvent.type} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
-              <option value="expense">支出</option>
-              <option value="income">収入</option>
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="type" className="block text-sm font-medium text-slate-700 mb-1">種類:</label>
+              <select name="type" id="type" value={newEvent.type} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm">
+                <option value="expense">支出</option>
+                <option value="income">収入</option>
+              </select>
+            </div>
+            <div className="flex items-end pb-1">
+              <div className="flex items-center">
+                <input type="checkbox" name="isAnnual" id="isAnnual" checked={isAnnual} onChange={handleCheckboxChange} className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
+                <label htmlFor="isAnnual" className="ml-2 block text-sm font-medium text-slate-700">毎年発生</label>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center pt-5">
-              <input type="checkbox" name="isAnnual" id="isAnnual" checked={isAnnual} onChange={handleCheckboxChange} className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500" />
-              <label htmlFor="isAnnual" className="ml-2 block text-sm font-medium text-slate-700">毎年発生</label>
-          </div>
-        </div>
-        {isAnnual && (
-          <div>
-            <label htmlFor="endAge" className="block text-sm font-medium text-slate-700">終了年齢 (歳, 未入力で寿命まで):</label>
-            <input type="number" name="endAge" id="endAge" value={newEvent.endAge ?? ''} onChange={handleInputChange} className="mt-1 block w-full px-3 py-2 bg-white border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" min={(typeof newEvent.startAge === 'number' ? newEvent.startAge : currentMinAge).toString()} max={currentMaxAge} placeholder="未入力で寿命まで" />
-          </div>
-        )}
-        <button type="submit" className="px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 transition duration-150">
-          {editingEventId ? 'イベントを更新' : 'イベントを追加'}
-        </button>
-        {editingEventId && (
-            <button type="button" onClick={() => { setEditingEventId(null); setIsAnnual(false); setNewEvent(getInitialNewEventState()); }} className="ml-2 px-4 py-2 bg-slate-500 text-white font-semibold rounded-lg shadow-md hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 transition duration-150">
-                キャンセル
+          {isAnnual && (
+            <div>
+              <label htmlFor="endAge" className="block text-sm font-medium text-slate-700 mb-1">終了年齢 (任意):</label>
+               <div className="relative">
+                <input type="number" name="endAge" id="endAge" value={newEvent.endAge ?? ''} onChange={handleInputChange} className="pl-3 pr-12 py-2 w-full border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm" min={(typeof newEvent.startAge === 'number' ? newEvent.startAge : currentMinAge).toString()} max={currentMaxAge} placeholder="未入力で寿命まで" />
+                <span className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500">歳</span>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center space-x-2 pt-2">
+            <button type="submit" className="inline-flex items-center px-4 py-2 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 transition duration-150">
+              {editingEventId ? <><Icon as={FaEdit} className="mr-2" /> 更新</> : <><Icon as={FaPlus} className="mr-2" /> 追加</>}
             </button>
-        )}
-      </form>
+            {editingEventId && (
+                <button type="button" onClick={() => { setEditingEventId(null); setIsAnnual(false); setNewEvent(getInitialNewEventState()); }} className="inline-flex items-center px-4 py-2 bg-slate-500 text-white font-semibold rounded-lg shadow-md hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 transition duration-150">
+                    キャンセル
+                </button>
+            )}
+          </div>
+        </form>
+      </div>
 
       {lifeEvents.length > 0 && (
         <div>
-          <h3 className="text-lg font-semibold text-slate-700 mb-2">登録済みライフイベント</h3>
-          <ul className="space-y-2">
-            {lifeEvents.sort((a,b) => (a.startAge || 0) > (b.startAge || 0) ? 1 : -1).map((event) => (
-              <li key={event.id} className="p-3 bg-slate-50 rounded-md shadow-sm border border-slate-200 flex justify-between items-center">
-                <div>
-                  <p className="font-semibold">{event.description} ({event.startAge}歳)</p>
-                  <p className="text-sm text-slate-600">
-                    {event.type === 'income' ? '収入' : '支出'}: {(event.amount || 0).toLocaleString()} 円 ({event.endAge ? `毎年 (${event.endAge}歳まで)` : '一回のみ'})
-                  </p>
+          <h3 className="text-lg font-semibold text-slate-800 mb-3">登録済みライフイベント</h3>
+          <div className="space-y-3">
+            {lifeEvents.sort((a,b) => (a.startAge || 0) - (b.startAge || 0)).map((event) => (
+              <div key={event.id} className="bg-white rounded-lg shadow-md border border-slate-200 p-4 transition-shadow hover:shadow-lg">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <p className="font-bold text-slate-800 text-lg">{event.description}</p>
+                    <div className="flex items-center text-slate-600 text-sm mt-2 flex-wrap">
+                       <span className={`flex items-center mr-4 px-2 py-1 rounded-full text-xs font-semibold ${event.type === 'income' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                        <Icon as={FaYenSign} className="mr-1" />{event.type === 'income' ? '収入' : '支出'}: {(event.amount || 0).toLocaleString()} 万円
+                      </span>
+                      <span className="flex items-center mr-4"><Icon as={FaRegCalendarAlt} className="mr-1" />{event.startAge}歳</span>
+                      {event.endAge && <span className="flex items-center"><Icon as={FaArrowRight} className="mx-2" />{event.endAge}歳</span>}
+                       <span className="flex items-center ml-4 text-blue-600"><Icon as={FaSyncAlt} className="mr-1" />{event.endAge ? '毎年' : '一回のみ'}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button onClick={() => handleEdit(event)} className="p-2 text-slate-500 hover:text-sky-600 hover:bg-sky-100 rounded-full transition-colors duration-150" title="編集"><Icon as={FaEdit} /></button>
+                    <button onClick={() => handleDelete(event.id)} className="p-2 text-slate-500 hover:text-red-600 hover:bg-red-100 rounded-full transition-colors duration-150" title="削除"><Icon as={FaTrash} /></button>
+                  </div>
                 </div>
-                <div>
-                  <button onClick={() => handleEdit(event)} className="text-sm text-sky-600 hover:text-sky-800 mr-2">編集</button>
-                  <button onClick={() => handleDelete(event.id)} className="text-sm text-red-500 hover:text-red-700">削除</button>
-                </div>
-              </li>
+              </div>
             ))}
-          </ul>
+          </div>
         </div>
       )}
-    </div>
+      {lifeEvents.length === 0 && (
+         <div className="text-center py-10 px-6 bg-slate-50 rounded-lg border-2 border-dashed border-slate-300">
+            <Icon as={FaExclamationCircle} className="mx-auto h-12 w-12 text-slate-400" />
+            <h3 className="mt-2 text-lg font-medium text-slate-800">ライフイベントは未登録です</h3>
+            <p className="mt-1 text-sm text-slate-600">上のフォームから、結婚、出産、住宅購入などのイベントを追加しましょう。</p>
+        </div>
+      )}
+    </FormSection>
   );
 };
 

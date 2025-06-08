@@ -5,7 +5,7 @@ import { usePlanData } from './hooks/usePlanData';
 import { SimulationInputData, LifeEvent, Child, BackendSimulationResult } from './types';
 import { calculateSimulation } from './services/simulationService';
 import InputForm from './components/InputForm';
-import SimulationResult from './components/SimulationResult';
+import SimulationResultDisplay from './components/SimulationResult';
 import Auth from './components/Auth';
 import PlanManager from './components/PlanManager';
 import LifeEventForm from './components/LifeEventForm';
@@ -252,11 +252,9 @@ const App: React.FC = () => {
           />
         </div>
 
-        {simulationResult && (
-          <div className="mt-8 pt-8 border-t border-slate-200">
-            <SimulationResult result={simulationResult} />
-          </div>
-        )}
+        <div className="mt-8 pt-8 border-t border-slate-200">
+          <SimulationResultDisplay result={simulationResult} loading={isSaving} />
+        </div>
       </div>
       <footer className="mt-16 mb-8 text-center text-sm text-slate-500">
         <p>&copy; {new Date().getFullYear()} ライフプランニング App. All rights reserved.</p>

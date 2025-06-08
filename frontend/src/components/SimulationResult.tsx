@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { BackendSimulationResult, SimulationResult as SimulationResultYear } from '../types';
 import FormSection from './FormSection';
 import Icon from './Icon';
-import { FaInfoCircle } from 'react-icons/fa';
+import { FaInfoCircle, FaChartBar, FaTable } from 'react-icons/fa';
 import Modal from './Modal';
 import AssetChart from './AssetChart';
+import CashFlowTable from './CashFlowTable';
+import ResultHeader from './ResultHeader';
 
 interface ResultItemProps {
   label: string;
@@ -40,35 +42,70 @@ const DetailRow: React.FC<{label: string; value: number}> = ({ label, value }) =
     </div>
 );
 
-const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) => {
+interface SimulationResultProps {
+  result: BackendSimulationResult | null;
+  loading: boolean;
+}
+
+const TabButton: React.FC<{
+  label: string;
+  icon: React.ReactNode;
+  isActive: boolean;
+  onClick: () => void;
+}> = ({ label, icon, isActive, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`flex items-center justify-center w-full px-4 py-3 font-semibold text-sm rounded-lg transition-colors duration-200 focus:outline-none ${
+      isActive
+        ? 'bg-sky-600 text-white shadow-md'
+        : 'bg-white text-slate-600 hover:bg-sky-100'
+    }`}
+  >
+    {icon}
+    <span className="ml-2">{label}</span>
+  </button>
+);
+
+const SimulationResultDisplay: React.FC<SimulationResultProps> = ({ result, loading }) => {
+  const [activeTab, setActiveTab] = useState<'chart' | 'table'>('chart');
   const [selectedYear, setSelectedYear] = useState<SimulationResultYear | null>(null);
 
-  if (!result || !result.assetData || result.assetData.length === 0) {
+  if (loading) {
     return (
-      <div className="mt-8 p-6 bg-white rounded-xl shadow-lg border border-slate-200 text-center">
-        <h2 className="text-2xl font-semibold text-sky-700 mb-4">シミュレーション結果</h2>
-        <p className="text-slate-600">入力された条件（例：現在年齢が想定寿命を超えている）では、シミュレーションを実行できませんでした。入力内容をご確認の上、再計算してください。</p>
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-sky-500"></div>
       </div>
     );
   }
+
+  if (!result) {
+    return (
+      <div className="text-center p-8 bg-sky-50 rounded-lg shadow-inner">
+        <h2 className="text-2xl font-semibold text-sky-700">準備完了</h2>
+        <p className="text-slate-600 mt-2">左のフォームに入力して、「未来を予測する」ボタンを押してください。</p>
+      </div>
+    );
+  }
+
+  const { assetData, retirementAge, lifeExpectancy } = result;
 
   const formatYen = (value: number) => {
     return new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY' }).format(value);
   };
   
-  const finalSavings = result.assetData[result.assetData.length - 1]?.savings || 0;
+  const finalSavings = assetData[assetData.length - 1]?.savings || 0;
 
   // リタイアまでの年数
-  const yearsToRetirement = result.retirementAge - result.currentAge;
+  const yearsToRetirement = retirementAge - result.currentAge;
 
   // リタイア時の予測貯蓄額
-  const projectedRetirementSavings = result.assetData.find(d => d.age === result.retirementAge)?.savings;
+  const projectedRetirementSavings = assetData.find(d => d.age === retirementAge)?.savings;
   
   // 現在の年間貯蓄可能額 (シミュレーション初年度の収支)
-  const annualSavingsCurrentPace = result.assetData[0]?.balance || 0;
+  const annualSavingsCurrentPace = assetData[0]?.balance || 0;
 
   // 目標とする老後資金額 (簡易計算: (寿命 - 年金受給開始年齢) * 年金受給中の年間支出の平均)
-  const retirementExpenses = result.assetData
+  const retirementExpenses = assetData
     .filter(d => d.age >= result.pensionStartDate && d.age <= result.lifeExpectancy)
     .map(d => d.expense);
   
@@ -79,30 +116,33 @@ const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) 
   const targetRetirementFund = averageRetirementExpense * (result.lifeExpectancy - result.pensionStartDate);
 
   return (
-    <div>
-      <div className="p-6 bg-slate-50 rounded-xl shadow-inner">
-        <h2 className="text-2xl font-bold text-center text-sky-800 mb-6">資産推移グラフ</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center mb-6">
-          <div className="p-4 bg-white rounded-lg shadow">
-            <p className="text-sm text-slate-500">最終資産</p>
-            <p className="text-2xl font-bold text-emerald-600">{formatYen(finalSavings)}</p>
-          </div>
-          <div className="p-4 bg-white rounded-lg shadow">
-            <p className="text-sm text-slate-500">想定寿命</p>
-            <p className="text-2xl font-bold">{result.lifeExpectancy} 歳</p>
-          </div>
-          <div className="p-4 bg-white rounded-lg shadow">
-            <p className="text-sm text-slate-500">リタイア年齢</p>
-            <p className="text-2xl font-bold">{result.retirementAge} 歳</p>
-          </div>
-        </div>
-
-        <div className="w-full bg-white p-4 rounded-lg shadow">
-          <AssetChart assetData={result.assetData} />
-        </div>
-      </div>
+    <div className="mt-8 space-y-6">
+      <ResultHeader result={result} />
       
+      <div className="bg-slate-100 p-2 rounded-xl grid grid-cols-2 gap-2">
+         <TabButton
+          label="資産推移グラフ"
+          icon={<Icon as={FaChartBar} />}
+          isActive={activeTab === 'chart'}
+          onClick={() => setActiveTab('chart')}
+        />
+        <TabButton
+          label="キャッシュフロー詳細"
+          icon={<Icon as={FaTable} />}
+          isActive={activeTab === 'table'}
+          onClick={() => setActiveTab('table')}
+        />
+      </div>
+
+      <div>
+        {activeTab === 'chart' && (
+          <AssetChart assetData={assetData} retirementAge={retirementAge} lifeExpectancy={lifeExpectancy} />
+        )}
+        {activeTab === 'table' && (
+          <CashFlowTable assetData={assetData} />
+        )}
+      </div>
+
       <div className="mt-8 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
         <h2 className="text-2xl font-semibold text-sky-700 mb-6 border-b pb-2">シミュレーションサマリー</h2>
           
@@ -133,7 +173,7 @@ const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) 
             </FormSection>
           )}
           
-          {result.assetData && result.assetData.length > 0 && (
+          {assetData && assetData.length > 0 && (
             <FormSection title="毎年の収支詳細">
               <div className="mt-2 overflow-x-auto">
                 <table className="min-w-full divide-y divide-slate-200">
@@ -148,7 +188,7 @@ const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) 
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-slate-200">
-                    {result.assetData.map((row) => (
+                    {assetData.map((row) => (
                       <tr key={row.year} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedYear(row)}>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{row.year}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{row.age}歳</td>
@@ -197,4 +237,4 @@ const SimulationResult: React.FC<SimulationResultComponentProps> = ({ result }) 
   );
 };
 
-export default SimulationResult; 
+export default SimulationResultDisplay; 

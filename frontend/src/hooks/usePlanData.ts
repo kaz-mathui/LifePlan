@@ -6,6 +6,22 @@ import { initialSimulationInput } from '../constants';
 import toast from 'react-hot-toast';
 import { Plan, SimulationInputData } from '../types';
 
+// Firestoreはundefinedを保存できないため、nullに変換する
+const convertUndefinedToNull = (obj: any): any => {
+  if (obj === undefined) {
+    return null;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => convertUndefinedToNull(item));
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    return Object.fromEntries(
+      Object.entries(obj).map(([key, value]) => [key, convertUndefinedToNull(value)])
+    );
+  }
+  return obj;
+};
+
 export const usePlanData = (user: User | null) => {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
@@ -58,11 +74,12 @@ export const usePlanData = (user: User | null) => {
       }
       
       const planIdToSave = planId || doc(plansCollection).id;
+      const dataToSave = convertUndefinedToNull(data);
 
       setIsSaving(true);
       try {
         const planDoc = doc(plansCollection, planIdToSave);
-        await setDoc(planDoc, { ...data, id: planIdToSave, updatedAt: serverTimestamp() }, { merge: true });
+        await setDoc(planDoc, { ...dataToSave, id: planIdToSave, updatedAt: serverTimestamp() }, { merge: true });
         await fetchPlans(); // 保存後にリストを更新
         toast.success('プランを保存しました！');
         return { success: true };
@@ -107,7 +124,8 @@ export const usePlanData = (user: User | null) => {
     const newPlanDoc = doc(plansCollection);
     try {
         const newPlanName = `新しいプラン ${plans.length + 1}`;
-        await setDoc(newPlanDoc, { ...initialSimulationInput, id: newPlanDoc.id, planName: newPlanName, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+        const newPlanData = convertUndefinedToNull(initialSimulationInput);
+        await setDoc(newPlanDoc, { ...newPlanData, id: newPlanDoc.id, planName: newPlanName, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
         await fetchPlans();
         return newPlanDoc.id;
     } catch (error) {

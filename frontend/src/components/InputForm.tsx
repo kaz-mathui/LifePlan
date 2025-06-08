@@ -20,6 +20,8 @@ interface InputFormProps {
   onImport: (e: ChangeEvent<HTMLInputElement>) => void;
 }
 
+export { FormSection };
+
 interface InputFieldProps extends React.ComponentPropsWithoutRef<'input'> {
   label: string;
   unit?: string;

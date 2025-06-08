@@ -4,11 +4,12 @@ import Icon from './Icon';
 
 interface FormSectionProps {
   title: string;
+  icon?: ReactNode;
   initialOpen?: boolean;
   children: ReactNode;
 }
 
-const FormSection: React.FC<FormSectionProps> = ({ title, initialOpen = false, children }) => {
+const FormSection: React.FC<FormSectionProps> = ({ title, icon, initialOpen = false, children }) => {
   const [isOpen, setIsOpen] = useState(initialOpen);
 
   return (
@@ -18,7 +19,10 @@ const FormSection: React.FC<FormSectionProps> = ({ title, initialOpen = false, c
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex justify-between items-center py-4 text-left text-xl font-semibold text-slate-800 focus:outline-none"
       >
-        <span>{title}</span>
+        <span className="flex items-center">
+          {icon && <span className="mr-3 text-sky-600">{icon}</span>}
+          {title}
+        </span>
         {isOpen ? <Icon as={FiChevronUp} className="w-6 h-6 text-sky-600" /> : <Icon as={FiChevronDown} className="w-6 h-6 text-slate-500" />}
       </button>
       {isOpen && (
