@@ -52,6 +52,21 @@ data "aws_iam_policy_document" "codebuild_policy" {
   statement {
     effect = "Allow"
     actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:GetBucketVersioning",
+      "s3:PutObject",
+      "s3:PutObjectAcl"
+    ]
+    resources = [
+      aws_s3_bucket.codepipeline_artifacts.arn,
+      "${aws_s3_bucket.codepipeline_artifacts.arn}/*",
+    ]
+  }
+  
+  statement {
+    effect = "Allow"
+    actions = [
         "ecs:DescribeServices",
         "ecs:UpdateService"
     ]
@@ -270,7 +285,7 @@ data "aws_iam_policy_document" "codepipeline_policy" {
   statement {
     effect = "Allow"
     actions = ["iam:PassRole"]
-    resources = [aws_iam_role.ecs_task_execution_role.arn]
+    resources = ["*"]
   }
 }
 
@@ -281,3 +296,4 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
 
 # --- Data source for current AWS account ID ---
 data "aws_caller_identity" "current" {}
+ 

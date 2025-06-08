@@ -20,13 +20,13 @@ const Auth: React.FC<AuthProps> = ({ auth }) => {
   return (
     <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-xl">
       <h2 className="text-2xl font-bold text-slate-800 mb-6">ログイン</h2>
-      <button
+        <button
         onClick={handleGoogleLogin}
         className="flex items-center justify-center w-full px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-transform transform hover:scale-105"
-      >
+        >
         <Icon as={FaGoogle} className="mr-3" />
-        Googleでログイン
-      </button>
+          Googleでログイン
+        </button>
     </div>
   );
 };

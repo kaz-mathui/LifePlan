@@ -165,11 +165,24 @@ git push origin v1.0.0
 **公開中 (`start_services.sh` 実行後):**
 - Application Load Balancer: 約 $19 / 月
 - ECS Fargate: 約 $15 / 月 (vCPU, Memoryによる)
+- **CI/CD (CodePipeline & CodeBuild)**:
+  - CodePipeline: $1 / 月 (アクティブなパイプラインごと)
+  - CodeBuild: 最初の100分/月は無料。以降、ビルド時間に応じた従量課金 (約$0.005/分)
 - NAT Gateway: 約 $4 / 月 (データ転送量により変動)
-- **合計:** 約 $38 - $45 / 月
+- **合計:** 約 $39 - $46 / 月
 
 **停止中 (`stop_services.sh` 実行後):**
-- S3 (Terraform state), ECR (Docker image): ほぼ無料 (ごく僅かなストレージ料金)
+- S3 (Terraform state), ECR (Docker image), CodePipeline (非アクティブ時): ほぼ無料
 - **合計:** 約 $0.1 / 月未満
 
 **定期的に利用しない場合は、必ず `stop_services.sh` を実行してください。**
+
+### さらなるコスト削減 (ベストプラクティス)
+
+開発がアクティブでない期間など、さらにコストを削減したい場合は、以下の方法を検討できます。
+
+- **CodePipelineの完全停止**:
+  `infra/codepipeline.tf` 内の `resource "aws_codepipeline" "main"` ブロック全体をコメントアウト、または `count = 0` を追加して `terraform apply` を実行すると、パイプライン自体が削除され、月額$1の課金を停止できます。開発を再開する際に元に戻す必要があります。
+
+- **ビルド時間の最適化**:
+  CodeBuildの料金はビルド時間に基づきます。`buildspec.yml` や `Dockerfile` を最適化し、Dockerのレイヤーキャッシュを活用してビルド時間を短縮することは、長期的にコスト削減に繋がります。

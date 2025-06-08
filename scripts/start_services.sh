@@ -33,3 +33,4 @@ aws ecs update-service --cluster $CLUSTER_NAME --service $BACKEND_SERVICE_NAME -
 echo "ECS services desired count set to 1."
 echo ""
 echo "Start process complete. It may take a few minutes for the services to become healthy and accessible via the ALB." 
+ 

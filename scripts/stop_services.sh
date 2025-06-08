@@ -32,3 +32,4 @@ cd ..
 
 echo ""
 echo "Stop process complete. ECS services are scaled down and ALB has been destroyed." 
+ 
