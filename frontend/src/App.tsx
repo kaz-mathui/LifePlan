@@ -31,7 +31,6 @@ const App: React.FC = () => {
   } = usePlanData(user);
 
   const [simulationInput, setSimulationInput] = useState<SimulationInputData>(initialSimulationInput);
-  // const [isLifeEventModalOpen, setLifeEventModalOpen] = useState(false);
 
   const handleCreateNewPlan = useCallback(async () => {
     const newPlanId = await createNewPlan();
