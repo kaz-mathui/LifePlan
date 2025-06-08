@@ -165,7 +165,6 @@ const App: React.FC = () => {
     if (simulationInput) {
       const updatedInput = { ...simulationInput, lifeEvents: updatedLifeEvents };
       setSimulationInput(updatedInput);
-      // プランが選択されている（保存済みである）場合のみ自動保存
       if (user && selectedPlanId) {
         savePlan(selectedPlanId, updatedInput);
       }
