@@ -4,9 +4,6 @@ on:
   pull_request:
     branches:
       - main
-  push:
-    tags:
-      - 'v*' # vから始まるタグがpushされたら起動 (例: v1.0.0, v2.0.3-alpha)
   workflow_dispatch: # 手動実行を許可
 
 jobs:
@@ -56,52 +53,3 @@ jobs:
 
       - name: Run Build
         run: npm run build
-
-  deploy:
-    name: "Build and Push to ECR"
-    needs: [test-backend, test-frontend]
-    runs-on: ubuntu-latest
-    # vから始まるタグがpushされた時、または手動実行された時のみ実行
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/login-ecr@v3
-
-      - name: Set Image Tag
-        id: image_tag
-        run: |
-          if [[ $GITHUB_REF == refs/tags/v* ]]; then
-            echo "IMAGE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-          else
-            echo "IMAGE_TAG=latest" >> $GITHUB_ENV
-          fi
-
-      - name: Build, tag, and push backend image to Amazon ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: lifeplan/backend
-          IMAGE_TAG: ${{ env.IMAGE_TAG }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f backend/Dockerfile .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-
-      - name: Build, tag, and push frontend image to Amazon ECR
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: lifeplan/frontend
-          IMAGE_TAG: ${{ env.IMAGE_TAG }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f frontend/Dockerfile .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
