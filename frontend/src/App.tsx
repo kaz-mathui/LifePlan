@@ -120,7 +120,6 @@ const App: React.FC = () => {
     }));
   };
 
-
   const handleSavePlan = async () => {
     if (user && simulationInput) {
       await savePlan(selectedPlanId, { ...simulationInput });
