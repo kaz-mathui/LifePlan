@@ -18,10 +18,10 @@ phases:
       - pnpm install
       
       - echo Building frontend Docker image...
-      - docker build -t $FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG -f frontend/Dockerfile ./frontend
+      - docker build -t $FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG -f frontend/Dockerfile .
       
       - echo Building backend Docker image...
-      - docker build -t $BACKEND_IMAGE_REPO_URL:$IMAGE_TAG -f backend/Dockerfile ./backend
+      - docker build -t $BACKEND_IMAGE_REPO_URL:$IMAGE_TAG -f backend/Dockerfile .
 
   post_build:
     commands:
