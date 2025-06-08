@@ -30,6 +30,13 @@
 
 ![CI/CD Flow Diagram](./docs/ci-cd-flow.png)
 
+1.  **開発**: 開発者がローカルでコードを修正し、`main`ブランチにpushします。
+2.  **CI (GitHub Actions)**: Pull Requestが作成されると、GitHub Actionsが自動でテストとビルドを実行し、コードの品質を担保します。
+3.  **CD (AWS CodePipeline)**: `main`ブランチへのpushをトリガーに、AWS CodePipelineがパイプラインを開始します。
+    - **Source**: GitHubからソースコードを取得します。
+    - **Build (CodeBuild)**: `buildspec.yml`に基づき、Dockerイメージをビルドし、ECRにプッシュします。
+    - **Deploy (ECS)**: 新しいDockerイメージを使用して、ECS Fargate上のサービスを更新（ローリングアップデート）します。
+
 ---
 
 ## セットアップとローカル開発
@@ -96,42 +103,38 @@ cd infra
 terraform init
 terraform plan
 terraform apply --auto-approve
+
+# 初回のみ、AWSコンソールでCodeStar Connectionの承認が必要です。
+# terraform apply後に表示される指示に従ってください。
+
 cd ..
 ```
-これにより、VPC, ECSクラスター, ECRリポジトリなどが作成されます。
+これにより、VPC, ECSクラスター, ECRリポジトリ、そしてCI/CDパイプライン(CodePipeline)などが作成されます。
 
-### 2. 初回デプロイ (CI/CD)
+### 2. デプロイ
 
 インフラが整ったら、アプリケーションをデプロイします。
 
-1.  **変更をコミット & Push:**
-    ```bash
-    git add .
-    git commit -m "feat: Initial setup for deployment"
-    git push origin main
-    ```
+**`main`ブランチにコードをpush（またはマージ）すると、自動的にAWS CodePipelineが起動し、ビルドとデプロイが実行されます。**
 
-2.  **Gitタグを作成 & Push:**
-    `v`で始まるセマンティックバージョニング形式のタグを付けると、GitHub Actionsが自動でトリガーされます。
+```bash
+git checkout main
+git add .
+git commit -m "feat: Deploy new feature"
+git push origin main
+```
+パイプラインの実行状況は、AWSコンソールのCodePipelineから確認できます。
 
-    ```bash
-    # 例: v0.1.0 タグを作成
-    git tag v0.1.0
-    git push origin v0.1.0
-    ```
+### リリース管理のためのタグ付け (推奨)
 
-    これにより、テスト、ビルド、ECRへのイメージプッシュ、ECSへのデプロイが自動的に実行されます。
+デプロイのトリガーは`main`ブランチへのpushですが、本番リリースなど、特定のバージョンを記録しておきたい場合は、Gitタグを使用することが推奨されます。
 
-### 3. 手動でのデプロイ (タグなし)
-
-開発中のバージョンをデプロイしたい場合など、Gitタグを付けずにデプロイすることも可能です。
-
-1.  GitHubリポジトリの **Actions** タブに移動します。
-2.  左のサイドバーから **CI/CD Pipeline** ワークフローを選択します。
-3.  **Run workflow** ドロップダウンボタンをクリックします。
-4.  デプロイしたいブランチ（通常は `main`）を選択し、緑色の **Run workflow** ボタンをクリックして実行します。
-
-これにより、指定したブランチの最新コードがビルドされ、ECRにデプロイされます。
+```bash
+# 例: v1.0.0 タグを作成し、リモートにpush
+git tag v1.0.0
+git push origin v1.0.0
+```
+これにより、どのコミットがどのバージョンに対応しているかが明確になります。
 
 ---
 

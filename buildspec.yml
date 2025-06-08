@@ -1,0 +1,30 @@
+version: 0.2
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+
+  build:
+    commands:
+      - echo Building the Docker images...
+      - docker build -t $FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG -f frontend/Dockerfile frontend/
+      - docker build -t $BACKEND_IMAGE_REPO_URL:$IMAGE_TAG -f backend/Dockerfile backend/
+      
+  post_build:
+    commands:
+      - echo Pushing the Docker images to ECR...
+      - docker push $FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG
+      - docker push $BACKEND_IMAGE_REPO_URL:$IMAGE_TAG
+      - echo Creating image definition files...
+      - |
+        printf '[{"name":"lifeplan-frontend","imageUri":"%s"}]' "$FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG" > imagedefinitions-frontend.json
+      - |
+        printf '[{"name":"lifeplan-backend","imageUri":"%s"}]' "$BACKEND_IMAGE_REPO_URL:$IMAGE_TAG" > imagedefinitions-backend.json
+        
+artifacts:
+  files:
+    - imagedefinitions-frontend.json
+    - imagedefinitions-backend.json 
