@@ -134,12 +134,25 @@ resource "aws_codebuild_project" "main" {
 
 # --- CodePipeline ---
 resource "aws_codepipeline" "main" {
-  name     = "lifeplan-pipeline"
-  role_arn = aws_iam_role.codepipeline_role.arn
+  name           = "lifeplan-pipeline"
+  pipeline_type  = "V2"
+  role_arn       = aws_iam_role.codepipeline_role.arn
 
   artifact_store {
     type     = "S3"
     location = aws_s3_bucket.codepipeline_artifacts.bucket
+  }
+
+  trigger {
+    provider_type = "CodeStarSourceConnection"
+    git_configuration {
+      source_action_name = "Source"
+      push {
+        branches {
+          includes = ["main"]
+        }
+      }
+    }
   }
 
   stage {
