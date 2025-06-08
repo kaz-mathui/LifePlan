@@ -1,6 +1,11 @@
 #!/bin/bash
 # ECSサービスを停止し、コスト削減のためにALBを削除するスクリプト
 
+# スクリプトが設置されているディレクトリを取得
+SCRIPT_DIR=$(cd $(dirname $0); pwd)
+# プロジェクトのルートディレクトリに移動 (スクリプトの親ディレクトリ)
+cd $SCRIPT_DIR/..
+
 # --- 設定 ---
 CLUSTER_NAME="lifeplan-cluster"
 FRONTEND_SERVICE_NAME="lifeplan-frontend-service"
