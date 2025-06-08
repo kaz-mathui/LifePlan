@@ -22,8 +22,10 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:ci": "CI=true npm run build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "prepare": "husky"
   },
   "eslintConfig": {
     "extends": [
@@ -49,6 +51,7 @@
     "@types/papaparse": "^5.3.16",
     "@types/react": "^18.2.79",
     "@types/react-dom": "^18.2.25",
+    "husky": "^9.1.7",
     "tailwindcss": "^3.3.5",
     "typescript": "^4.9.5"
   }

@@ -132,7 +132,7 @@ resource "aws_ecs_service" "backend" {
     content {
       target_group_arn = aws_lb_target_group.backend[0].arn
       container_name   = "lifeplan-backend"
-      container_port   = 8080
+      container_port   = 3001
     }
   }
 
