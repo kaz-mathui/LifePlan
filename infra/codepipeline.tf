@@ -138,6 +138,10 @@ resource "aws_codepipeline" "main" {
   pipeline_type  = "V2"
   role_arn       = aws_iam_role.codepipeline_role.arn
 
+  tags = {
+    "SourceTriggerUpdate" = "1"
+  }
+
   artifact_store {
     type     = "S3"
     location = aws_s3_bucket.codepipeline_artifacts.bucket

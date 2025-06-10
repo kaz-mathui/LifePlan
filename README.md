@@ -94,4 +94,3 @@
     2. AWS CodeBuildが`buildspec.yml`の定義に従い、DockerイメージのビルドとECRへのプッシュを行います。
     3. AWS CodeDeploy(ECS)が、新しいDockerイメージを使ってECSサービスを更新し、本番環境にデプロイします。
   - **設定ファイル**: `infra/codepipeline.tf`, `buildspec.yml`
-
