@@ -55,9 +55,8 @@ ENV PORT 3001
 # コンテナがリッスンするポートを公開
 EXPOSE ${PORT}
 
-# アプリケーションを起動 (デバッグ用コマンド)
-# 目的: 原因を特定するため、何が何でもログを出力させる
-CMD ["sh", "-c", "echo '--- [DEBUG] Backend container starting ---'; echo '... waiting 5 seconds for log driver ...'; sleep 5; echo '--- [DEBUG] Listing files in /app/backend/dist: ---'; ls -l /app/backend/dist; echo '--- [DEBUG] Checking Node.js and pnpm versions: ---'; node --version; pnpm --version; echo '--- [DEBUG] Starting application ---'; node ./backend/dist/server.js"]
+# アプリケーションを起動
+CMD ["node", "./backend/dist/server.js"]
 
 # CMD ["npm", "start"] # This would be for production using dist
 # For development, docker-compose will override this with `npm run dev` 
