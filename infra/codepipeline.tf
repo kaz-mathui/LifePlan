@@ -152,9 +152,10 @@ resource "aws_codepipeline" "main" {
     git_configuration {
       source_action_name = "Source"
       push {
-        branches {
-          includes = ["main"]
-        }
+        # Temporarily removing branch filter for debugging
+        # branches {
+        #   includes = ["main"]
+        # }
       }
     }
   }
