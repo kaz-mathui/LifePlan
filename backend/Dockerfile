@@ -11,7 +11,6 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # backendとfrontendのpackage.jsonをコピー
-# （frontendはbackendのビルドに不要だが、ワークスペースの整合性のために含める）
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
@@ -38,6 +37,8 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 # ワークスペースと依存関係の定義ファイルのみをコピー
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY backend/package.json ./backend/
+# frontendのpackage.jsonもコピーしてワークスペースの整合性を保つ
+COPY frontend/package.json ./frontend/
 
 # 本番用の依存パッケージのみをインストール
 # chownで権限を与えてから実行
