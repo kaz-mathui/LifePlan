@@ -6,33 +6,40 @@ phases:
       nodejs: 18
     commands:
       - npm install -g pnpm@8
+      - yum install -y jq
+
   pre_build:
     commands:
       - echo Logging in to Amazon ECR...
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}
+      - echo "Fetching secrets from Secrets Manager..."
+      - export FIREBASE_SECRETS=$(aws secretsmanager get-secret-value --secret-id ${SECRET_ARN_FOR_BUILD} --query SecretString --output text)
+
   build:
     commands:
-      - echo Building the application with pnpm...
-      - pnpm install
-      
-      - echo Building frontend Docker image...
-      - docker build -t $FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG -f frontend/Dockerfile .
-      
-      - echo Building backend Docker image...
-      - docker build -t $BACKEND_IMAGE_REPO_URL:$IMAGE_TAG -f backend/Dockerfile .
+      - echo "Building and pushing frontend image..."
+      - cd frontend
+      # jqを使って各キーをREACT_APP_プレフィックス付きで.envファイルに書き出す
+      - echo "$FIREBASE_SECRETS" | jq -r 'to_entries | .[] | "REACT_APP_\(.key)=\(.value)"' > .env
+      - echo "Generated .env file:"
+      - cat .env
+      - docker build -t $FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG .
+      - docker push $FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG
+      - cd ..
+
+      - echo "Building and pushing backend image..."
+      - cd backend
+      - docker build -t $BACKEND_IMAGE_REPO_URL:$IMAGE_TAG .
+      - docker push $BACKEND_IMAGE_REPO_URL:$IMAGE_TAG
+      - cd ..
 
   post_build:
     commands:
-      - echo Pushing Docker images to ECR...
-      - docker push $FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG
-      - docker push $BACKEND_IMAGE_REPO_URL:$IMAGE_TAG
-      - echo Creating imagedefinitions files...
-      - |
-        printf '[{"name":"lifeplan-frontend","imageUri":"%s"}]' "$FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG" > imagedefinitions-frontend.json
-      - |
-        printf '[{"name":"lifeplan-backend","imageUri":"%s"}]' "$BACKEND_IMAGE_REPO_URL:$IMAGE_TAG" > imagedefinitions-backend.json
+      - echo "Creating imagedefinitions files..."
+      - printf '[{"name":"lifeplan-frontend","imageUri":"%s"}]' "$FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG" > imagedefinitions-frontend.json
+      - printf '[{"name":"lifeplan-backend","imageUri":"%s"}]' "$BACKEND_IMAGE_REPO_URL:$IMAGE_TAG" > imagedefinitions-backend.json
 
 artifacts:
   files:

@@ -50,6 +50,12 @@ data "aws_iam_policy_document" "codebuild_policy" {
   }
   
   statement {
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [data.aws_secretsmanager_secret.app_secrets.arn]
+  }
+  
+  statement {
     effect = "Allow"
     actions = [
       "s3:GetObject",
@@ -123,6 +129,10 @@ resource "aws_codebuild_project" "main" {
     environment_variable {
         name = "BACKEND_TASK_DEFINITION_FAMILY"
         value = aws_ecs_task_definition.backend.family
+    }
+    environment_variable {
+      name  = "SECRET_ARN_FOR_BUILD"
+      value = data.aws_secretsmanager_secret.app_secrets.arn
     }
   }
   

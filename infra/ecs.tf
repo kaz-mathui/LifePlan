@@ -56,12 +56,6 @@ resource "aws_ecs_task_definition" "frontend" {
           hostPort      = 80
         }
       ],
-      secrets = [
-        for key in local.frontend_secret_keys : {
-          name      = key
-          valueFrom = "${data.aws_secretsmanager_secret.app_secrets.arn}:${key}::"
-        }
-      ],
       logConfiguration = {
         logDriver = "awslogs",
         options = {
