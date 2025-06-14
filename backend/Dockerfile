@@ -1,3 +1,9 @@
+# --- 最終診断用Dockerfile ---
+# 目的: アプリケーションの要素をすべて排除し、
+#       AWSインフラ自体がコンテナを正常に起動・ログ出力できるかをテストする。
+FROM alpine:latest
+ENTRYPOINT ["printenv"]
+
 # 1. ビルドステージ
 FROM node:18-alpine AS builder
 
