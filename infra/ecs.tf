@@ -55,6 +55,12 @@ resource "aws_ecs_task_definition" "frontend" {
           containerPort = 80
           hostPort      = 80
         }
+      ],
+      secrets = [
+        for key in local.frontend_secret_keys : {
+          name      = key
+          valueFrom = "${data.aws_secretsmanager_secret.app_secrets.arn}:${key}::"
+        }
       ]
     }
   ])
@@ -108,6 +114,12 @@ resource "aws_ecs_task_definition" "backend" {
         {
           containerPort = 3001
           hostPort      = 3001
+        }
+      ],
+      secrets = [
+        {
+          name      = local.backend_secret_key
+          valueFrom = "${data.aws_secretsmanager_secret.app_secrets.arn}:${local.backend_secret_key}::"
         }
       ]
     }
