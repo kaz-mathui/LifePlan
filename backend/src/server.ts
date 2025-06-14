@@ -1,6 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import simulationRoutes from './routes/simulation';
+import planRoutes from './routes/planRoutes';
 
 const app: Express = express();
 const PORT: string | number = process.env.PORT || 3001;
@@ -16,7 +17,13 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Life Planning API is running!');
 });
 
-app.use('/api/simulation', simulationRoutes);
+// ヘルスチェック用エンドポイント
+app.get('/api/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+app.use('/api/plans', planRoutes);
+app.use('/api/simulations', simulationRoutes);
 
 // エラーハンドリングミドルウェア (簡易版)
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
