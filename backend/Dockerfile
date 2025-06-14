@@ -8,14 +8,15 @@ RUN npm install -g pnpm
 WORKDIR /app
 
 # ワークスペース全体の依存関係定義ファイルをコピー
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 # backendとfrontendのpackage.jsonをコピー
+# （frontendはbackendのビルドに不要だが、ワークスペースの整合性のために含める）
 COPY backend/package.json ./backend/
 COPY frontend/package.json ./frontend/
 
-# backendとその依存関係に必要なパッケージをインストール
-RUN pnpm install --filter lifeplan-backend...
+# 依存関係をインストール (devDependenciesも含む)
+RUN pnpm install --filter lifeplan-backend
 
 # backendのソースコードをコピー
 COPY backend/ ./backend/
@@ -31,13 +32,21 @@ RUN npm install -g pnpm
 
 WORKDIR /app
 
-# プロダクション用の依存関係を再インストールするため、関連ファイルをコピー
-COPY package.json pnpm-lock.yaml ./
+# ユーザーとグループを作成
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# ワークスペースと依存関係の定義ファイルのみをコピー
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY backend/package.json ./backend/
-COPY --from=builder /app/backend/dist ./backend/dist
 
 # 本番用の依存パッケージのみをインストール
-RUN pnpm install --filter lifeplan-backend... --prod
+# chownで権限を与えてから実行
+RUN chown -R appuser:appgroup /app
+USER appuser
+RUN pnpm install --filter lifeplan-backend --prod
+
+# ビルドステージからコンパイル済みコードをコピー
+COPY --from=builder --chown=appuser:appgroup /app/backend/dist ./backend/dist
 
 # ポート番号を環境変数から受け取るようにする (デフォルトは3001)
 ENV PORT 3001
@@ -46,7 +55,7 @@ ENV PORT 3001
 EXPOSE ${PORT}
 
 # アプリケーションを起動
-CMD ["pnpm", "--filter", "lifeplan-backend", "start"]
+CMD ["node", "./backend/dist/server.js"]
 
 # CMD ["npm", "start"] # This would be for production using dist
 # For development, docker-compose will override this with `npm run dev` 
