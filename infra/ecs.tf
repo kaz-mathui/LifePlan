@@ -96,10 +96,6 @@ resource "aws_ecs_service" "frontend" {
     }
   }
 
-  lifecycle {
-    ignore_changes = [task_definition, desired_count]
-  }
-
   depends_on = [aws_lb_listener.http]
 }
 
@@ -162,10 +158,6 @@ resource "aws_ecs_service" "backend" {
       container_name   = "lifeplan-backend"
       container_port   = 3001
     }
-  }
-
-  lifecycle {
-    ignore_changes = [task_definition, desired_count]
   }
 
   depends_on = [aws_lb_listener.http]
