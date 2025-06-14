@@ -26,10 +26,6 @@ RUN pnpm install --filter lifeplan-backend
 # backendのソースコードをコピー
 COPY backend/ ./backend/
 
-# 診断スクリプトをコピーし、実行権限を付与
-COPY backend/diag.sh ./backend/diag.sh
-RUN chmod +x ./backend/diag.sh
-
 # TypeScriptをJavaScriptにコンパイル
 RUN pnpm --filter lifeplan-backend run build
 
@@ -59,17 +55,14 @@ RUN pnpm install --filter lifeplan-backend --prod
 # ビルドステージからコンパイル済みコードをコピー
 COPY --from=builder --chown=appuser:appgroup /app/backend/dist ./backend/dist
 
-# ビルドステージから診断スクリプトをコピー
-COPY --from=builder --chown=appuser:appgroup /app/backend/diag.sh ./backend/diag.sh
-
 # ポート番号を環境変数から受け取るようにする (デフォルトは3001)
 ENV PORT 3001
 
 # コンテナがリッスンするポートを公開
 EXPOSE ${PORT}
 
-# アプリケーションを起動 (診断用スクリプトを実行)
-CMD ["./backend/diag.sh"]
+# アプリケーションを起動
+CMD ["node", "./backend/dist/server.js"]
 
 # CMD ["npm", "start"] # This would be for production using dist
 # For development, docker-compose will override this with `npm run dev` 
