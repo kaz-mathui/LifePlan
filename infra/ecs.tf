@@ -127,7 +127,7 @@ resource "aws_ecs_task_definition" "backend" {
       secrets = [
         {
           name      = local.backend_secret_key,
-          valueFrom = data.aws_secretsmanager_secret.app_secrets.arn
+          valueFrom = "${data.aws_secretsmanager_secret.app_secrets.arn}:${local.backend_secret_key}::"
         }
       ],
       logConfiguration = {
