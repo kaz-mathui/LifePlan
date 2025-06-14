@@ -61,7 +61,15 @@ resource "aws_ecs_task_definition" "frontend" {
           name      = key
           valueFrom = "${data.aws_secretsmanager_secret.app_secrets.arn}:${key}::"
         }
-      ]
+      ],
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.frontend.name,
+          "awslogs-region"        = data.aws_region.current.name,
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
     }
   ])
 }
@@ -121,7 +129,15 @@ resource "aws_ecs_task_definition" "backend" {
           name      = local.backend_secret_key
           valueFrom = "${data.aws_secretsmanager_secret.app_secrets.arn}:${local.backend_secret_key}::"
         }
-      ]
+      ],
+      logConfiguration = {
+        logDriver = "awslogs",
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.backend.name,
+          "awslogs-region"        = data.aws_region.current.name,
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
     }
   ])
 }
