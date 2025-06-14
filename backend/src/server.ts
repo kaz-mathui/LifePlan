@@ -6,6 +6,7 @@ import admin from 'firebase-admin';
 // Heroku/GCPの環境変数からサービスアカウント情報を取得
 // ローカルで実行する場合は、環境変数 GOOGLE_APPLICATION_CREDENTIALS にファイルパスを設定
 const serviceAccountKey = process.env.SERVICE_ACCOUNT_KEY;
+
 if (!serviceAccountKey) {
   throw new Error('SERVICE_ACCOUNT_KEY environment variable is not set.');
 }
