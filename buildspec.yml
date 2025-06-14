@@ -20,20 +20,16 @@ phases:
   build:
     commands:
       - echo "Building and pushing frontend image..."
-      - cd frontend
-      # jqを使って各キーをREACT_APP_プレフィックス付きで.envファイルに書き出す
-      - echo "$FIREBASE_SECRETS" | jq -r 'to_entries | .[] | "REACT_APP_\(.key)=\(.value)"' > .env
-      - echo "Generated .env file:"
-      - cat .env
-      - docker build -t $FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG .
+      # jqを使って各キーをREACT_APP_プレフィックス付きでfrontend/.envファイルに書き出す
+      - echo "$FIREBASE_SECRETS" | jq -r 'to_entries | .[] | "REACT_APP_\(.key)=\(.value)"' > frontend/.env
+      - echo "Generated frontend/.env file:"
+      - cat frontend/.env
+      - docker build -t $FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG -f frontend/Dockerfile .
       - docker push $FRONTEND_IMAGE_REPO_URL:$IMAGE_TAG
-      - cd ..
 
       - echo "Building and pushing backend image..."
-      - cd backend
-      - docker build -t $BACKEND_IMAGE_REPO_URL:$IMAGE_TAG .
+      - docker build -t $BACKEND_IMAGE_REPO_URL:$IMAGE_TAG -f backend/Dockerfile .
       - docker push $BACKEND_IMAGE_REPO_URL:$IMAGE_TAG
-      - cd ..
 
   post_build:
     commands:
