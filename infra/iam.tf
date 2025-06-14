@@ -26,6 +26,8 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+data "aws_region" "current" {}
+
 # Secrets Managerからシークレットを読み取るためのインラインポリシー
 resource "aws_iam_role_policy" "ecs_secrets_policy" {
   name = "lifeplan-ecs-secrets-policy"
@@ -42,6 +44,16 @@ resource "aws_iam_role_policy" "ecs_secrets_policy" {
         Resource = [
           data.aws_secretsmanager_secret.app_secrets.arn
         ]
+      },
+      {
+        Effect = "Allow",
+        Action = "kms:Decrypt",
+        Resource = "*",
+        Condition = {
+          "StringEquals" = {
+            "kms:ViaService" = "secretsmanager.${data.aws_region.current.name}.amazonaws.com"
+          }
+        }
       }
     ]
   })
