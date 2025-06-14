@@ -130,10 +130,6 @@ resource "aws_codebuild_project" "main" {
         name = "BACKEND_TASK_DEFINITION_FAMILY"
         value = aws_ecs_task_definition.backend.family
     }
-    environment_variable {
-      name  = "SECRET_ARN_FOR_BUILD"
-      value = data.aws_secretsmanager_secret.app_secrets.arn
-    }
   }
   
   source {
