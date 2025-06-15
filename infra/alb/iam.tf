@@ -139,4 +139,12 @@ data "aws_iam_policy_document" "codepipeline_policy" {
       aws_ecs_service.backend.id
     ]
   }
+  statement {
+    sid    = "PassRoleForECS"
+    effect = "Allow"
+    actions = ["iam:PassRole"]
+    resources = [
+      data.terraform_remote_state.base.outputs.ecs_task_execution_role_arn
+    ]
+  }
 }

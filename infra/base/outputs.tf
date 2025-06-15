@@ -75,4 +75,9 @@ output "dockerhub_credentials_arn" {
   value       = data.aws_secretsmanager_secret.dockerhub_credentials.arn
 }
 
+output "ecs_task_execution_role_arn" {
+  description = "The ARN of the ECS task execution role"
+  value       = aws_iam_role.ecs_task_execution_role.arn
+}
+
 data "aws_caller_identity" "current" {} 
