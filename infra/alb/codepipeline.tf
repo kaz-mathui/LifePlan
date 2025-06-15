@@ -192,7 +192,7 @@ resource "aws_codepipeline" "main" {
       
       configuration = {
         ConnectionArn    = aws_codestarconnections_connection.github.arn
-        FullRepositoryId = "Kazushi-T/LifePlan"
+        FullRepositoryId = "kaz-mathui/LifePlan"
         BranchName       = "main"
       }
     }
