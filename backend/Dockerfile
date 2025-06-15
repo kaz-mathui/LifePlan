@@ -5,7 +5,7 @@ FROM alpine:latest
 ENTRYPOINT ["printenv"]
 
 # 1. ビルドステージ
-FROM public.ecr.aws/node/node:18-alpine AS builder
+FROM public.ecr.aws/library/node:18-alpine AS builder
 
 # pnpmのインストール
 RUN npm install -g pnpm
@@ -30,7 +30,7 @@ COPY backend/ ./backend/
 RUN pnpm --filter lifeplan-backend run build
 
 # 2. 本番ステージ
-FROM public.ecr.aws/node/node:18-alpine
+FROM public.ecr.aws/library/node:18-alpine
 
 # pnpmのインストール
 RUN npm install -g pnpm

@@ -1,5 +1,5 @@
 # 1. ビルドステージ
-FROM public.ecr.aws/node/node:18-alpine AS builder
+FROM public.ecr.aws/library/node:18-alpine AS builder
 
 # pnpmのインストール
 RUN npm install -g pnpm
