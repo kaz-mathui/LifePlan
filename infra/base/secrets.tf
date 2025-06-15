@@ -18,3 +18,7 @@ locals {
 data "aws_secretsmanager_secret" "app_secrets" {
   name = "prd/life-plan-app/firebase"
 }
+
+data "aws_secretsmanager_secret" "dockerhub_credentials" {
+  name = "dockerhub/credentials"
+}

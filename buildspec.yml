@@ -10,6 +10,9 @@ phases:
 
   pre_build:
     commands:
+      - echo "Logging in to Docker Hub..."
+      - DOCKERHUB_CREDENTIALS=$(aws secretsmanager get-secret-value --secret-id dockerhub/credentials --query SecretString --output text)
+      - echo "$DOCKERHUB_CREDENTIALS" | docker login --username $(echo "$DOCKERHUB_CREDENTIALS" | jq -r .DOCKERHUB_USERNAME) --password-stdin
       - echo Logging in to Amazon ECR...
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
       - IMAGE_TAG=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)

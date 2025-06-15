@@ -81,6 +81,12 @@ data "aws_iam_policy_document" "codebuild_policy" {
     resources = [data.terraform_remote_state.base.outputs.app_secrets_arn]
   }
   statement {
+    sid       = "DockerHubCredentials"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = [data.terraform_remote_state.base.outputs.dockerhub_credentials_arn]
+  }
+  statement {
     sid       = "S3Artifacts"
     effect    = "Allow"
     actions   = ["s3:PutObject", "s3:GetObject", "s3:GetBucketVersioning", "s3:GetObjectVersion", "s3:PutObjectAcl"]

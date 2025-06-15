@@ -70,4 +70,9 @@ output "acm_certificate_arn" {
   value       = aws_acm_certificate_validation.main.certificate_arn
 }
 
+output "dockerhub_credentials_arn" {
+  description = "ARN of the DockerHub credentials secret"
+  value       = data.aws_secretsmanager_secret.dockerhub_credentials.arn
+}
+
 data "aws_caller_identity" "current" {} 
