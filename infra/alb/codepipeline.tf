@@ -5,6 +5,8 @@
 # S3 Bucket for CodePipeline artifacts
 resource "aws_s3_bucket" "codepipeline_artifacts" {
   bucket = "lifeplan-codepipeline-artifacts-${data.aws_caller_identity.current.account_id}"
+
+  force_destroy = true
 }
 
 # CodeStar Connection to GitHub
