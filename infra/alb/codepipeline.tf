@@ -9,11 +9,7 @@ resource "aws_s3_bucket" "codepipeline_artifacts" {
   force_destroy = true
 }
 
-# CodeStar Connection to GitHub
-resource "aws_codestarconnections_connection" "github" {
-  provider_type = "GitHub"
-  name          = "github-connection"
-}
+# CodeStar Connection to GitHub is now managed in the 'base' layer.
 
 # CodeBuild Project
 resource "aws_codebuild_project" "main" {
@@ -82,7 +78,7 @@ resource "aws_codepipeline" "main" {
       version          = "1"
       output_artifacts = ["source_output"]
       configuration = {
-        ConnectionArn    = aws_codestarconnections_connection.github.arn
+        ConnectionArn    = data.terraform_remote_state.base.outputs.codestar_connection_arn
         FullRepositoryId = "kaz-mathui/LifePlan"
         BranchName       = "main"
       }

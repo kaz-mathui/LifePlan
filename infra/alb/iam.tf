@@ -122,7 +122,7 @@ data "aws_iam_policy_document" "codepipeline_policy" {
     sid       = "CodeStarConnection"
     effect    = "Allow"
     actions   = ["codestar-connections:UseConnection"]
-    resources = [aws_codestarconnections_connection.github.arn]
+    resources = [data.terraform_remote_state.base.outputs.codestar_connection_arn]
   }
   statement {
     sid       = "CodeBuildAccess"

@@ -95,4 +95,9 @@ output "ecs_task_execution_role_arn" {
   value       = aws_iam_role.ecs_task_execution_role.arn
 }
 
+output "codestar_connection_arn" {
+  description = "The ARN of the CodeStar connection to GitHub"
+  value       = aws_codestarconnections_connection.github.arn
+}
+
 data "aws_caller_identity" "current" {} 
