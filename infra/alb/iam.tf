@@ -46,6 +46,11 @@ resource "aws_iam_role_policy" "codepipeline_policy" {
   policy = data.aws_iam_policy_document.codepipeline_policy.json
 }
 
+resource "aws_iam_role_policy_attachment" "codepipeline_ecs_full_access" {
+  role       = aws_iam_role.codepipeline_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonECS_FullAccess"
+}
+
 # ------------------------------------------------------------------------------
 # IAM Policies Definitions
 # ------------------------------------------------------------------------------
