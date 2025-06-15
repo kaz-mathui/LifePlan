@@ -65,4 +65,9 @@ output "app_secrets_arn" {
   value       = data.aws_secretsmanager_secret.app_secrets.arn
 }
 
+output "acm_certificate_arn" {
+  description = "The ARN of the ACM certificate"
+  value       = aws_acm_certificate_validation.main.certificate_arn
+}
+
 data "aws_caller_identity" "current" {} 

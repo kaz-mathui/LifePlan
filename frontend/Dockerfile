@@ -1,11 +1,11 @@
 # 1. ビルドステージ
-FROM node:18-alpine AS builder
+FROM public.ecr.aws/node/node:18-alpine AS builder
 
 # pnpmのインストール
 RUN npm install -g pnpm
 
 # 作業ディレクトリを設定
-WORKDIR /app
+WORKDIR /usr/src/app
 
 # ワークスペース全体の依存関係定義ファイルをコピー
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -31,7 +31,7 @@ RUN pnpm --filter lifeplan-frontend run build
 FROM nginx:1.25-alpine
 
 # ビルダーからビルド成果物（静的ファイル）をnginxの公開ディレクトリにコピー
-COPY --from=builder /app/frontend/build /usr/share/nginx/html
+COPY --from=builder /usr/src/app/frontend/build /usr/share/nginx/html
 
 # nginxがリッスンするポートを公開
 EXPOSE 80
