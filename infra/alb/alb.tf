@@ -2,7 +2,7 @@
 resource "aws_security_group" "alb" {
   name        = "lifeplan-alb-sg"
   description = "Security group for the ALB"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.terraform_remote_state.base.outputs.vpc_id
 
   ingress {
     protocol    = "tcp"
@@ -26,13 +26,11 @@ resource "aws_security_group" "alb" {
 
 # Application Load Balancer
 resource "aws_lb" "main" {
-  count = var.create_alb ? 1 : 0
-
   name               = "lifeplan-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
-  subnets            = [aws_subnet.public_a.id, aws_subnet.public_c.id]
+  subnets            = data.terraform_remote_state.base.outputs.public_subnet_ids
 
   enable_deletion_protection = false
 
@@ -43,12 +41,10 @@ resource "aws_lb" "main" {
 
 # ターゲットグループ (Frontend)
 resource "aws_lb_target_group" "frontend" {
-  count = var.create_alb ? 1 : 0
-
   name     = "lifeplan-frontend-tg"
   port     = 80
   protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  vpc_id   = data.terraform_remote_state.base.outputs.vpc_id
   target_type = "ip"
 
   health_check {
@@ -64,12 +60,10 @@ resource "aws_lb_target_group" "frontend" {
 
 # ターゲットグループ (Backend)
 resource "aws_lb_target_group" "backend" {
-  count = var.create_alb ? 1 : 0
-
   name     = "lifeplan-backend-tg"
   port     = 3001
   protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  vpc_id   = data.terraform_remote_state.base.outputs.vpc_id
   target_type = "ip"
 
   health_check {
@@ -85,28 +79,24 @@ resource "aws_lb_target_group" "backend" {
 
 # ALBリスナー (HTTP)
 resource "aws_lb_listener" "http" {
-  count = var.create_alb ? 1 : 0
-
-  load_balancer_arn = aws_lb.main[0].arn
+  load_balancer_arn = aws_lb.main.arn
   port              = "80"
   protocol          = "HTTP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.frontend[0].arn
+    target_group_arn = aws_lb_target_group.frontend.arn
   }
 }
 
 # ALBリスナールール (Backendへのルーティング)
 resource "aws_lb_listener_rule" "backend" {
-  count = var.create_alb ? 1 : 0
-
-  listener_arn = aws_lb_listener.http[0].arn
+  listener_arn = aws_lb_listener.http.arn
   priority     = 100
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.backend[0].arn
+    target_group_arn = aws_lb_target_group.backend.arn
   }
 
   condition {

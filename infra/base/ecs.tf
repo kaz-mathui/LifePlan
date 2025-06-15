@@ -14,13 +14,8 @@ resource "aws_security_group" "ecs_tasks" {
   description = "Security group for ECS tasks"
   vpc_id      = aws_vpc.main.id
 
-  # ALBからのトラフィックを許可
-  ingress {
-    protocol        = "tcp"
-    from_port       = 0
-    to_port         = 65535
-    security_groups = [aws_security_group.alb.id]
-  }
+  # ALBからのトラフィックルールは `alb` レイヤーで定義される
+  # ingress {}
 
   # すべてのアウトバウンドトラフィックを許可
   egress {
@@ -59,7 +54,8 @@ resource "aws_ecs_task_definition" "frontend" {
       logConfiguration = {
         logDriver = "awslogs",
         options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.frontend.name,
+          # awslogs-group は base 層で管理
+          "awslogs-group"         = aws_cloudwatch_log_group.frontend.name, 
           "awslogs-region"        = data.aws_region.current.name,
           "awslogs-stream-prefix" = "ecs"
         }
@@ -67,32 +63,6 @@ resource "aws_ecs_task_definition" "frontend" {
     }
   ])
 }
-
-resource "aws_ecs_service" "frontend" {
-  name            = "lifeplan-frontend-service"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.frontend.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets         = [aws_subnet.public_a.id, aws_subnet.public_c.id]
-    security_groups = [aws_security_group.ecs_tasks.id]
-    assign_public_ip = true
-  }
-
-  dynamic "load_balancer" {
-    for_each = var.create_alb ? [1] : []
-    content {
-      target_group_arn = aws_lb_target_group.frontend[0].arn
-      container_name   = "lifeplan-frontend"
-      container_port   = 80
-    }
-  }
-
-  depends_on = [aws_lb_listener.http]
-}
-
 
 # --- Backend Service ---
 resource "aws_ecs_task_definition" "backend" {
@@ -123,6 +93,7 @@ resource "aws_ecs_task_definition" "backend" {
       logConfiguration = {
         logDriver = "awslogs",
         options = {
+          # awslogs-group は base 層で管理
           "awslogs-group"         = aws_cloudwatch_log_group.backend.name,
           "awslogs-region"        = data.aws_region.current.name,
           "awslogs-stream-prefix" = "ecs"
@@ -130,30 +101,4 @@ resource "aws_ecs_task_definition" "backend" {
       }
     }
   ])
-}
-
-resource "aws_ecs_service" "backend" {
-  name            = "lifeplan-backend-service"
-  cluster         = aws_ecs_cluster.main.id
-  task_definition = aws_ecs_task_definition.backend.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets         = [aws_subnet.public_a.id, aws_subnet.public_c.id]
-    security_groups = [aws_security_group.ecs_tasks.id]
-    assign_public_ip = true
-  }
-
-  dynamic "load_balancer" {
-    for_each = var.create_alb ? [1] : []
-    content {
-      target_group_arn = aws_lb_target_group.backend[0].arn
-      container_name   = "lifeplan-backend"
-      container_port   = 3001
-    }
-  }
-
-  depends_on = [aws_lb_listener.http]
 } 
- 

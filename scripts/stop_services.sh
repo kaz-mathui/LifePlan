@@ -1,5 +1,5 @@
 #!/bin/bash
-# ECSサービスを停止し、コスト削減のためにALBを削除するスクリプト
+# ALBと関連リソースを破棄するスクリプト
 
 # スクリプトが設置されているディレクトリを取得
 SCRIPT_DIR=$(cd $(dirname $0); pwd)
@@ -7,34 +7,27 @@ SCRIPT_DIR=$(cd $(dirname $0); pwd)
 cd $SCRIPT_DIR/..
 
 # --- 設定 ---
-CLUSTER_NAME="lifeplan-cluster"
-FRONTEND_SERVICE_NAME="lifeplan-frontend-service"
-BACKEND_SERVICE_NAME="lifeplan-backend-service"
-INFRA_DIR="infra"
+INFRA_ALB_DIR="infra/alb"
 
 # --- スクリプト本文 ---
 set -e # エラーが発生したらスクリプトを終了
 
-echo "Stopping ECS services..."
-aws ecs update-service --cluster $CLUSTER_NAME --service $FRONTEND_SERVICE_NAME --desired-count 0 > /dev/null
-aws ecs update-service --cluster $CLUSTER_NAME --service $BACKEND_SERVICE_NAME --desired-count 0 > /dev/null
-echo "ECS services desired count set to 0."
+echo "Destroying Application Load Balancer and related resources..."
 
-echo ""
-echo "Destroying Application Load Balancer to save costs..."
-
-if [ ! -d "$INFRA_DIR" ]; then
-  echo "Error: '$INFRA_DIR' directory not found. Please run this script from the project root."
+if [ ! -d "$INFRA_ALB_DIR" ]; then
+  echo "Error: '$INFRA_ALB_DIR' directory not found."
   exit 1
 fi
 
-cd $INFRA_DIR
+cd $INFRA_ALB_DIR
 
-# ALBを削除するために変数をfalseに設定してapplyを実行
-terraform apply -var="create_alb=false" -auto-approve
+# 必要な変数を環境変数やtfvarsファイルから読み込むことを想定
+# 例: terraform destroy -var="domain_name=yourdomain.com"
+terraform init
+terraform destroy -auto-approve
 
-cd ..
+cd ../..
 
 echo ""
-echo "Stop process complete. ECS services are scaled down and ALB has been destroyed." 
+echo "Stop process complete. ALB and related resources have been destroyed." 
  

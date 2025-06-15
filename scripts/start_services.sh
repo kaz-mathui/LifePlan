@@ -1,5 +1,5 @@
 #!/bin/bash
-# ALBを作成し、ECSサービスを起動するスクリプト
+# ALBと関連リソースを作成・起動するスクリプト
 
 # スクリプトが設置されているディレクトリを取得
 SCRIPT_DIR=$(cd $(dirname $0); pwd)
@@ -7,35 +7,35 @@ SCRIPT_DIR=$(cd $(dirname $0); pwd)
 cd $SCRIPT_DIR/..
 
 # --- 設定 ---
-CLUSTER_NAME="lifeplan-cluster"
-FRONTEND_SERVICE_NAME="lifeplan-frontend-service"
-BACKEND_SERVICE_NAME="lifeplan-backend-service"
-INFRA_DIR="infra"
+INFRA_ALB_DIR="infra/alb"
 
 # --- スクリプト本文 ---
 set -e # エラーが発生したらスクリプトを終了
 
-echo "Creating Application Load Balancer..."
+echo "Applying base infrastructure (if not already done)..."
+# (初回以降は差分がないので時間はかからない)
+cd infra/base
+terraform init
+terraform apply -auto-approve
+cd ../..
 
-if [ ! -d "$INFRA_DIR" ]; then
-  echo "Error: '$INFRA_DIR' directory not found. Please run this script from the project root."
+echo "Creating Application Load Balancer and starting services..."
+
+if [ ! -d "$INFRA_ALB_DIR" ]; then
+  echo "Error: '$INFRA_ALB_DIR' directory not found."
   exit 1
 fi
 
-cd $INFRA_DIR
+cd $INFRA_ALB_DIR
 
-# ALBを作成するために変数をtrueに設定してapplyを実行
-terraform apply -var="create_alb=true" -auto-approve
+# 必要な変数を環境変数やtfvarsファイルから読み込むことを想定
+# 例: terraform apply -var="domain_name=yourdomain.com"
+terraform init
+terraform apply -auto-approve
 
-cd ..
+cd ../..
 
 echo ""
-echo "ALB is ready. Starting ECS services..."
-
-aws ecs update-service --cluster $CLUSTER_NAME --service $FRONTEND_SERVICE_NAME --desired-count 1 > /dev/null
-aws ecs update-service --cluster $CLUSTER_NAME --service $BACKEND_SERVICE_NAME --desired-count 1 > /dev/null
-
-echo "ECS services desired count set to 1."
-echo ""
-echo "Start process complete. It may take a few minutes for the services to become healthy and accessible via the ALB." 
+echo "Start process complete. ALB and services are being deployed."
+echo "It may take a few minutes for the services to become healthy and accessible via the domain." 
  

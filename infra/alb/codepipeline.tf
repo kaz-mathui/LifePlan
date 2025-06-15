@@ -2,7 +2,7 @@
 # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/codestarconnections_connection
 resource "aws_codestarconnections_connection" "github" {
   provider_type = "GitHub"
-  name          = "github-connection-for-lifeplan"
+  name          = "github-connection"
 }
 
 # CodePipeline will be defined below after this connection is established. 
@@ -44,15 +44,18 @@ data "aws_iam_policy_document" "codebuild_policy" {
       "ecr:InitiateLayerUpload",
       "ecr:UploadLayerPart",
       "ecr:CompleteLayerUpload",
-      "ecr:PutImage",
+      "ecr:PutImage"
     ]
-    resources = ["*"]
+    resources = [
+      data.terraform_remote_state.base.outputs.frontend_ecr_repository_arn,
+      data.terraform_remote_state.base.outputs.backend_ecr_repository_arn
+    ]
   }
   
   statement {
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = [data.aws_secretsmanager_secret.app_secrets.arn]
+    resources = [data.terraform_remote_state.base.outputs.app_secrets_arn]
   }
   
   statement {
@@ -84,7 +87,7 @@ data "aws_iam_policy_document" "codebuild_policy" {
 }
 
 resource "aws_iam_role_policy" "codebuild_policy" {
-  role   = aws_iam_role.codebuild_role.id
+  role   = aws_iam_role.codebuild_role.name
   policy = data.aws_iam_policy_document.codebuild_policy.json
 }
 
@@ -107,28 +110,40 @@ resource "aws_codebuild_project" "main" {
     image_pull_credentials_type = "CODEBUILD"
     
     environment_variable {
+      name  = "AWS_DEFAULT_REGION"
+      value = var.aws_region
+    }
+    environment_variable {
       name  = "AWS_ACCOUNT_ID"
-      value = data.aws_caller_identity.current.account_id
+      value = data.terraform_remote_state.base.outputs.aws_account_id
     }
     environment_variable {
-        name = "AWS_DEFAULT_REGION"
-        value = "ap-northeast-1"
+      name  = "FRONTEND_IMAGE_REPO_NAME"
+      value = data.terraform_remote_state.base.outputs.frontend_ecr_repository_name
     }
     environment_variable {
-      name  = "FRONTEND_IMAGE_REPO_URL"
-      value = aws_ecr_repository.frontend.repository_url
+      name  = "BACKEND_IMAGE_REPO_NAME"
+      value = data.terraform_remote_state.base.outputs.backend_ecr_repository_name
     }
     environment_variable {
-      name  = "BACKEND_IMAGE_REPO_URL"
-      value = aws_ecr_repository.backend.repository_url
+      name  = "FRONTEND_TASK_DEFINITION_ARN"
+      value = data.terraform_remote_state.base.outputs.frontend_task_definition_arn
     }
     environment_variable {
-        name = "FRONTEND_TASK_DEFINITION_FAMILY"
-        value = aws_ecs_task_definition.frontend.family
+      name  = "BACKEND_TASK_DEFINITION_ARN"
+      value = data.terraform_remote_state.base.outputs.backend_task_definition_arn
     }
     environment_variable {
-        name = "BACKEND_TASK_DEFINITION_FAMILY"
-        value = aws_ecs_task_definition.backend.family
+      name  = "CLUSTER_NAME"
+      value = data.terraform_remote_state.base.outputs.ecs_cluster_name
+    }
+    environment_variable {
+      name  = "FRONTEND_SERVICE_NAME"
+      value = aws_ecs_service.frontend.name
+    }
+    environment_variable {
+      name  = "BACKEND_SERVICE_NAME"
+      value = aws_ecs_service.backend.name
     }
   }
   
@@ -173,11 +188,11 @@ resource "aws_codepipeline" "main" {
       owner            = "AWS"
       provider         = "CodeStarSourceConnection"
       version          = "1"
-      output_artifacts = ["SourceArtifact"]
+      output_artifacts = ["source_output"]
       
       configuration = {
         ConnectionArn    = aws_codestarconnections_connection.github.arn
-        FullRepositoryId = "kaz-mathui/LifePlan"
+        FullRepositoryId = "Kazushi-T/LifePlan"
         BranchName       = "main"
       }
     }
@@ -191,8 +206,8 @@ resource "aws_codepipeline" "main" {
       owner            = "AWS"
       provider         = "CodeBuild"
       version          = "1"
-      input_artifacts  = ["SourceArtifact"]
-      output_artifacts = ["BuildArtifact"]
+      input_artifacts  = ["source_output"]
+      output_artifacts = ["build_output"]
 
       configuration = {
         ProjectName = aws_codebuild_project.main.name
@@ -203,39 +218,41 @@ resource "aws_codepipeline" "main" {
   stage {
     name = "Deploy"
     action {
-      name            = "DeployToECS"
-      category        = "Deploy"
-      owner           = "AWS"
-      provider        = "ECS"
-      version         = "1"
-      input_artifacts = ["BuildArtifact"]
+      name     = "DeployFrontend"
+      category = "Deploy"
+      owner    = "AWS"
+      provider = "ECS"
+      version  = "1"
+
+      input_artifacts = ["build_output"]
 
       configuration = {
-        ClusterName = aws_ecs_cluster.main.name
+        ClusterName = data.terraform_remote_state.base.outputs.ecs_cluster_name
         ServiceName = aws_ecs_service.frontend.name
         FileName    = "imagedefinitions-frontend.json"
       }
     }
     action {
-        name = "DeployToECSBackend"
-        category = "Deploy"
-        owner = "AWS"
-        provider = "ECS"
-        version = "1"
-        input_artifacts = ["BuildArtifact"]
+      name     = "DeployBackend"
+      category = "Deploy"
+      owner    = "AWS"
+      provider = "ECS"
+      version  = "1"
 
-        configuration = {
-            ClusterName = aws_ecs_cluster.main.name
-            ServiceName = aws_ecs_service.backend.name
-            FileName = "imagedefinitions-backend.json"
-        }
+      input_artifacts = ["build_output"]
+
+      configuration = {
+        ClusterName = data.terraform_remote_state.base.outputs.ecs_cluster_name
+        ServiceName = aws_ecs_service.backend.name
+        FileName    = "imagedefinitions-backend.json"
+      }
     }
   }
 }
 
 # --- S3 Bucket for CodePipeline artifacts ---
 resource "aws_s3_bucket" "codepipeline_artifacts" {
-  bucket = "lifeplan-codepipeline-artifacts-${data.aws_caller_identity.current.account_id}"
+  bucket = "lifeplan-codepipeline-artifacts-${data.terraform_remote_state.base.outputs.aws_account_id}"
 }
 
 # --- IAM Role for CodePipeline ---
@@ -257,34 +274,25 @@ resource "aws_iam_role" "codepipeline_role" {
 
 data "aws_iam_policy_document" "codepipeline_policy" {
   statement {
-    effect = "Allow"
-    actions = [
-      "s3:GetObject",
-      "s3:GetObjectVersion",
-      "s3:GetBucketVersioning",
-      "s3:PutObjectAcl",
-      "s3:PutObject",
-    ]
+    effect    = "Allow"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:ListBucket"]
     resources = [
       aws_s3_bucket.codepipeline_artifacts.arn,
-      "${aws_s3_bucket.codepipeline_artifacts.arn}/*",
+      "${aws_s3_bucket.codepipeline_artifacts.arn}/*"
     ]
   }
 
   statement {
     effect = "Allow"
     actions = [
-      "codestar-connections:UseConnection",
+      "codestar-connections:UseConnection"
     ]
     resources = [aws_codestarconnections_connection.github.arn]
   }
 
   statement {
-    effect = "Allow"
-    actions = [
-      "codebuild:StartBuild",
-      "codebuild:BatchGetBuilds",
-    ]
+    effect   = "Allow"
+    actions  = ["codebuild:StartBuild", "codebuild:BatchGetBuilds"]
     resources = [aws_codebuild_project.main.arn]
   }
 
@@ -292,19 +300,23 @@ data "aws_iam_policy_document" "codepipeline_policy" {
     effect = "Allow"
     actions = [
       "ecs:DescribeServices",
-      "ecs:UpdateService",
-      "iam:PassRole",
+      "ecs:DescribeTaskDefinition",
+      "ecs:DescribeTasks",
+      "ecs:ListTasks",
+      "ecs:RegisterTaskDefinition",
+      "ecs:UpdateService"
     ]
     resources = [
       aws_ecs_service.frontend.id,
       aws_ecs_service.backend.id,
-      aws_iam_role.ecs_task_execution_role.arn,
+      data.terraform_remote_state.base.outputs.frontend_task_definition_arn,
+      data.terraform_remote_state.base.outputs.backend_task_definition_arn
     ]
   }
 }
 
 resource "aws_iam_role_policy" "codepipeline_policy" {
-  role   = aws_iam_role.codepipeline_role.id
+  role   = aws_iam_role.codepipeline_role.name
   policy = data.aws_iam_policy_document.codepipeline_policy.json
 }
 
