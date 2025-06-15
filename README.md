@@ -1,22 +1,30 @@
-# LifePlan - Financial Future Simulation App
+# LifePlan - 未来家計シミュレーションアプリ
 
 未来の家計をシミュレーションし、可視化するためのWebアプリケーションです。
 
 ## 📜 目次
 
-- [アーキテクチャ概要](#-アーキテクチャ概要)
-- [技術スタック](#-技術スタック)
-- [プロジェクト構造](#-プロジェクト構造)
-- [ローカル開発環境セットアップ](#-ローカル開発環境セットアップ)
-- [コスト削減スクリプト](#-コスト削減スクリプト)
-- [環境変数](#-環境変数)
-- [インフラとCI/CD](#-インフラとcicd)
-- [⚠️ 最重要注意事項 (必読)](#️-最重要注意事項-必読)
-- [今後の改善案](#-今後の改善案)
+- [✨ はじめに](#-はじめに)
+- [🏗️ アーキテクチャ概要](#️-アーキテクチャ概要)
+- [🛠️ 技術スタック](#️-技術スタック)
+- [📂 プロジェクト構造](#-プロジェクト構造)
+- [💻 ローカル開発環境セットアップ](#-ローカル開発環境セットアップ)
+- [🚀 本番環境のセットアップと運用](#-本番環境のセットアップと運用)
+  - [前提条件](#前提条件)
+  - [初回デプロイ手順](#初回デプロイ手順)
+  - [サービスの起動・停止 (コスト削減)](#サービスの起動停止-コスト削減)
+  - [CI/CDによる自動デプロイ](#cicdによる自動デプロイ)
+- [🔒 環境変数とシークレット管理](#-環境変数とシークレット管理)
+- [🔮 今後の改善案](#-今後の改善案)
+
+## ✨ はじめに
+
+このプロジェクトは、React(Vite)によるフロントエンドとNode.js(Express)によるバックエンドで構成されるモノレポです。
+AWS上のインフラはTerraformでコード管理されており、`base`レイヤー（永続的なリソース）と`alb`レイヤー（オンデマンドリソース）に分割されています。これにより、開発時間外はALBやECSサービスといったコストのかかるリソースを安全に削除でき、コスト効率の高い運用が可能です。
 
 ## 🏗️ アーキテクチャ概要
 
-本プロジェクトは、React(Vite)によるフロントエンド、Node.js(Express)によるバックエンドで構成されるモノレポです。インフラはAWS上にTerraformで構築され、CI/CDはAWSのネイティブサービスで完結しています。
+CI/CDはAWS CodePipelineとCodeBuildで構築されており、`main`ブランチへのプッシュをトリガーに、自動でテスト、ビルド、デプロイが実行されます。
 
 ```mermaid
 graph TD
@@ -24,40 +32,58 @@ graph TD
         A[Git Push to main]
     end
 
-    subgraph "AWS CI/CD"
+    subgraph "AWS CI/CD (albレイヤー)"
         A --> B(CodePipeline: Source)
         B --> C{CodeBuild}
-        C -- ビルド & プッシュ --> D[ECR: Dockerイメージリポジトリ]
+        C -- ビルド & ECRへプッシュ --> D[ECR: Dockerイメージリポジトリ]
         C -- ビルド情報をS3へ --> E[S3: アーティファクト]
         E --> F(CodePipeline: Deploy)
     end
 
-    subgraph "AWS 本番環境 (Terraform管理)"
-        G[ALB] <--> H[ECS Fargate: Frontend]
-        G <--> I[ECS Fargate: Backend]
-        I -- Firestoreアクセス --> J((Firebase))
-        F -- 新イメージでサービス更新 --> H
-        F -- 新イメージでサービス更新 --> I
-        K[Secrets Manager] -- ビルド時にキー読込 --> C
-        K -- 実行時にキー読込 --> I
-    end
-    
-    subgraph "エンドユーザー"
-        L[ユーザー] <--> G
+    subgraph "AWS 本番環境"
+        subgraph "base レイヤー (永続)"
+            D
+            J[Route 53: Hosted Zone]
+            L[VPC, Subnets, etc.]
+            M[ECS Cluster]
+            N[IAM Roles]
+            O[Secrets Manager]
+        end
+
+        subgraph "alb レイヤー (オンデマンド)"
+            G[ALB]
+            H[ECS Fargate: Frontend]
+            I[ECS Fargate: Backend]
+            K[Route 53: A Record]
+
+            F -- 新イメージでサービス更新 --> H
+            F -- 新イメージでサービス更新 --> I
+        end
+
+        O -- ビルド時にキー読込 --> C
+        O -- 実行時にキー読込 --> I
     end
 
-    J -- 認証 --> L
+    subgraph "エンドユーザー"
+        P[ユーザー]
+    end
+
+    P -- app.your-domain.com --> K --> G
+    G <--> H
+    G <--> I
+    I -- Firestoreアクセス --> Q((Firebase))
+    Q -- 認証 --> P
 ```
 
 ## 🛠️ 技術スタック
 
-| カテゴリ       | 技術                                                                                             |
-| -------------- | ------------------------------------------------------------------------------------------------ |
-| **フロントエンド** | React, TypeScript, Vite, pnpm, Tailwind CSS, Chart.js, react-chartjs-2, react-icons                |
-| **バックエンド**   | Node.js, Express, TypeScript, pnpm, Zod                                                          |
-| **データベース**   | Google Firestore                                                                                 |
-| **インフラ**     | AWS (ECS Fargate, ALB, ECR, S3, Secrets Manager, CloudWatch), Terraform                          |
-| **CI/CD**        | AWS CodePipeline, AWS CodeBuild, GitHub                                                          |
+| カテゴリ | 技術 |
+|---|---|
+| **フロントエンド** | React, TypeScript, Vite, pnpm, Tailwind CSS, Chart.js |
+| **バックエンド** | Node.js, Express, TypeScript, pnpm, Zod |
+| **データベース** | Google Firestore |
+| **インフラ** | AWS (ECS Fargate, ALB, ECR, S3, Route 53, Secrets Manager, CloudWatch), Terraform |
+| **CI/CD** | AWS CodePipeline, AWS CodeBuild, GitHub |
 
 ## 📂 プロジェクト構造
 
@@ -65,9 +91,10 @@ graph TD
 .
 ├── backend/         # バックエンド (Node.js/Express)
 ├── frontend/        # フロントエンド (React/Vite)
-├── infra/           # インフラ定義 (Terraform)
-├── scripts/         # コスト削減用スクリプト (ALB/ECSサービスの停止・起動)
-├── .github/         # GitHub Actions (CI) - (現在未使用)
+├── infra/
+│   ├── base/        # 永続インフラ (VPC, ECR, ECS Cluster, Route53 Zone etc.)
+│   └── alb/         # オンデマンドインフラ (ALB, ECS Service, Route53 Record, CodePipeline etc.)
+├── scripts/         # サービスの起動・停止用スクリプト
 ├── buildspec.yml    # CodeBuild定義ファイル
 └── docker-compose.yml # ローカル開発環境定義
 ```
@@ -76,104 +103,125 @@ graph TD
 
 #### 1. 前提ツール
 
-- Node.js (v18.x)
-- pnpm (v8.x)
+- Node.js (v18.x以降)
+- pnpm (v8.x以降)
 - Docker & Docker Compose
-- Terraform
 
-#### 2. リポジトリのクローンと依存関係のインストール
+#### 2. セットアップ手順
 
 ```bash
+# 1. リポジトリをクローン
 git clone <repository_url>
 cd LifePlan
+
+# 2. 依存関係をインストール
 pnpm install
-```
 
-#### 3. 環境変数の設定
+# 3. Firebaseサービスアカウントキーの配置
+#    FirebaseコンソールからダウンロードしたサービスアカウントのJSONキーを
+#    `backend/serviceAccountKey.json` という名前で配置します。
 
-プロジェクトのルートディレクトリに `.env` という名前のファイルを手動で作成し、以下の内容をコピー＆ペーストしてください。
-このファイルはフロントエンドとバックエンドの両方から参照されます。その後、各値を設定します。
-
-```env
-# For Backend Service
-# CAUTION: Set the Base64 encoded string of your GCP service account key JSON.
-SERVICE_ACCOUNT_KEY=
-
-# For Frontend Service
-REACT_APP_FIREBASE_API_KEY=
-REACT_APP_FIREBASE_AUTH_DOMAIN=
-REACT_APP_FIREBASE_PROJECT_ID=
-REACT_APP_FIREBASE_STORAGE_BUCKET=
-REACT_APP_FIREBASE_MESSAGING_SENDER_ID=
-REACT_APP_FIREBASE_APP_ID=
-```
-
-#### 4. 開発サーバーの起動
-
-```bash
+# 4. 開発サーバーを起動
 docker-compose up --build
 ```
+
 - **フロントエンド**: `http://localhost:3000`
 - **バックエンド API**: `http://localhost:3001`
 
+ローカル開発では、Firebase Admin SDKが `GOOGLE_APPLICATION_CREDENTIALS` 環境変数（`docker-compose.yml`で設定済）を通じて `serviceAccountKey.json` を自動的に読み込みます。
 
-## 💸 コスト削減スクリプト
+## 🚀 本番環境のセットアップと運用
 
-プロジェクトルートの`/scripts`ディレクトリには、開発時間外に不要なAWSリソースを停止・起動してコストを削減するためのシェルスクリプトが含まれています。
+### 前提条件
 
-- `stop_services.sh`: ALBとECSサービス（フロントエンド・バックエンド）を停止します。
-- `start_services.sh`: 停止したリソースを再度起動します。
+1.  **AWSアカウント** と、認証情報が設定された **AWS CLI**。
+2.  **ドメインの取得**: Route 53などでドメイン（例: `life-plan-simulator.com`）を取得済みであること。
+3.  **Firebaseプロジェクト**と**サービスアカウントキー**のJSONファイル。
+4.  **GitHubリポジトリ**と、接続のための**CodeStar Connection**。
 
-**注意**: これらのスクリプトはTerraformで管理されているリソースの一部（ALBのリスナーやECSサービスの希望タスク数など）を直接変更します。実行後はTerraformのstateと実際の状態に差分が生まれる可能性があるため、開発を再開する際は`infra`ディレクトリで`terraform apply`を再実行することを推奨します。
+### 初回デプロイ手順
 
-## 🔒 環境変数
+#### ステップ1: `base`レイヤーのデプロイ (永続インフラ)
 
-ローカル開発と本番環境では、環境変数の管理方法が異なります。
+1.  **Firebaseシークレットの登録**:
+    AWSコンソールでSecrets Managerを開き、`prd/life-plan-app/firebase` という名前でシークレットを新規作成します。「プレーンテキスト」を選択し、FirebaseのサービスアカウントキーJSONファイルの中身をそのまま貼り付けます。
 
-| 環境     | 設定ファイル/場所                          | 説明                                                         |
-| :------- | :----------------------------------------- | :----------------------------------------------------------- |
-| **ローカル** | プロジェクトルートの`.env`                 | `docker-compose`によってフロントエンドとバックエンドのコンテナに読み込まれます。 |
-| **本番**   | AWS Secrets Manager `prd/life-plan-app/firebase` | JSON形式で全てのキーと値を一元管理。ビルド時または実行時に各サービスに注入されます。 |
+2.  **`terraform.tfvars`の作成**:
+    `infra/base/` ディレクトリに `terraform.tfvars` というファイルを作成し、取得したドメイン名を設定します。
+    ```tfvars
+    # infra/base/terraform.tfvars
+    domain_name = "your-domain.com"
+    ```
 
-## 🚀 インフラとCI/CD
+3.  **`base`の適用**:
+    `infra/base` ディレクトリでTerraformを実行し、VPCやECRなどのコアインフラを構築します。
+    ```bash
+    cd infra/base
+    terraform init
+    terraform apply
+    ```
 
-### Terraformによるインフラ管理
+4.  **Route 53ホストゾーンのインポート**:
+    ドメインをRoute 53以外で管理している場合、または手動で作成した場合は、ここで表示されるホストゾーンIDを使ってインポートします。
+    ```bash
+    # `terraform apply`後に表示されるHosted Zone ID (例: Z1234567890) を使用
+    terraform import 'aws_route53_zone.main' <Hosted Zone ID>
+    ```
 
-`/infra`ディレクトリで`terraform`コマンドを実行します。
-TerraformのStateは現在ローカル（`terraform.tfstate`）で管理されています。チーム開発を本格化する際は、S3バックエンドへの移行を強く推奨します。
+#### ステップ2: `alb`レイヤーのデプロイ (オンデマンドインフラ)
 
-### CI/CD フロー
+1.  **`terraform.tfvars`の作成**:
+    `infra/alb/` ディレクトリに `terraform.tfvars` というファイルを作成し、ドメイン情報を設定します。
+    ```tfvars
+    # infra/alb/terraform.tfvars
+    domain_name    = "your-domain.com"
+    subdomain_name = "app" # 例: app.your-domain.com
+    ```
 
-1.  **トリガー**: `main`ブランチへのプッシュ。
-2.  **CodePipeline起動**: ソースコードを取得し、`Build`ステージへ。
-3.  **CodeBuild実行 (`buildspec.yml`)**:
-    1.  Secrets ManagerからFirebaseのキーを取得。
-    2.  `frontend`と`backend`のDockerイメージをビルドし、ECRにプッシュ。
-    3.  デプロイ用の`imagedefinitions.json`ファイルを生成。
-4.  **ECSデプロイ**: CodePipelineが`ECS`プロバイダーとして動作し、ECR上の最新イメージを使ってECSサービスをローリングアップデートします。
+2.  **`alb`の適用（サービスの起動）**:
+    プロジェクトルートに戻り、`start_services.sh` スクリプトを実行します。これによりALB、ECSサービス、CI/CDパイプラインなどが構築されます。
+    ```bash
+    cd ../..
+    ./scripts/start_services.sh
+    ```
 
-## ⚠️ 最重要注意事項 (必読)
+3.  **CodeStar Connectionの承認**:
+    AWSコンソールの「Developer Tools」 > 「Connections」に移動し、`github-connection` という接続が「保留中」になっているはずです。これをクリックしてGitHubとの連携を承認してください。
 
-### 1. ALBの再作成とFirebase承認済みドメインの更新
+4.  **パイプラインの手動実行**:
+    初回のみ、CodePipelineのコンソールから `lifeplan-pipeline` を選択し、「変更をリリース」ボタンを押して手動で実行します。これにより、アプリケーションが初めてデプロイされます。
 
-**`infra`ディレクトリで`terraform destroy`からの`terraform apply`を実行すると、ALBのDNS名が必ず変更されます。**
+### サービスの起動・停止 (コスト削減)
 
-新しいALBのDNS名でGoogle認証を機能させるには、**手動での作業が必須**です。
+開発時間外にコストを節約するため、ALBやECSサービスを安全に停止・再開できます。
 
-1.  `cd infra && terraform output alb_dns_name` で新しいDNS名を確認します。
-2.  **Firebaseコンソール** > **Authentication** > **Settings** > **承認済みドメイン** を開きます。
-3.  古いDNS名を削除し、新しいDNS名をリストに追加します。
+- **サービス停止**:
+  ```bash
+  ./scripts/stop_services.sh
+  ```
+  このスクリプトは `infra/alb` ディレクトリで `terraform destroy` を実行し、オンデマンドリソースを削除します。
 
-**この作業を怠ると、本番環境でGoogleログインが`auth/unauthorized-domain`エラーで失敗します。**
+- **サービス起動**:
+  ```bash
+  ./scripts/start_services.sh
+  ```
+  このスクリプトは `infra/alb` ディレクトリで `terraform apply` を実行し、オンデマンドリソースを再作成します。
 
-### 2. Secrets Managerの構造
+### CI/CDによる自動デプロイ
 
-本番環境のシークレットは、`prd/life-plan-app/firebase`という単一のシークレットに、**キー/値ペアのJSON形式**で保存されています。プレーンテキスト形式ではないため、キーを追加・更新する際は必ずJSON構造を維持してください。
+一度セットアップが完了すれば、`main`ブランチにプッシュするだけで、CodePipelineが自動的にアプリケーションをビルドし、ECSへデプロイします。
+
+## 🔒 環境変数とシークレット管理
+
+| 環境 | 設定ファイル/場所 | 説明 |
+|:---|:---|:---|
+| **ローカル** | `backend/serviceAccountKey.json` | `docker-compose.yml`内の`GOOGLE_APPLICATION_CREDENTIALS`を通じてバックエンドコンテナに読み込まれます。フロントエンドはローカルプロキシ経由でバックエンドAPIを利用します。 |
+| **本番** | AWS Secrets Manager `prd/life-plan-app/firebase` | CodeBuildでのビルド時、およびECSタスクの実行時に、IAMロールを通じて安全に読み込まれます。Terraformコードには一切の秘密情報が含まれません。 |
 
 ## 🔮 今後の改善案
 
-- **Terraform Stateの共有**: S3バックエンドとDynamoDBによるロック機構を導入する。
-- **Firebase承認済みドメインの自動化**: `terraform apply`後に、AWS SDKやFirebase CLIを使って承認済みドメインを自動更新するスクリプトを検討する。
+- **Terraform Stateの共有**: 現在ローカル管理のStateをS3バックエンドとDynamoDBによるロック機構に移行し、チーム開発を容易にする。
 - **ステージング環境の構築**: `main`ブランチとは別に`develop`ブランチ用のインフラ・パイプラインを構築し、本番デプロイ前の検証を行えるようにする。
 - **監視体制の強化**: CloudWatchダッシュボードやアラームを設定し、アプリケーションの健全性を常時監視する。
-- **CIの有効化**: 現在プレースホルダーとなっている`.github/workflows`を有効化し、Pull Request時の自動テストとリンター実行を導入する。
+- **CIの有効化**: GitHub Actionsを有効化し、Pull Request時の自動テストとリンター実行を導入する。
+- **HTTPS対応**: ALBにACM証明書を割り当て、HTTPS通信を有効化する。
