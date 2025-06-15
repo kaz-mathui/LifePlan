@@ -126,11 +126,16 @@ data "aws_iam_policy_document" "codepipeline_policy" {
     resources = [aws_codebuild_project.main.arn]
   }
   statement {
-    sid    = "ECSAccess"
+    sid    = "ECSAccessAndPassRole"
     effect = "Allow"
     actions = [
-      "ecs:DescribeServices", "ecs:DescribeTaskDefinition", "ecs:DescribeTasks",
-      "ecs:ListTasks", "ecs:RegisterTaskDefinition", "ecs:UpdateService"
+      "ecs:DescribeServices",
+      "ecs:DescribeTaskDefinition",
+      "ecs:DescribeTasks",
+      "ecs:ListTasks",
+      "ecs:RegisterTaskDefinition",
+      "ecs:UpdateService",
+      "iam:PassRole"
     ]
     resources = [
       data.terraform_remote_state.base.outputs.ecs_cluster_arn,
@@ -138,14 +143,7 @@ data "aws_iam_policy_document" "codepipeline_policy" {
       aws_ecs_service.backend.id,
       "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:task-definition/${data.terraform_remote_state.base.outputs.frontend_task_definition_family}:*",
       "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:task-definition/${data.terraform_remote_state.base.outputs.backend_task_definition_family}:*",
-    ]
-  }
-  statement {
-    sid    = "PassRoleForECS"
-    effect = "Allow"
-    actions = ["iam:PassRole"]
-    resources = [
-      data.terraform_remote_state.base.outputs.ecs_task_execution_role_arn
+      data.terraform_remote_state.base.outputs.ecs_task_execution_role_arn,
     ]
   }
 }
