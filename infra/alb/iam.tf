@@ -133,10 +133,11 @@ data "aws_iam_policy_document" "codepipeline_policy" {
       "ecs:ListTasks", "ecs:RegisterTaskDefinition", "ecs:UpdateService"
     ]
     resources = [
-      data.terraform_remote_state.base.outputs.frontend_task_definition_arn,
-      data.terraform_remote_state.base.outputs.backend_task_definition_arn,
+      data.terraform_remote_state.base.outputs.ecs_cluster_arn,
       aws_ecs_service.frontend.id,
-      aws_ecs_service.backend.id
+      aws_ecs_service.backend.id,
+      "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:task-definition/${data.terraform_remote_state.base.outputs.frontend_task_definition_family}:*",
+      "arn:aws:ecs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:task-definition/${data.terraform_remote_state.base.outputs.backend_task_definition_family}:*",
     ]
   }
   statement {

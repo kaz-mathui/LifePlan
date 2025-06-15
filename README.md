@@ -165,8 +165,19 @@ graph TD
 
 #### ステップ1: `base`レイヤーのデプロイ (永続インフラ)
 
-1.  **Firebaseシークレットの登録**:
-    AWSコンソールでSecrets Managerを開き、`prd/life-plan-app/firebase` という名前でシークレットを新規作成します。「プレーンテキスト」を選択し、FirebaseのサービスアカウントキーJSONファイルの中身をそのまま貼り付けます。
+1.  **シークレットの登録 (AWS Secrets Manager)**:
+    AWSコンソールでSecrets Managerを開き、以下の2つのシークレットを新規作成します。
+
+    -   **Firebase認証情報**:
+        -   **シークレット名**: `prd/life-plan-app/firebase`
+        -   **シークレットのタイプ**: 「その他のシークレットのタイプ」
+        -   **キー/バリュー**: 「プレーンテキスト」を選択し、FirebaseのサービスアカウントキーJSONファイルの中身を**そのまま**貼り付けます。
+
+    -   **Docker Hub認証情報**:
+        -   **シークレット名**: `dockerhub/credentials`
+        -   **シークレットのタイプ**: 「その他のシークレットのタイプ」
+        -   **キー/バリュー**: 「プレーンテキスト」を選択し、Docker Hubで生成した**アクセストークンのみ**を貼り付けます。
+        > **なぜ必要？**: CodeBuildがDocker Hubからベースイメージをプルする際に、レート制限（匿名ユーザーへのダウンロード回数制限）に引っかかるのを防ぐためです。
 
 2.  **`terraform.tfvars`の作成**:
     `infra/base/` ディレクトリに `terraform.tfvars` というファイルを作成し、取得したドメイン名を設定します。
@@ -193,11 +204,12 @@ graph TD
 #### ステップ2: `alb`レイヤーのデプロイ (オンデマンドインフラ)
 
 1.  **`terraform.tfvars`の作成**:
-    `infra/alb/` ディレクトリに `terraform.tfvars` というファイルを作成し、ドメイン情報を設定します。
+    `infra/alb/` ディレクトリに `terraform.tfvars` というファイルを作成し、ドメイン情報と**Docker Hubのユーザー名**を設定します。
     ```tfvars
     # infra/alb/terraform.tfvars
-    domain_name    = "your-domain.com"
-    subdomain_name = "app" # 例: app.your-domain.com
+    domain_name        = "your-domain.com"
+    subdomain_name     = "app" # 例: app.your-domain.com
+    dockerhub_username = "your-dockerhub-username"
     ```
 
 2.  **`alb`の適用（サービスの起動）**:
@@ -238,7 +250,11 @@ graph TD
 | 環境 | 設定ファイル/場所 | 説明 |
 |:---|:---|:---|
 | **ローカル** | `frontend/.env`, `backend/.env` | `docker-compose.yml`によって各サービスのコンテナに読み込まれます。 |
-| **本番** | AWS Secrets Manager `prd/life-plan-app/firebase` | CodeBuildでのビルド時、およびECSタスクの実行時に、IAMロールを通じて安全に読み込まれます。Terraformコードには一切の秘密情報が含まれません。 |
+| **本番 (Firebase)** | AWS Secrets Manager `prd/life-plan-app/firebase` | CodeBuildでのビルド時、およびECSタスクの実行時に、IAMロールを通じて安全に読み込まれます。 |
+| **本番 (Docker Hub)** | AWS Secrets Manager `dockerhub/credentials` | CodeBuildでのビルド時にDocker Hubへのログインに使用されます。値は**アクセストークン（プレーンテキスト）**です。 |
+| **本番 (Docker Hub)** | CodeBuild環境変数 `DOCKERHUB_USERNAME` | Docker Hubへのログインに使用されるユーザー名です。`infra/alb/terraform.tfvars`で設定します。 |
+
+> **補足**: Terraformコードには一切の秘密情報（APIキーやパスワード）が含まれません。すべてAWS Secrets ManagerとCodeBuildの環境変数で管理されます。
 
 ## 🔮 今後の改善案
 

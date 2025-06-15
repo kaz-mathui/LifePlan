@@ -16,4 +16,9 @@ variable "subdomain_name" {
   description = "The subdomain name for the ALB."
   type        = string
   default     = "app" # 例: app.example.com
+}
+
+variable "dockerhub_username" {
+  description = "The username for Docker Hub."
+  type        = string
 } 

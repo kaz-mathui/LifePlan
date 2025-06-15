@@ -15,6 +15,21 @@ output "ecs_cluster_name" {
   value       = aws_ecs_cluster.main.name
 }
 
+output "ecs_cluster_arn" {
+  description = "The ARN of the ECS cluster"
+  value       = aws_ecs_cluster.main.arn
+}
+
+output "frontend_task_definition_family" {
+  description = "The family of the frontend task definition"
+  value       = aws_ecs_task_definition.frontend.family
+}
+
+output "backend_task_definition_family" {
+  description = "The family of the backend task definition"
+  value       = aws_ecs_task_definition.backend.family
+}
+
 output "frontend_task_definition_arn" {
   description = "The ARN of the frontend task definition"
   value       = aws_ecs_task_definition.frontend.arn

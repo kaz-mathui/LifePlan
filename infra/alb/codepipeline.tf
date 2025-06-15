@@ -49,7 +49,7 @@ resource "aws_codebuild_project" "main" {
     }
     environment_variable {
       name  = "DOCKERHUB_USERNAME"
-      value = "kazmathui" # Please modify this if your username is different.
+      value = var.dockerhub_username
     }
   }
 
