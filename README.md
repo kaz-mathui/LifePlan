@@ -9,8 +9,10 @@
 - [🛠️ 技術スタック](#️-技術スタック)
 - [📂 プロジェクト構造](#-プロジェクト構造)
 - [💻 ローカル開発環境セットアップ](#-ローカル開発環境セットアップ)
+  - [前提ツール](#前提ツール)
+  - [セットアップ手順](#セットアップ手順)
 - [🚀 本番環境のセットアップと運用](#-本番環境のセットアップと運用)
-  - [前提条件](#前提条件)
+  - [前提条件](#前提条件-1)
   - [初回デプロイ手順](#初回デプロイ手順)
   - [サービスの起動・停止 (コスト削減)](#サービスの起動停止-コスト削減)
   - [CI/CDによる自動デプロイ](#cicdによる自動デプロイ)
@@ -19,12 +21,12 @@
 
 ## ✨ はじめに
 
-このプロジェクトは、React(Vite)によるフロントエンドとNode.js(Express)によるバックエンドで構成されるモノレポです。
+このプロジェクトは、React(Create React App)によるフロントエンドとNode.js(Express)によるバックエンドで構成されるモノレポです。
 AWS上のインフラはTerraformでコード管理されており、`base`レイヤー（永続的なリソース）と`alb`レイヤー（オンデマンドリソース）に分割されています。これにより、開発時間外はALBやECSサービスといったコストのかかるリソースを安全に削除でき、コスト効率の高い運用が可能です。
 
 ## 🏗️ アーキテクチャ概要
 
-CI/CDはAWS CodePipelineとCodeBuildで構築されており、`main`ブランチへのプッシュをトリガーに、自動でテスト、ビルド、デプロイが実行されます。
+CI/CDはAWS CodePipelineとCodeBuildで構築されており、`main`ブランチへのプッシュをトリガーに、自動でビルドとデプロイが実行されます。
 
 ```mermaid
 graph TD
@@ -32,7 +34,7 @@ graph TD
         A[Git Push to main]
     end
 
-    subgraph "AWS CI/CD (albレイヤー)"
+    subgraph "AWS CI/CD (albレイヤーで管理)"
         A --> B(CodePipeline: Source)
         B --> C{CodeBuild}
         C -- ビルド & ECRへプッシュ --> D[ECR: Dockerイメージリポジトリ]
@@ -79,7 +81,7 @@ graph TD
 
 | カテゴリ | 技術 |
 |---|---|
-| **フロントエンド** | React, TypeScript, Vite, pnpm, Tailwind CSS, Chart.js |
+| **フロントエンド** | React, TypeScript, Create React App, pnpm, Tailwind CSS, Chart.js |
 | **バックエンド** | Node.js, Express, TypeScript, pnpm, Zod |
 | **データベース** | Google Firestore |
 | **インフラ** | AWS (ECS Fargate, ALB, ECR, S3, Route 53, Secrets Manager, CloudWatch), Terraform |
@@ -90,7 +92,7 @@ graph TD
 ```
 .
 ├── backend/         # バックエンド (Node.js/Express)
-├── frontend/        # フロントエンド (React/Vite)
+├── frontend/        # フロントエンド (React/CRA)
 ├── infra/
 │   ├── base/        # 永続インフラ (VPC, ECR, ECS Cluster, Route53 Zone etc.)
 │   └── alb/         # オンデマンドインフラ (ALB, ECS Service, Route53 Record, CodePipeline etc.)
@@ -101,34 +103,54 @@ graph TD
 
 ## 💻 ローカル開発環境セットアップ
 
-#### 1. 前提ツール
+### 前提ツール
 
 - Node.js (v18.x以降)
 - pnpm (v8.x以降)
 - Docker & Docker Compose
 
-#### 2. セットアップ手順
+### セットアップ手順
 
-```bash
-# 1. リポジトリをクローン
-git clone <repository_url>
-cd LifePlan
+1.  **リポジトリのクローンと依存関係のインストール**
+    ```bash
+    git clone <repository_url>
+    cd LifePlan
+    pnpm install
+    ```
 
-# 2. 依存関係をインストール
-pnpm install
+2.  **環境変数の設定**
+    `backend/.env.example` と `frontend/.env.example` をコピーして、それぞれ `.env` ファイルを作成します。
 
-# 3. Firebaseサービスアカウントキーの配置
-#    FirebaseコンソールからダウンロードしたサービスアカウントのJSONキーを
-#    `backend/serviceAccountKey.json` という名前で配置します。
+    -   **`frontend/.env`**:
+        `frontend/.env.example` をコピーし、必要に応じて値を編集します。
+        ```bash
+        cp frontend/.env.example frontend/.env
+        ```
 
-# 4. 開発サーバーを起動
-docker-compose up --build
-```
+    -   **`backend/.env`**:
+        `backend/.env.example` をコピーします。
+        ```bash
+        cp backend/.env.example backend/.env
+        ```
+        次に、Firebaseコンソールからダウンロードした**サービスアカウントキーのJSONファイルの中身全体をBase64でエンコード**し、その文字列を`backend/.env`の`SERVICE_ACCOUNT_KEY`の値として設定します。
 
-- **フロントエンド**: `http://localhost:3000`
-- **バックエンド API**: `http://localhost:3001`
+        macOSやLinuxでは、以下のようなコマンドでエンコードできます。
+        ```bash
+        # serviceAccountKey.json は実際のファイル名に置き換えてください
+        base64 -i path/to/your/serviceAccountKey.json | tr -d '\n'
+        ```
+        出力された長い文字列をコピーし、`backend/.env`に貼り付けます。
+        ```dotenv
+        # backend/.env
+        SERVICE_ACCOUNT_KEY="ここにBase64エンコードされた文字列を貼り付け"
+        ```
 
-ローカル開発では、Firebase Admin SDKが `GOOGLE_APPLICATION_CREDENTIALS` 環境変数（`docker-compose.yml`で設定済）を通じて `serviceAccountKey.json` を自動的に読み込みます。
+3.  **開発サーバーの起動**
+    ```bash
+    docker-compose up --build
+    ```
+    - **フロントエンド**: `http://localhost:3000`
+    - **バックエンド API**: `http://localhost:3001`
 
 ## 🚀 本番環境のセットアップと運用
 
@@ -137,7 +159,7 @@ docker-compose up --build
 1.  **AWSアカウント** と、認証情報が設定された **AWS CLI**。
 2.  **ドメインの取得**: Route 53などでドメイン（例: `life-plan-simulator.com`）を取得済みであること。
 3.  **Firebaseプロジェクト**と**サービスアカウントキー**のJSONファイル。
-4.  **GitHubリポジトリ**と、接続のための**CodeStar Connection**。
+4.  **GitHubリポジトリ**。
 
 ### 初回デプロイ手順
 
@@ -162,7 +184,7 @@ docker-compose up --build
     ```
 
 4.  **Route 53ホストゾーンのインポート**:
-    ドメインをRoute 53以外で管理している場合、または手動で作成した場合は、ここで表示されるホストゾーンIDを使ってインポートします。
+    ドメインをRoute 53で管理している場合、`apply`は成功します。Route 53以外で管理している場合、または手動で作成した場合は、ここで表示されるホストゾーンIDを使ってインポートが必要です。
     ```bash
     # `terraform apply`後に表示されるHosted Zone ID (例: Z1234567890) を使用
     terraform import 'aws_route53_zone.main' <Hosted Zone ID>
@@ -186,7 +208,7 @@ docker-compose up --build
     ```
 
 3.  **CodeStar Connectionの承認**:
-    AWSコンソールの「Developer Tools」 > 「Connections」に移動し、`github-connection` という接続が「保留中」になっているはずです。これをクリックしてGitHubとの連携を承認してください。
+    AWSコンソールの「Developer Tools」 > 「Connections」に移動し、Terraformが作成した`github-connection`が「保留中」になっています。これをクリックしてGitHubとの連携を承認してください。
 
 4.  **パイプラインの手動実行**:
     初回のみ、CodePipelineのコンソールから `lifeplan-pipeline` を選択し、「変更をリリース」ボタンを押して手動で実行します。これにより、アプリケーションが初めてデプロイされます。
@@ -215,7 +237,7 @@ docker-compose up --build
 
 | 環境 | 設定ファイル/場所 | 説明 |
 |:---|:---|:---|
-| **ローカル** | `backend/serviceAccountKey.json` | `docker-compose.yml`内の`GOOGLE_APPLICATION_CREDENTIALS`を通じてバックエンドコンテナに読み込まれます。フロントエンドはローカルプロキシ経由でバックエンドAPIを利用します。 |
+| **ローカル** | `frontend/.env`, `backend/.env` | `docker-compose.yml`によって各サービスのコンテナに読み込まれます。 |
 | **本番** | AWS Secrets Manager `prd/life-plan-app/firebase` | CodeBuildでのビルド時、およびECSタスクの実行時に、IAMロールを通じて安全に読み込まれます。Terraformコードには一切の秘密情報が含まれません。 |
 
 ## 🔮 今後の改善案
