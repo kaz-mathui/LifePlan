@@ -47,6 +47,10 @@ resource "aws_codebuild_project" "main" {
       name  = "BACKEND_IMAGE_REPO_NAME"
       value = data.terraform_remote_state.base.outputs.backend_ecr_repository_name
     }
+    environment_variable {
+      name  = "DOCKERHUB_USERNAME"
+      value = "kazmathui" # Please modify this if your username is different.
+    }
   }
 
   source {
