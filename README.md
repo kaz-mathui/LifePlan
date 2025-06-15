@@ -247,3 +247,4 @@ graph TD
 - **監視体制の強化**: CloudWatchダッシュボードやアラームを設定し、アプリケーションの健全性を常時監視する。
 - **CIの有効化**: GitHub Actionsを有効化し、Pull Request時の自動テストとリンター実行を導入する。
 - **HTTPS対応**: ALBにACM証明書を割り当て、HTTPS通信を有効化する。
+
