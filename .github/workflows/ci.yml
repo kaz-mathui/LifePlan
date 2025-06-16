@@ -44,7 +44,7 @@ jobs:
         run: pnpm install
 
       - name: Run frontend tests
-        run: pnpm --filter lifeplan-frontend test -- --watchAll=false
+        run: pnpm --filter lifeplan-frontend exec vitest run
 
       - name: Run backend tests
         run: pnpm --filter lifeplan-backend test
