@@ -1,0 +1,35 @@
+# 開発ステージ用のベースイメージ
+FROM node:18-alpine
+
+# pnpmのインストール
+RUN npm install -g pnpm
+
+# 作業ディレクトリを設定
+WORKDIR /usr/src/app
+
+# ワークスペース全体の依存関係定義ファイルをコピー
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# backendとfrontendのpackage.jsonをコピー
+COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+
+# frontendが参照するbackendの型定義をコピー
+# ボリュームマウントでsrcは同期されるが、型解決のために初回に入れておく
+COPY backend/src/types.ts ./backend/src/
+
+# 依存関係をインストール
+# --shamefully-hoist はViteなどのツールで必要になる場合があるおまじない
+RUN pnpm install --filter lifeplan-frontend --shamefully-hoist
+
+# アプリケーションのソースコードをコピー(ボリュームマウントで上書きされる)
+COPY frontend/ ./frontend/
+
+# frontendディレクトリに移動
+WORKDIR /usr/src/app/frontend
+
+# 開発サーバーのポートを公開
+EXPOSE 3000
+
+# 開発サーバーを起動
+CMD ["npm", "start"] 

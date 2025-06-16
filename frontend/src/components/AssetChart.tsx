@@ -1,8 +1,9 @@
-import React from 'react';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController } from 'chart.js';
+import React, { useEffect, useState } from 'react';
+import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController, ChartOptions, Scale } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 import { SimulationResult } from '../types';
 import ChartDataLabels from 'chartjs-plugin-datalabels';
+import annotationPlugin, { AnnotationOptions } from 'chartjs-plugin-annotation';
 import { FaChartBar } from 'react-icons/fa';
 import Icon from './Icon';
 
@@ -17,7 +18,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  ChartDataLabels
+  ChartDataLabels,
+  annotationPlugin
 );
 
 interface AssetChartProps {
@@ -27,6 +29,26 @@ interface AssetChartProps {
 }
 
 const AssetChart: React.FC<AssetChartProps> = ({ assetData, retirementAge, lifeExpectancy }) => {
+    const [tickStep, setTickStep] = useState(1);
+
+    useEffect(() => {
+        const handleResize = () => {
+            const width = window.innerWidth;
+            if (width < 640) { // sm
+                setTickStep(5);
+            } else if (width < 1024) { // lg
+                setTickStep(2);
+            } else {
+                setTickStep(1);
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        handleResize(); // 初期ロード時にも実行
+
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     if (!assetData || assetData.length === 0) {
         return (
             <div className="text-center p-8 bg-gray-50 rounded-lg">
@@ -51,6 +73,7 @@ const AssetChart: React.FC<AssetChartProps> = ({ assetData, retirementAge, lifeE
                 pointRadius: 2,
                 pointHitRadius: 10,
                 tension: 0.1,
+                order: 0,
             },
             {
                 type: 'bar' as const,
@@ -66,11 +89,32 @@ const AssetChart: React.FC<AssetChartProps> = ({ assetData, retirementAge, lifeE
                 },
                 borderWidth: 1,
                 yAxisID: 'y1',
+                order: 1,
             },
         ],
     };
 
-    const options = {
+    const retirementAgeIndex = assetData.findIndex(d => d.age === retirementAge);
+
+    const retirementLineAnnotation: AnnotationOptions = {
+        type: 'line',
+        xMin: retirementAgeIndex,
+        xMax: retirementAgeIndex,
+        borderColor: 'rgb(234, 179, 8)',
+        borderWidth: 2,
+        label: {
+            content: 'リタイア',
+            display: true,
+            position: 'start',
+            backgroundColor: 'rgba(234, 179, 8, 0.8)',
+            color: 'white',
+            font: {
+                size: 10,
+            }
+        }
+    };
+
+    const options: ChartOptions<'bar' | 'line'> = {
         responsive: true,
         maintainAspectRatio: false,
         interaction: {
@@ -92,7 +136,7 @@ const AssetChart: React.FC<AssetChartProps> = ({ assetData, retirementAge, lifeE
                             label += ': ';
                         }
                         if (context.parsed.y !== null) {
-                            label += new Intl.NumberFormat('ja-JP', { style: 'currency', currency: 'JPY', minimumFractionDigits: 0 }).format(context.parsed.y) + '万円';
+                            label += Math.round(context.parsed.y).toLocaleString() + '万円';
                         }
                         return label;
                     }
@@ -101,11 +145,24 @@ const AssetChart: React.FC<AssetChartProps> = ({ assetData, retirementAge, lifeE
             datalabels: {
                 display: false,
             },
+            annotation: {
+                annotations: {
+                    retirementLine: retirementLineAnnotation
+                }
+            }
         },
         scales: {
             x: {
                 grid: {
                     display: false
+                },
+                ticks: {
+                    callback: function(this: Scale, val: number | string, index: number) {
+                        return index % tickStep === 0 ? labels[index] : null;
+                    },
+                    autoSkip: false,
+                    maxRotation: 0,
+                    minRotation: 0,
                 }
             },
             y: {
@@ -129,12 +186,10 @@ const AssetChart: React.FC<AssetChartProps> = ({ assetData, retirementAge, lifeE
                     text: '年間収支（万円）',
                 },
                 grid: {
-                    drawOnChartArea: false, // メインのグリッドとかぶらないように
+                    drawOnChartArea: false, 
                 },
             },
         },
-        // イベントの線を引くためのannotationプラグインの設定
-        // retirementAgeとlifeExpectancyを元に線を引く
     };
 
     return (
@@ -143,7 +198,7 @@ const AssetChart: React.FC<AssetChartProps> = ({ assetData, retirementAge, lifeE
                 <Icon as={FaChartBar} className="mr-2 text-sky-600" />
                 資産推移グラフ
             </h3>
-            <div style={{ height: '400px' }}>
+            <div style={{ height: '400px', width: '100%' }}>
                 <Chart type='bar' data={data} options={options} />
             </div>
         </div>

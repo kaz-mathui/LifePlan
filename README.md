@@ -112,45 +112,49 @@ graph TD
 ### セットアップ手順
 
 1.  **リポジトリのクローンと依存関係のインストール**
-```bash
-git clone <repository_url>
-cd LifePlan
-pnpm install
-```
+    ```bash
+    git clone <repository_url>
+    cd LifePlan
+    pnpm install
+    ```
 
 2.  **環境変数の設定**
     `backend/.env.example` と `frontend/.env.example` をコピーして、それぞれ `.env` ファイルを作成します。
-
-    -   **`frontend/.env`**:
-        `frontend/.env.example` をコピーし、必要に応じて値を編集します。
+    -   `frontend/.env`: `frontend/.env.example` をコピーし、必要に応じて値を編集します。
         ```bash
         cp frontend/.env.example frontend/.env
         ```
-
-    -   **`backend/.env`**:
-        `backend/.env.example` をコピーします。
+    -   `backend/.env`: FirebaseのサービスアカウントキーJSONをBase64エンコードして設定します。
         ```bash
         cp backend/.env.example backend/.env
-        ```
-        次に、Firebaseコンソールからダウンロードした**サービスアカウントキーのJSONファイルの中身全体をBase64でエンコード**し、その文字列を`backend/.env`の`SERVICE_ACCOUNT_KEY`の値として設定します。
-
-        macOSやLinuxでは、以下のようなコマンドでエンコードできます。
-        ```bash
-        # serviceAccountKey.json は実際のファイル名に置き換えてください
-        base64 -i path/to/your/serviceAccountKey.json | tr -d '\n'
-        ```
-        出力された長い文字列をコピーし、`backend/.env`に貼り付けます。
-        ```dotenv
-        # backend/.env
-        SERVICE_ACCOUNT_KEY="ここにBase64エンコードされた文字列を貼り付け"
+        # macOS/Linuxの場合
+        base64 -i path/to/your/serviceAccountKey.json | tr -d '\n' 
+        # 上記で出力された文字列を backend/.env の SERVICE_ACCOUNT_KEY に設定
         ```
 
-3.  **開発サーバーの起動**
+3.  **開発サーバーの起動（ホットリロード有効）**
+    以下のコマンドを実行すると、フロントエンドとバックエンドの開発サーバーが起動します。
+    ```bash
+    pnpm dev
+    ```
+    -   **フロントエンド**: `http://localhost:3000`
+        -   ソースコード (`frontend/src`配下) を変更すると、自動でブラウザがリロードされます。
+    -   **バックエンド API**: `http://localhost:3001`
+
+4.  **開発環境の停止**
+    コンテナを停止・削除するには、以下のコマンドを実行します。
+    ```bash
+    pnpm dev:down
+    ```
+
+---
+<br>
+
+### 従来の起動方法（静的ビルド）
+**注意:** こちらはホットリロードには対応していません。本番に近い環境を確認したい場合に使用します。
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
-- **フロントエンド**: `http://localhost:3000`
-- **バックエンド API**: `http://localhost:3001`
 
 ## 🚀 本番環境のセットアップと運用
 
