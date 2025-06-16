@@ -5,7 +5,6 @@ import Icon from './Icon';
 import { FaInfoCircle, FaChartBar, FaTable } from 'react-icons/fa';
 import Modal from './Modal';
 import AssetChart from './AssetChart';
-import CashFlowTable from './CashFlowTable';
 import ResultHeader from './ResultHeader';
 
 interface ResultItemProps {
@@ -67,7 +66,7 @@ const TabButton: React.FC<{
 );
 
 const SimulationResultDisplay: React.FC<SimulationResultProps> = ({ result, loading }) => {
-  const [activeTab, setActiveTab] = useState<'chart' | 'table'>('chart');
+  // const [activeTab, setActiveTab] = useState<'chart' | 'table'>('chart');
   const [selectedYear, setSelectedYear] = useState<SimulationResultYear | null>(null);
 
   if (loading) {
@@ -119,7 +118,7 @@ const SimulationResultDisplay: React.FC<SimulationResultProps> = ({ result, load
     <div className="mt-8 space-y-6">
       <ResultHeader result={result} />
       
-      <div className="bg-slate-100 p-2 rounded-xl grid grid-cols-2 gap-2">
+      {/* <div className="bg-slate-100 p-2 rounded-xl grid grid-cols-2 gap-2">
          <TabButton
           label="資産推移グラフ"
           icon={<Icon as={FaChartBar} />}
@@ -132,15 +131,15 @@ const SimulationResultDisplay: React.FC<SimulationResultProps> = ({ result, load
           isActive={activeTab === 'table'}
           onClick={() => setActiveTab('table')}
         />
-      </div>
+      </div> */}
 
       <div>
-        {activeTab === 'chart' && (
+        {/* {activeTab === 'chart' && ( */}
           <AssetChart assetData={assetData} retirementAge={retirementAge} lifeExpectancy={lifeExpectancy} />
-        )}
-        {activeTab === 'table' && (
+        {/* )} */}
+        {/* {activeTab === 'table' && (
           <CashFlowTable assetData={assetData} />
-        )}
+        )} */}
       </div>
 
       <div className="mt-8 p-6 bg-white rounded-xl shadow-lg border border-slate-200">
@@ -176,7 +175,7 @@ const SimulationResultDisplay: React.FC<SimulationResultProps> = ({ result, load
           {assetData && assetData.length > 0 && (
             <FormSection title="毎年の収支詳細">
               <div className="mt-2 overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200">
+                <table className="min-w-full responsive-table">
                   <thead className="bg-slate-50">
                     <tr>
                       <th scope="col" className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">年</th>
@@ -190,14 +189,14 @@ const SimulationResultDisplay: React.FC<SimulationResultProps> = ({ result, load
                   <tbody className="bg-white divide-y divide-slate-200">
                     {assetData.map((row) => (
                       <tr key={row.year} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedYear(row)}>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{row.year}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{row.age}歳</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600 text-right">{Math.round(row.income / 10000).toLocaleString()}万円</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600 text-right">{Math.round(row.expense / 10000).toLocaleString()}万円</td>
-                        <td className={`px-4 py-3 whitespace-nowrap text-sm text-right font-medium ${row.balance >= 0 ? 'text-slate-700' : 'text-red-600'}`}>
+                        <td data-label="年" className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{row.year}</td>
+                        <td data-label="年齢" className="px-4 py-3 whitespace-nowrap text-sm text-slate-500">{row.age}歳</td>
+                        <td data-label="年間収入" className="px-4 py-3 whitespace-nowrap text-sm text-green-600 text-right">{Math.round(row.income / 10000).toLocaleString()}万円</td>
+                        <td data-label="年間支出" className="px-4 py-3 whitespace-nowrap text-sm text-red-600 text-right">{Math.round(row.expense / 10000).toLocaleString()}万円</td>
+                        <td data-label="年間収支" className={`px-4 py-3 whitespace-nowrap text-sm text-right font-medium ${row.balance >= 0 ? 'text-slate-700' : 'text-red-600'}`}>
                           {Math.round(row.balance / 10000).toLocaleString()}万円
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-800 text-right font-semibold">{Math.round(row.savings / 10000).toLocaleString()}万円</td>
+                        <td data-label="年末資産" className="px-4 py-3 whitespace-nowrap text-sm text-slate-800 text-right font-semibold">{Math.round(row.savings / 10000).toLocaleString()}万円</td>
                       </tr>
                     ))}
                   </tbody>

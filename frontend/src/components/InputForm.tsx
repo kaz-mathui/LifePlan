@@ -124,7 +124,7 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedCha
             </div>
 
             {input.housing.hasLoan && (
-              <div className="pt-4 mt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+              <div className="pt-4 mt-4 border-t border-gray-200 grid grid-cols-1 gap-x-6 gap-y-4">
                 <InputField label="物件価格" name="propertyValue" type="number" value={input.housing.propertyValue} onChange={handleNestedInputChange('housing')} unit="万円" />
                 <InputField label="頭金" name="downPayment" type="number" value={input.housing.downPayment} onChange={handleNestedInputChange('housing')} unit="万円" />
                 <InputField label="ローン借入額" name="loanAmount" type="number" value={input.housing.loanAmount} onChange={handleNestedInputChange('housing')} unit="万円" />
@@ -217,7 +217,7 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedCha
             </div>
 
             {input.car.hasCar && (
-              <div className="pt-4 mt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+              <div className="pt-4 mt-4 border-t border-gray-200 grid grid-cols-1 gap-x-6 gap-y-4">
                 <InputField label="車両価格" name="price" type="number" value={input.car.price} onChange={handleNestedInputChange('car')} unit="万円" />
                 <InputField label="購入時の頭金" name="downPayment" type="number" value={input.car.downPayment} onChange={handleNestedInputChange('car')} unit="万円" />
                 <InputField label="ローン借入額" name="loanAmount" type="number" value={input.car.loanAmount} onChange={handleNestedInputChange('car')} unit="万円" />
@@ -231,7 +231,7 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedCha
           </div>
         </FormSection>
         <FormSection title="老後の備え">
-          <div className="pt-2 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+          <div className="pt-2 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
             <InputField label="介護費用の開始年齢" name="nursingCareStartAge" type="number" value={input.senior.nursingCareStartAge} onChange={handleNestedInputChange('senior')} unit="歳" />
             <InputField label="年間介護費用" name="nursingCareAnnualCost" type="number" value={input.senior.nursingCareAnnualCost} onChange={handleNestedInputChange('senior')} unit="万円" />
             <InputField label="葬儀費用（一括）" name="funeralCost" type="number" value={input.senior.funeralCost} onChange={handleNestedInputChange('senior')} unit="万円" />
@@ -265,3 +265,4 @@ const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedCha
 };
 
 export default InputForm; 
+ 

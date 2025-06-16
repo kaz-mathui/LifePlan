@@ -44,3 +44,4 @@ resource "aws_ecs_service" "backend" {
 
   # depends_on は、もはや不要なはず
 } 
+ 
