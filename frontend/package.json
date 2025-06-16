@@ -27,7 +27,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "build:ci": "CI=true npm run build",
-    "test": "react-scripts test",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
     "eject": "react-scripts eject",
     "prepare": "husky"
   },
@@ -50,6 +51,7 @@
     ]
   },
   "devDependencies": {
+    "@babel/preset-react": "^7.27.1",
     "@types/file-saver": "^2.0.7",
     "@types/jest": "^29.5.12",
     "@types/lodash": "^4.17.17",
@@ -57,8 +59,14 @@
     "@types/papaparse": "^5.3.16",
     "@types/react": "^18.3.23",
     "@types/react-dom": "^18.2.25",
+    "@vitejs/plugin-react": "^4.5.2",
+    "@vitest/ui": "^3.2.3",
+    "babel-jest": "^30.0.0",
     "husky": "^9.1.7",
+    "jsdom": "^26.1.0",
     "tailwindcss": "^3.3.5",
-    "typescript": "^4.9.5"
+    "ts-jest": "^29.4.0",
+    "typescript": "^4.9.5",
+    "vitest": "^3.2.3"
   }
 }

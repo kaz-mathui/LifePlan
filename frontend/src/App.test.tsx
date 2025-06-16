@@ -1,11 +1,17 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import App from './App';
+import { vi } from 'vitest';
 
-test('renders learn react link', () => {
+// firebase.ts をモック化
+vi.mock('./services/firebase.ts', () => ({
+  auth: {
+    onAuthStateChanged: vi.fn(() => vi.fn()),
+  },
+  db: {},
+}));
+
+test('renders app component', () => {
   render(<App />);
-  // アプリケーションの主要な要素が描画されることを確認します。
-  // 例えば、ヘッダーのテキストなどを期待値として設定できます。
-  // ここではひとまず、エラーなく起動することを確認します。
-  // expect(screen.getByText(/learn react/i)).toBeInTheDocument();
+  // アプリケーションがクラッシュせずにレンダリングされることを確認
 }); 
