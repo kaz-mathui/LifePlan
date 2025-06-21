@@ -17,7 +17,7 @@ resource "aws_codebuild_project" "main" {
   description   = "Builds and pushes Docker images to ECR"
   service_role  = aws_iam_role.codebuild_role.arn
   build_timeout = 20 # minutes
-
+  
   artifacts {
     type = "CODEPIPELINE"
   }
@@ -28,7 +28,7 @@ resource "aws_codebuild_project" "main" {
     type                        = "LINUX_CONTAINER"
     privileged_mode             = true
     image_pull_credentials_type = "CODEBUILD"
-
+    
     environment_variable {
       name  = "AWS_DEFAULT_REGION"
       value = "ap-northeast-1"
@@ -50,7 +50,7 @@ resource "aws_codebuild_project" "main" {
       value = var.dockerhub_username
     }
   }
-
+  
   source {
     type      = "CODEPIPELINE"
     buildspec = "buildspec.yml"
@@ -123,11 +123,11 @@ resource "aws_codepipeline" "main" {
       provider        = "ECS"
       version         = "1"
       input_artifacts = ["build_output"]
-      configuration = {
+        configuration = {
         ClusterName = data.terraform_remote_state.base.outputs.ecs_cluster_name
-        ServiceName = aws_ecs_service.backend.name
+            ServiceName = aws_ecs_service.backend.name
         FileName    = "imagedefinitions-backend.json"
-      }
+        }
     }
   }
 }

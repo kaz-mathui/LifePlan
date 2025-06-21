@@ -1,0 +1,32 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile.dev
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/src:/usr/src/app/backend/src
+    env_file:
+      - ./backend/.env
+    environment:
+      - PORT=3001
+    container_name: lifeplan-backend-dev
+    restart: unless-stopped
+    
+  frontend:
+    build:
+      context: .
+      dockerfile: ./frontend/Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # ソースコードのホットリロード
+      - ./frontend/src:/usr/src/app/frontend/src
+      - ./frontend/public:/usr/src/app/frontend/public
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    container_name: lifeplan-frontend-dev
+    restart: unless-stopped
+    depends_on:
+      - backend 

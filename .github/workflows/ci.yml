@@ -1,38 +1,50 @@
-name: CI Checks
+name: Production Build Check & Tests
 
 on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
-  build-and-test:
-    name: "Build and Test"
+  build-production:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create dummy .env file
+        run: touch frontend/.env
+
+      - name: Build production images
+        run: docker compose -f docker-compose.yml build
+        env:
+          DOCKER_BUILDKIT: 1
+
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
-          version: 8
+          version: 8 # プロジェクトで使っているpnpmのバージョン
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '18' # プロジェクトで使っているNode.jsのバージョン
           cache: 'pnpm'
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: pnpm install
 
-      - name: Build Frontend
-        run: pnpm --filter frontend build
+      - name: Run frontend tests
+        run: pnpm --filter lifeplan-frontend exec vitest run
 
-      # バックエンド用のビルド/テストスクリプトがあれば実行
-      # - name: Build Backend
-      #   run: pnpm --filter backend build
-      # - name: Run Tests
-      #   run: pnpm test
+      - name: Run backend tests
+        run: pnpm --filter lifeplan-backend test

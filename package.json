@@ -1,4 +1,9 @@
 {
+  "private": true,
+  "scripts": {
+    "dev": "docker compose -f docker-compose.dev.yml up --build",
+    "dev:down": "docker compose -f docker-compose.dev.yml down"
+  },
   "dependencies": {
     "chart.js": "^4.4.9",
     "file-saver": "^2.0.5",

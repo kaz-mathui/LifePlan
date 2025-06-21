@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import './index.css';
 // import './index.css'; // Tailwind CSSをプロジェクトに含める場合
 
 // Chart.js の必要なモジュールを登録

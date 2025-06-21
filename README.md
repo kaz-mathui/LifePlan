@@ -58,14 +58,14 @@ graph TD
             I[ECS Fargate: Backend]
             K[Route 53: A Record]
 
-            F -- 新イメージでサービス更新 --> H
-            F -- 新イメージでサービス更新 --> I
+        F -- 新イメージでサービス更新 --> H
+        F -- 新イメージでサービス更新 --> I
         end
 
         O -- ビルド時にキー読込 --> C
         O -- 実行時にキー読込 --> I
     end
-
+    
     subgraph "エンドユーザー"
         P[ユーザー]
     end
@@ -120,37 +120,41 @@ graph TD
 
 2.  **環境変数の設定**
     `backend/.env.example` と `frontend/.env.example` をコピーして、それぞれ `.env` ファイルを作成します。
-
-    -   **`frontend/.env`**:
-        `frontend/.env.example` をコピーし、必要に応じて値を編集します。
+    -   `frontend/.env`: `frontend/.env.example` をコピーし、必要に応じて値を編集します。
         ```bash
         cp frontend/.env.example frontend/.env
         ```
-
-    -   **`backend/.env`**:
-        `backend/.env.example` をコピーします。
+    -   `backend/.env`: FirebaseのサービスアカウントキーJSONをBase64エンコードして設定します。
         ```bash
         cp backend/.env.example backend/.env
-        ```
-        次に、Firebaseコンソールからダウンロードした**サービスアカウントキーのJSONファイルの中身全体をBase64でエンコード**し、その文字列を`backend/.env`の`SERVICE_ACCOUNT_KEY`の値として設定します。
-
-        macOSやLinuxでは、以下のようなコマンドでエンコードできます。
-        ```bash
-        # serviceAccountKey.json は実際のファイル名に置き換えてください
-        base64 -i path/to/your/serviceAccountKey.json | tr -d '\n'
-        ```
-        出力された長い文字列をコピーし、`backend/.env`に貼り付けます。
-        ```dotenv
-        # backend/.env
-        SERVICE_ACCOUNT_KEY="ここにBase64エンコードされた文字列を貼り付け"
+        # macOS/Linuxの場合
+        base64 -i path/to/your/serviceAccountKey.json | tr -d '\n' 
+        # 上記で出力された文字列を backend/.env の SERVICE_ACCOUNT_KEY に設定
         ```
 
-3.  **開発サーバーの起動**
+3.  **開発サーバーの起動（ホットリロード有効）**
+    以下のコマンドを実行すると、フロントエンドとバックエンドの開発サーバーが起動します。
     ```bash
-    docker-compose up --build
+    pnpm dev
     ```
-    - **フロントエンド**: `http://localhost:3000`
-    - **バックエンド API**: `http://localhost:3001`
+    -   **フロントエンド**: `http://localhost:3000`
+        -   ソースコード (`frontend/src`配下) を変更すると、自動でブラウザがリロードされます。
+    -   **バックエンド API**: `http://localhost:3001`
+
+4.  **開発環境の停止**
+    コンテナを停止・削除するには、以下のコマンドを実行します。
+    ```bash
+    pnpm dev:down
+    ```
+
+---
+<br>
+
+### 従来の起動方法（静的ビルド）
+**注意:** こちらはホットリロードには対応していません。本番に近い環境を確認したい場合に使用します。
+```bash
+docker compose up --build
+```
 
 ## 🚀 本番環境のセットアップと運用
 
@@ -264,3 +268,85 @@ graph TD
 - **CIの有効化**: GitHub Actionsを有効化し、Pull Request時の自動テストとリンター実行を導入する。
 - **HTTPS対応**: ALBにACM証明書を割り当て、HTTPS通信を有効化する。
 
+## 開発環境
+
+### 開発環境の起動
+
+1.  必要なツール（Docker, pnpm）をインストールします。
+2.  以下のコマンドを実行すると、フロントエンドとバックエンドの開発環境がDockerコンテナとして起動します。
+
+```bash
+pnpm dev
+```
+
+-   フロントエンド: `http://localhost:3000` (ホットリロード対応)
+-   バックエンド: `http://localhost:3001` (ホットリロード対応)
+
+### 開発環境の停止
+
+```bash
+pnpm dev:down
+```
+
+## ✅ テスト
+
+プロジェクトにはフロントエンドとバックエンドのユニットテストが設定されています。
+
+### フロントエンド (Vitest)
+
+モダンなテストフレームワークである **Vitest** を使用しています。設定は `frontend/vitest.config.ts` にあります。
+
+```bash
+# フロントエンドのテストをすべて実行
+pnpm --filter lifeplan-frontend test
+
+# UIモードでテストを起動（インタラクティブな操作が可能）
+pnpm --filter lifeplan-frontend test:ui
+```
+
+### バックエンド (Jest)
+
+標準的なテストフレームワークである **Jest** を使用しています。
+
+```bash
+# バックエンドのテストをすべて実行
+pnpm --filter lifeplan-backend test
+```
+
+### 統合テスト (CI)
+
+`main`ブランチへのプルリクエスト時には、GitHub Actionsによってフロントエンドとバックエンド両方のテストが自動的に実行されます。詳細はCI/CDのセクションを参照してください。
+
+---
+<br>
+
+## CI/CD とデプロイ
+
+このプロジェクトでは、GitHub ActionsによるCI（継続的インテグレーション）と、AWS CodePipelineによるCD（継続的デプロイメント）の2段階の自動化プロセスを導入しています。
+
+### **ステップ1: CI (mainブランチへのPull Request時)**
+
+`main`ブランチへのPull Requestが作成または更新されると、GitHub Actionsによる自動チェックが実行されます。
+
+- **目的**: `main`ブランチにマージされるコードの品質を担保します。
+- **実行内容**:
+    1.  **テスト実行**: フロントエンド(Vitest)とバックエンド(Jest)の全ユニットテストを実行します。
+    2.  **本番ビルドチェック**: 本番環境用の設定 (`docker-compose.yml`) を使って、アプリケーションのDockerイメージが正常にビルドできることを確認します。
+- **確認方法**: Pull Requestページの "Checks" タブから、各チェックの成功・失敗を確認できます。
+- **設定ファイル**: `.github/workflows/ci.yml`
+
+### **ステップ2: CD (mainブランチへのマージ時)**
+
+Pull Requestがマージされ、`main`ブランチに新しいコミットがプッシュされると、AWS CodePipelineによる本番環境への自動デプロイが開始されます。
+
+- **目的**: 人手を介さず、迅速かつ安全に新機能を本番環境へリリースします。
+- **実行プロセス**:
+    1.  **検知 (Source)**: CodePipelineが`main`ブランチの変更を検知します。
+    2.  **ビルド (Build)**: CodeBuildがプロジェクトをビルドします。
+        - フロントエンドとバックエンドのDockerイメージをそれぞれビルドします。
+        - ビルド時に必要な本番用の環境変数（Firebaseキーなど）は、AWS Secrets Managerから安全に読み込まれます。
+        - 完成したDockerイメージは、Amazon ECR（コンテナレジストリ）に新しいバージョンとしてプッシュされます。
+    3.  **デプロイ (Deploy)**: CodePipelineがAmazon ECSにデプロイを指示します。
+        - ECSはECRから最新のDockerイメージを取得し、新しいコンテナを起動します。
+        - 新しいコンテナが正常に起動したことを確認した後、ALB（ロードバランサー）が新しいコンテナにトラフィックを振り向け、古いコンテナは安全に停止されます（ローリングアップデート）。
+- **確認方法**: AWSマネジメントコンソールの **CodePipeline** サービス画面から、`lifeplan-pipeline` の現在の状況や過去の実行履歴、ログを確認できます。デプロイに失敗した場合は、この画面から原因を特定できます。

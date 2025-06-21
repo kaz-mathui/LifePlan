@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import { SimulationInputData, LifeEvent, Child, HousingLoanData as Housing, CarData as Car, SeniorData as Senior } from '../types';
+import { SimulationInputData } from '../types';
 
 const CSV_HEADERS = [
   'id', 'planName', 'currentAge', 'retirementAge', 'lifeExpectancy', 

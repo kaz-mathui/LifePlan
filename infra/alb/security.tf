@@ -7,3 +7,4 @@ resource "aws_security_group_rule" "allow_alb_to_ecs" {
   source_security_group_id = aws_security_group.lb.id
   description              = "Allow traffic from ALB to ECS tasks"
 } 
+ 

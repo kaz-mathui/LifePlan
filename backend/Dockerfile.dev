@@ -1,0 +1,30 @@
+# 開発ステージ用のベースイメージ
+FROM node:18-alpine
+
+# pnpmのインストール
+RUN npm install -g pnpm
+
+# 作業ディレクトリを設定
+WORKDIR /usr/src/app
+
+# ワークスペース全体の依存関係定義ファイルをコピー
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# backendとfrontendのpackage.jsonをコピー
+COPY backend/package.json ./backend/
+COPY frontend/package.json ./frontend/
+
+# 依存関係をインストール（devDependenciesも含む）
+RUN pnpm install --filter lifeplan-backend
+
+# アプリケーションのソースコードをコピー(ボリュームマウントで上書きされる)
+COPY backend/ ./backend/
+
+# backendディレクトリに移動
+WORKDIR /usr/src/app/backend
+
+# 開発サーバーのポートを公開
+EXPOSE 3001
+
+# 開発サーバーを起動
+CMD ["pnpm", "run", "dev"] 
