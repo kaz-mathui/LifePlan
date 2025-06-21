@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { BackendSimulationResult, SimulationResult as SimulationResultYear } from '../types';
 import FormSection from './FormSection';
 import Icon from './Icon';
-import { FaInfoCircle, FaChartBar, FaTable, FaChevronLeft, FaChevronRight, FaCalculator } from 'react-icons/fa';
+import { FaChartBar, FaTable, FaChevronLeft, FaChevronRight, FaCalculator } from 'react-icons/fa';
 import Modal from './Modal';
 import AssetChart from './AssetChart';
 import ResultHeader from './ResultHeader';
@@ -40,15 +40,16 @@ interface DetailRowProps {
 }
 
 const DetailRow: React.FC<DetailRowProps> = ({ label, value }) => (
-    <div className="flex justify-between py-2 px-2 rounded hover:bg-slate-100 transition-colors">
-        <span className="text-sm text-slate-600">{label}</span>
-        <span className="text-sm font-medium text-slate-800">{Math.round(value / 10000).toLocaleString()} 万円</span>
+    <div className="flex justify-between text-sm py-1 border-b border-slate-200">
+        <span className="text-slate-600">{label}</span>
+        <span className="font-semibold text-slate-800">{value.toLocaleString()} 円</span>
     </div>
 );
 
 interface SimulationResultProps {
   result: BackendSimulationResult | null;
   loading: boolean;
+  retirementAge: number;
 }
 
 const TabButton: React.FC<{
@@ -69,7 +70,6 @@ const TabButton: React.FC<{
     <span className="ml-2">{label}</span>
   </button>
 );
-
 
 const CashFlowTable: React.FC<{
     assetData: SimulationResultYear[];
@@ -129,120 +129,90 @@ const CashFlowTable: React.FC<{
     );
 };
 
-const SimulationResultDisplay: React.FC<SimulationResultProps> = ({ result, loading }) => {
-  const [activeTab, setActiveTab] = useState<'chart' | 'table'>('chart');
-  const [selectedYear, setSelectedYear] = useState<SimulationResultYear | null>(null);
+const SimulationResultDisplay: React.FC<SimulationResultProps> = ({ result, loading, retirementAge }) => {
+  const [selectedYearData, setSelectedYearData] = useState<SimulationResultYear | null>(null);
+  const [activeTab, setActiveTab] = useState('chart');
+
+  const tabItems = [
+    { id: 'chart', label: 'グラフ', icon: FaChartBar },
+    { id: 'table', label: 'キャッシュフロー表', icon: FaTable },
+  ];
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
+      <div className="flex items-center justify-center h-96">
         <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-sky-500"></div>
       </div>
     );
   }
 
-  if (!result) {
+  if (!result || !result.assetData || result.assetData.length === 0) {
     return (
-      <div className="text-center p-8 bg-white rounded-lg shadow-inner border border-slate-200">
-        <Icon as={FaCalculator} className="mx-auto text-sky-500 h-12 w-12" />
-        <h2 className="text-2xl font-semibold text-sky-800 mt-4">準備完了</h2>
-        <p className="text-slate-600 mt-2">左のフォームに入力すると、シミュレーション結果が自動で表示されます。</p>
+      <div className="bg-white p-6 rounded-lg shadow text-center">
+        <p className="text-slate-600">入力フォームに情報を入力して、「シミュレーション実行」ボタンを押してください。</p>
       </div>
     );
   }
 
-  const { assetData, retirementAge, lifeExpectancy } = result;
-  
-  // リタイア時の予測貯蓄額
-  const projectedRetirementSavings = assetData.find(d => d.age === retirementAge)?.savings;
+  const { assetData } = result;
 
   return (
-    <div className="bg-slate-50 p-4 sm:p-6 md:p-8 rounded-lg">
+    <div className="space-y-6">
       <ResultHeader result={result} />
       
-      <div className="mt-8 space-y-6">
-        <div className="p-6 bg-white rounded-xl shadow-lg border border-slate-200">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">シミュレーションサマリー</h2>
-            
-            {result.advice && (
-              <div className="mb-6 p-4 bg-sky-50 border border-sky-200 rounded-lg text-sky-800 flex items-start">
-                <Icon as={FaInfoCircle} className="w-5 h-5 mr-3 mt-0.5 text-sky-600 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-sm">AIアドバイス</p>
-                  <p className="text-sm mt-1">{result.advice}</p>
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <ResultItem label="リタイア年齢" value={retirementAge} unit="歳" />
-              <ResultItem label="寿命" value={lifeExpectancy} unit="歳" />
-              <ResultItem label="リタイア時の資産" value={projectedRetirementSavings} isCurrency={true} isEmphasized={true} />
-              <ResultItem label="生涯最大の資産額" value={Math.max(...assetData.map(d => d.savings))} isCurrency={true} />
-            </div>
+      <div className="bg-white p-4 sm:p-6 rounded-lg shadow-lg">
+        <div className="mb-4">
+          <div className="bg-slate-100 rounded-lg p-1 flex space-x-1">
+            {tabItems.map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 py-2 px-1 text-center text-sm font-semibold rounded-md transition-colors duration-200 ${
+                  activeTab === tab.id ? 'bg-white text-sky-600 shadow' : 'text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                <Icon as={tab.icon} className="inline-block sm:mr-2 mb-0.5" />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="bg-slate-100 p-1.5 rounded-xl grid grid-cols-2 gap-1.5">
-           <TabButton
-            label="資産推移グラフ"
-            icon={<Icon as={FaChartBar} />}
-            isActive={activeTab === 'chart'}
-            onClick={() => setActiveTab('chart')}
-          />
-          <TabButton
-            label="キャッシュフロー表"
-            icon={<Icon as={FaTable} />}
-            isActive={activeTab === 'table'}
-            onClick={() => setActiveTab('table')}
-          />
-        </div>
-
-        <div className="p-2 md:p-6 bg-white rounded-xl shadow-lg border border-slate-200 min-h-[400px]">
+        <div>
           {activeTab === 'chart' && (
-            <AssetChart assetData={assetData} retirementAge={retirementAge} lifeExpectancy={lifeExpectancy} />
+            <AssetChart assetData={assetData} retirementAge={retirementAge} />
           )}
           {activeTab === 'table' && assetData && assetData.length > 0 && (
-            <CashFlowTable assetData={assetData} onRowClick={setSelectedYear} />
+            <CashFlowTable assetData={assetData} onRowClick={setSelectedYearData} />
           )}
         </div>
-          
-        {result.calculationSummary && (
-          <FormSection title="計算過程の概要">
-              <div className="mt-2 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <pre className="text-sm text-slate-600 whitespace-pre-wrap font-sans">
-                      {result.calculationSummary}
-                  </pre>
-              </div>
-          </FormSection>
-        )}
       </div>
-        
-      {selectedYear && (
-        <Modal 
-            isOpen={!!selectedYear} 
-            onClose={() => setSelectedYear(null)} 
-            title={`${selectedYear.year}年 (${selectedYear.age}歳) の収支詳細`}
-        >
-            <div className="space-y-6">
-                <div>
-                    <h4 className="font-semibold text-lg text-green-700 mb-2 border-b pb-1">収入の内訳</h4>
-                    <div className="space-y-1">
-                        {Object.entries(selectedYear.incomeDetails).length > 0 ? Object.entries(selectedYear.incomeDetails).map(([key, value]) => (
-                            <DetailRow key={key} label={key} value={value} />
-                        )) : <p className="text-sm text-slate-500">収入の記録がありません。</p>}
-                    </div>
-                </div>
-                <div>
-                    <h4 className="font-semibold text-lg text-red-700 mb-2 border-b pb-1">支出の内訳</h4>
-                    <div className="space-y-1">
-                        {Object.entries(selectedYear.expenseDetails).length > 0 ? Object.entries(selectedYear.expenseDetails).map(([key, value]) => (
-                            <DetailRow key={key} label={key} value={value} />
-                        )) : <p className="text-sm text-slate-500">支出の記録がありません。</p>}
-                    </div>
-                </div>
-            </div>
-        </Modal>
-      )}
+       {selectedYearData && (
+         <Modal 
+             isOpen={!!selectedYearData} 
+             onClose={() => setSelectedYearData(null)} 
+             title={`${selectedYearData.year}年 (${selectedYearData.age}歳) の収支詳細`}
+         >
+             <div className="space-y-4">
+                 <div>
+                     <h4 className="font-semibold text-lg text-green-700 mb-2 border-b pb-1">収入の内訳</h4>
+                     <div className="space-y-1">
+                         {Object.entries(selectedYearData.incomeDetails).length > 0 ? Object.entries(selectedYearData.incomeDetails).map(([key, value]) => (
+                             <DetailRow key={key} label={key} value={value as number} />
+                         )) : <p className="text-sm text-slate-500">収入の記録がありません。</p>}
+                     </div>
+                 </div>
+                 <div>
+                     <h4 className="font-semibold text-lg text-red-700 mb-2 border-b pb-1">支出の内訳</h4>
+                     <div className="space-y-1">
+                         {Object.entries(selectedYearData.expenseDetails).length > 0 ? Object.entries(selectedYearData.expenseDetails).map(([key, value]) => (
+                             <DetailRow key={key} label={key} value={value as number} />
+                         )) : <p className="text-sm text-slate-500">支出の記録がありません。</p>}
+                     </div>
+                 </div>
+             </div>
+         </Modal>
+       )}
     </div>
   );
 };

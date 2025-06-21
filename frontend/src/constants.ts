@@ -2,6 +2,7 @@
  * アプリケーション全体で使用する定数を管理するファイル
  */
 import { SimulationInputData } from './types';
+import { v4 as uuidv4 } from 'uuid';
 
 // API関連の定数
 export const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
@@ -15,52 +16,61 @@ export const API_ENDPOINTS = {
 // その他の定数
 // export const DEFAULT_USER_NAME = 'ゲスト'; 
 
-export const initialSimulationInput: SimulationInputData = {
+export const LOCAL_STORAGE_KEY = 'lifePlanSimulationInput';
+
+export const defaultInput: SimulationInputData = {
   id: '',
   planName: '新しいプラン',
+  // Basic
   currentAge: 30,
   retirementAge: 65,
   lifeExpectancy: 95,
-  annualIncome: 500, // 万円
-  salaryIncreaseRate: 1, // %
-  currentSavings: 1000, // 万円
-  investmentRatio: 50, // %
-  annualReturn: 3, // %
-  severancePay: 1500, // 万円
-  monthlyExpenses: 20, // 万円
-  pensionAmountPerYear: 150, // 万円
+  // Income
+  annualIncome: 600,
+  salaryIncreaseRate: 1,
+  // Assets
+  currentSavings: 2000,
+  investmentRatio: 50,
+  annualReturn: 3,
+  severancePay: 1500,
+  // Expenses
+  monthlyExpenses: 20,
+  pensionAmountPerYear: 150,
   pensionStartDate: 65,
-  lifeEvents: [],
+  // Detailed Expenses
   housing: {
     hasLoan: false,
     propertyValue: 4000,
-    downPayment: 800,
-    loanAmount: 3200,
-    startAge: 35,
-    loanTerm: 35,
+    downPayment: 1000,
+    loanAmount: 3000,
     interestRate: 1.5,
+    loanTerm: 35,
+    startAge: 30,
     propertyTaxRate: 0.3,
   },
   education: {
     hasChildren: false,
     children: [],
+    childLivingCost: 50,
   },
   car: {
     hasCar: false,
-    price: 300,
-    downPayment: 100,
-    loanAmount: 200,
+    price: 200,
+    downPayment: 50,
+    loanAmount: 150,
     loanTerm: 5,
     interestRate: 2,
     maintenanceCost: 30,
-    purchaseAge: 40,
+    purchaseAge: 30,
     replacementCycle: 10,
   },
   senior: {
     nursingCareStartAge: 80,
     nursingCareAnnualCost: 100,
     funeralCost: 200,
-  }
+  },
+  // Other events
+  lifeEvents: [],
 };
 
 // 教育費（年間、万円）

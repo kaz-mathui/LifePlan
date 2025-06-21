@@ -1,6 +1,6 @@
 import React, { useState, ChangeEvent, FormEvent } from 'react';
 import { LifeEvent } from '../types';
-import { FormSection } from './InputForm';
+import FormSection from './FormSection';
 import { FaPlus, FaEdit, FaTrash, FaRegCalendarAlt, FaYenSign, FaSyncAlt, FaExclamationCircle, FaArrowRight } from 'react-icons/fa';
 import Icon from './Icon';
 

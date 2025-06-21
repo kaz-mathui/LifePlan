@@ -7,10 +7,11 @@ interface FormSectionProps {
   icon?: ReactNode;
   initialOpen?: boolean;
   children: ReactNode;
+  defaultOpen?: boolean;
 }
 
-const FormSection: React.FC<FormSectionProps> = ({ title, icon, initialOpen = false, children }) => {
-  const [isOpen, setIsOpen] = useState(initialOpen);
+const FormSection: React.FC<FormSectionProps> = ({ title, icon, initialOpen = false, children, defaultOpen = false }) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
     <div className="mb-6 border-b border-slate-200">

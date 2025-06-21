@@ -4,52 +4,57 @@ import { FaExclamationTriangle, FaCheckCircle, FaInfoCircle } from 'react-icons/
 import Icon from './Icon';
 
 interface ResultHeaderProps {
-  result: BackendSimulationResult;
+  result: BackendSimulationResult | null;
 }
 
 const ResultHeader: React.FC<ResultHeaderProps> = ({ result }) => {
-  const { advice, calculationSummary, finalSavings } = result;
+  if (!result) return null;
+
+  const { advice, summaryEvents } = result;
 
   const getAdviceCard = () => {
     let icon;
-    let title;
-    let bgColor;
+    let colorClass;
 
-    if (finalSavings <= 0) {
-      icon = <Icon as={FaExclamationTriangle} className="text-red-500 text-4xl" />;
-      title = "改善が必要です";
-      bgColor = "bg-red-50";
+    if (advice.includes('枯渇') || advice.includes('下回る')) {
+      icon = <Icon as={FaExclamationTriangle} />;
+      colorClass = 'bg-red-100 border-red-500 text-red-800';
+    } else if (advice.includes('順調')) {
+      icon = <Icon as={FaCheckCircle} />;
+      colorClass = 'bg-green-100 border-green-500 text-green-800';
     } else {
-      icon = <Icon as={FaCheckCircle} className="text-green-500 text-4xl" />;
-      title = "良好な計画です";
-      bgColor = "bg-green-50";
+      icon = <Icon as={FaInfoCircle} />;
+      colorClass = 'bg-sky-100 border-sky-500 text-sky-800';
     }
 
     return (
-      <div className={`p-6 rounded-lg shadow-md ${bgColor} flex items-center space-x-4`}>
-        {icon}
+      <div className={`p-4 rounded-lg border-l-4 ${colorClass} flex items-start`}>
+        <div className="text-xl mr-4">{icon}</div>
         <div>
-          <h3 className="text-xl font-bold text-slate-800">{title}</h3>
-          <p className="text-slate-600 mt-1">{advice}</p>
+          <h3 className="font-bold">アドバイス</h3>
+          <p className="text-sm mt-1">{advice}</p>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {getAdviceCard()}
-      <div className="p-6 rounded-lg shadow-md bg-sky-50">
-        <h3 className="text-xl font-bold text-slate-800 mb-3 flex items-center">
-            <Icon as={FaInfoCircle} className="mr-2 text-sky-600" />
-            シミュレーションの要点
-        </h3>
-        <ul className="list-disc list-inside space-y-2 text-slate-700">
-          {calculationSummary && calculationSummary.split('\n').map((line, index) => (
-            line.length > 1 && <li key={index}>{line.replace('-', '').trim()}</li>
-          ))}
-        </ul>
-      </div>
+
+      {summaryEvents && summaryEvents.length > 0 && (
+         <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
+            <h3 className="font-bold text-slate-800 mb-2 flex items-center">
+              <Icon as={FaInfoCircle} className="mr-2" />
+              主なライフイベント
+            </h3>
+            <ul className="list-disc list-inside space-y-2 text-slate-700">
+              {summaryEvents.map((event, index) => (
+                <li key={index}>{event}</li>
+              ))}
+            </ul>
+        </div>
+      )}
     </div>
   );
 };

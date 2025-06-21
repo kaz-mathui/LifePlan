@@ -27,6 +27,7 @@ export interface HousingLoanData {
 export interface EducationData {
   hasChildren: boolean;
   children: Child[];
+  childLivingCost: number | '';
 }
 
 export interface Child {
@@ -56,8 +57,9 @@ export interface SeniorData {
 export interface Plan {
   id: string;
   planName: string;
-  updatedAt: string;
+  updatedAt?: any;
   data: SimulationInputData;
+  createdAt?: any;
 }
 
 export interface SimulationInputData {
@@ -100,18 +102,24 @@ export interface SimulationResult {
 
 export interface BackendSimulationResult {
   assetData: SimulationResult[];
-  finalSavings: number;
-  lifeExpectancy: number;
+  advice: string;
+  summaryEvents: string[];
   retirementAge: number;
-  currentAge: number;
-  pensionStartDate: number;
-  advice?: string;
-  calculationSummary?: string;
 }
 
 export interface AssetDataPoint {
   age: number;
   savings: number;
 }
+
+export type ResultRow = {
+  age: number;
+  year: number;
+  income: number;
+  expense: number;
+  balance: number;
+  savings: number;
+  lifeEvent: string;
+};
 
 export {}; // モジュールとして認識させるための空のエクスポート 

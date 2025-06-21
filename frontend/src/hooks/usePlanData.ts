@@ -1,140 +1,213 @@
-import { useState, useCallback } from 'react';
-import { doc, setDoc, getDocs, collection, query, orderBy, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { useState, useEffect, useCallback, Dispatch, SetStateAction } from 'react';
+import { collection, getDocs, doc, setDoc, deleteDoc, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import { User } from 'firebase/auth';
-import { initialSimulationInput } from '../constants';
-import toast from 'react-hot-toast';
+import { v4 as uuidv4 } from 'uuid';
+import { db } from '../services/firebase';
 import { Plan, SimulationInputData } from '../types';
+import { defaultInput } from '../constants';
 
-// Firestoreはundefinedを保存できないため、nullに変換する
-const convertUndefinedToNull = (obj: any): any => {
-  if (obj === undefined) {
-    return null;
-  }
-  if (Array.isArray(obj)) {
-    return obj.map(item => convertUndefinedToNull(item));
-  }
-  if (typeof obj === 'object' && obj !== null) {
-    return Object.fromEntries(
-      Object.entries(obj).map(([key, value]) => [key, convertUndefinedToNull(value)])
-    );
-  }
-  return obj;
+const sanitizeData = (data: Partial<SimulationInputData>): SimulationInputData => {
+    const parsed = data || {};
+    return {
+        ...defaultInput,
+        ...parsed,
+        housing: { ...defaultInput.housing, ...(parsed.housing || {}) },
+        education: { ...defaultInput.education, ...(parsed.education || {}) },
+        car: { ...defaultInput.car, ...(parsed.car || {}) },
+        senior: { ...defaultInput.senior, ...(parsed.senior || {}) },
+        lifeEvents: Array.isArray(parsed.lifeEvents) ? parsed.lifeEvents : defaultInput.lifeEvents,
+    };
 };
 
-export const usePlanData = (user: User | null) => {
+export const usePlanData = (
+  user: User | null,
+  setSimulationInput: Dispatch<SetStateAction<SimulationInputData>>
+) => {
   const [plans, setPlans] = useState<Plan[]>([]);
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [activePlanId, setActivePlanId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const getPlansCollection = useCallback(() => {
-    if (!user) return null;
-    return collection(db, `users/${user.uid}/plans`);
-  }, [user]);
+  const getPlansCollection = () => {
+    if (!user) throw new Error("ユーザーが認証されていません");
+    return collection(db, 'users', user.uid, 'plans');
+  };
 
   const fetchPlans = useCallback(async () => {
-    const plansCollection = getPlansCollection();
-    if (!plansCollection) {
+    if (!user) {
       setPlans([]);
-      setIsLoading(false);
+      setActivePlanId(null);
+      setLoading(false);
       return;
     }
-    setIsLoading(true);
+    setLoading(true);
     try {
-        const q = query(plansCollection, orderBy('updatedAt', 'desc'));
-        const querySnapshot = await getDocs(q);
-        const fetchedPlans: Plan[] = querySnapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                planName: data.planName || '名称未設定',
-                updatedAt: data.updatedAt?.toDate()?.toISOString() || new Date().toISOString(),
-                data: data as SimulationInputData,
-            }
-        });
-        setPlans(fetchedPlans);
-        if(fetchedPlans.length > 0 && !selectedPlanId) {
-            setSelectedPlanId(fetchedPlans[0].id);
-        }
-    } catch (error) {
-        console.error("Error fetching plans: ", error);
-        toast.error("プランの読み込みに失敗しました。");
-    } finally {
-        setIsLoading(false);
-    }
-  }, [getPlansCollection, selectedPlanId]);
-
-  const savePlan = useCallback(
-    async (planId: string | null, data: SimulationInputData) => {
-      const plansCollection = getPlansCollection();
-      if (!plansCollection) {
-        toast.error('ユーザー認証が必要です。');
-        return { success: false, error: 'ユーザー認証が必要です。' };
-      }
+      const plansQuery = query(getPlansCollection(), orderBy('updatedAt', 'desc'));
+      const querySnapshot = await getDocs(plansQuery);
       
-      const planIdToSave = planId || doc(plansCollection).id;
-      const dataToSave = convertUndefinedToNull(data);
+      const fetchedPlans: Plan[] = querySnapshot.docs.map(doc => {
+        const docData = doc.data();
+        const planInputData = docData.data || docData;
+        const sanitizedInputData = sanitizeData(planInputData);
+        const planName = sanitizedInputData.planName || `プラン ${doc.id.substring(0, 4)}`;
 
-      setIsSaving(true);
-      try {
-        const planDoc = doc(plansCollection, planIdToSave);
-        await setDoc(planDoc, { ...dataToSave, id: planIdToSave, updatedAt: serverTimestamp() }, { merge: true });
-        await fetchPlans(); // 保存後にリストを更新
-        toast.success('プランを保存しました！');
-        return { success: true };
-      } catch (error: any) {
-        console.error('Error saving plan:', error);
-        toast.error('プランの保存に失敗しました。');
-        return { success: false, error: error.message };
-      } finally {
-        setIsSaving(false);
+        const plan: Plan = {
+          id: doc.id,
+          planName: planName,
+          data: {
+            ...sanitizedInputData,
+            id: doc.id,
+            planName: planName
+          },
+          createdAt: docData.createdAt,
+          updatedAt: docData.updatedAt
+        };
+        return plan;
+      });
+      
+      setPlans(fetchedPlans);
+
+      if (fetchedPlans.length > 0) {
+        const lastActivePlanId = localStorage.getItem('lastActivePlanId');
+        const planToSelect = fetchedPlans.find(p => p.id === lastActivePlanId) || fetchedPlans[0];
+        setActivePlanId(planToSelect.id);
+        setSimulationInput(planToSelect.data);
+      } else {
+        // No plans found, create a new one
+        await handleNewPlan(false); // don't setLoading(true) again inside
       }
-    },
-    [getPlansCollection, fetchPlans]
-  );
-
-  const deletePlan = useCallback(
-    async (planId: string) => {
-      const plansCollection = getPlansCollection();
-      if (!plansCollection) return;
-
-      try {
-        const planDoc = doc(plansCollection, planId);
-        await deleteDoc(planDoc);
-        toast.success('プランを削除しました。');
-        
-        const remainingPlans = plans.filter(p => p.id !== planId);
-        setPlans(remainingPlans);
-        if (selectedPlanId === planId) {
-            setSelectedPlanId(remainingPlans.length > 0 ? remainingPlans[0].id : null);
-        }
-      } catch (error) {
-        console.error('Error deleting plan:', error);
-        toast.error('プランの削除に失敗しました。');
-      }
-    },
-    [getPlansCollection, plans, selectedPlanId]
-  );
-  
-  const createNewPlan = useCallback(async () => {
-    const plansCollection = getPlansCollection();
-    if (!plansCollection) return null;
-
-    const newPlanDoc = doc(plansCollection);
-    try {
-        const newPlanName = `新しいプラン ${plans.length + 1}`;
-        const newPlanData = convertUndefinedToNull(initialSimulationInput);
-        await setDoc(newPlanDoc, { ...newPlanData, id: newPlanDoc.id, planName: newPlanName, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-        await fetchPlans();
-        return newPlanDoc.id;
     } catch (error) {
-        console.error('Error creating new plan:', error);
-        toast.error('新規プランの作成に失敗しました。');
-        return null;
+      console.error("プランの読み込みに失敗しました:", error);
+      // Fallback to a new plan if fetching fails
+      await handleNewPlan(false);
+    } finally {
+      setLoading(false);
     }
-  }, [getPlansCollection, fetchPlans, plans.length]);
+  }, [user, setSimulationInput]);
 
-  return { plans, selectedPlanId, setSelectedPlanId, fetchPlans, savePlan, deletePlan, createNewPlan, isSaving, isLoading };
+
+  useEffect(() => {
+    fetchPlans();
+  }, [fetchPlans]);
+
+  const handleSelectPlan = (id: string | null) => {
+    setActivePlanId(id);
+    if(id) {
+        const selectedPlan = plans.find(p => p.id === id);
+        if (selectedPlan) {
+          setSimulationInput(sanitizeData(selectedPlan.data));
+          localStorage.setItem('lastActivePlanId', id);
+        }
+    }
+  };
+
+  const handleSavePlan = async (currentInput: SimulationInputData) => {
+    if (!user || !activePlanId) return;
+    setLoading(true);
+    try {
+      const planRef = doc(getPlansCollection(), activePlanId);
+      const dataToSave = sanitizeData(currentInput);
+      await setDoc(planRef, { data: dataToSave, updatedAt: serverTimestamp() }, { merge: true });
+      // Update local state immediately for responsiveness
+      const updatedPlans = plans.map(p => p.id === activePlanId ? { ...p, data: dataToSave } : p);
+      setPlans(updatedPlans);
+    } catch (error) {
+      console.error("プランの保存に失敗しました:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleNewPlan = async (shouldLoad = true) => {
+    if (!user) return;
+    if (shouldLoad) setLoading(true);
+
+    const newPlanId = uuidv4();
+    const newPlanData: SimulationInputData = {
+      ...defaultInput,
+      id: newPlanId,
+      planName: `新しいプラン ${new Date().toLocaleTimeString()}`,
+    };
+
+    try {
+      const planRef = doc(getPlansCollection(), newPlanId);
+      const planToSave = {
+        data: newPlanData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }
+      await setDoc(planRef, planToSave);
+      
+      const newPlanForState: Plan = {
+          id: newPlanId,
+          planName: newPlanData.planName,
+          ...planToSave,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+      };
+
+      setPlans(prevPlans => [newPlanForState, ...prevPlans]);
+      setSimulationInput(newPlanData);
+      setActivePlanId(newPlanId);
+      localStorage.setItem('lastActivePlanId', newPlanId);
+    } catch (error) {
+      console.error("新規プランの作成に失敗しました:", error);
+    } finally {
+      if (shouldLoad) setLoading(false);
+    }
+  };
+
+  const handleUpdatePlanName = async (name: string) => {
+    if (!activePlanId) return;
+    
+    // Optimistic UI update
+    const oldPlans = plans;
+    const updatedPlans = plans.map(p =>
+      p.id === activePlanId ? { ...p, data: { ...p.data, planName: name } } : p
+    );
+    setPlans(updatedPlans);
+    setSimulationInput(prev => ({ ...prev, planName: name }));
+
+    try {
+        const planRef = doc(getPlansCollection(), activePlanId);
+        await setDoc(planRef, { data: { planName: name }, updatedAt: serverTimestamp() }, { merge: true });
+    } catch (error) {
+        console.error("プラン名の更新に失敗しました:", error);
+        setPlans(oldPlans); // Rollback on error
+    }
+  };
+
+  const handleDeletePlan = async (id: string) => {
+    if (!user) return;
+    
+    const oldPlans = plans;
+    const newPlans = plans.filter(p => p.id !== id);
+    setPlans(newPlans);
+
+    if (activePlanId === id) {
+      if (newPlans.length > 0) {
+        handleSelectPlan(newPlans[0].id);
+      } else {
+        await handleNewPlan(); 
+      }
+    }
+
+    try {
+      await deleteDoc(doc(getPlansCollection(), id));
+    } catch (error) {
+      console.error("プランの削除に失敗しました:", error);
+      setPlans(oldPlans); // Rollback
+    }
+  };
+
+  return {
+    plans,
+    activePlanId,
+    loading,
+    handleSelectPlan,
+    handleSavePlan,
+    handleNewPlan,
+    handleUpdatePlanName,
+    handleDeletePlan,
+  };
 }; 
  

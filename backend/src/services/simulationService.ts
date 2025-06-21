@@ -58,9 +58,13 @@ export function calculateSimulation(input: SimulationInputData): BackendSimulati
   let currentAnnualIncome = annualIncome;
   let housingLoanRemainingTerm = housing.hasLoan ? housing.loanTerm : 0;
   let carLoanRemainingTerm = car.hasCar ? car.loanTerm : 0;
-  
-  const annualHousingLoanPayment = housing.hasLoan ? calculateAnnualLoanPayment(housing.loanAmount, housing.interestRate, housing.loanTerm) : 0;
-  const annualCarLoanPayment = car.hasCar ? calculateAnnualLoanPayment(car.loanAmount, car.interestRate, car.loanTerm) : 0;
+  let isBankrupt = false; // 破産状態を追跡するフラグ
+
+  const housingLoanAmount = Math.max(0, (housing.propertyValue || 0) - (housing.downPayment || 0));
+  const annualHousingLoanPayment = housing.hasLoan ? calculateAnnualLoanPayment(housingLoanAmount, housing.interestRate, housing.loanTerm) : 0;
+
+  const carLoanAmount = Math.max(0, (car.price || 0) - (car.downPayment || 0));
+  const annualCarLoanPayment = car.hasCar ? calculateAnnualLoanPayment(carLoanAmount, car.interestRate, car.loanTerm) : 0;
 
   const summaryEvents: string[] = [];
 
@@ -76,27 +80,32 @@ export function calculateSimulation(input: SimulationInputData): BackendSimulati
       yearlyIncome += income;
       incomeDetails['給与収入'] = income;
       currentAnnualIncome *= (1 + salaryIncreaseRate / 100); // 昇給
-  }
+    }
     if (age === retirementAge && severancePay > 0) {
       yearlyIncome += severancePay;
       incomeDetails['退職金'] = severancePay;
       summaryEvents.push(`${age}歳: 退職。収入が年金に切り替わります。退職金${(severancePay/10000).toFixed(0)}万円が加算されます。`);
-  }
+    }
     if (age >= pensionStartDate) {
       const pension = pensionAmountPerYear;
       yearlyIncome += pension;
       incomeDetails['年金収入'] = pension;
       if (age === pensionStartDate) {
         summaryEvents.push(`${age}歳: 年金受給開始。年間${(pensionAmountPerYear/10000).toFixed(0)}万円の収入が始まります。`);
-  }
+      }
     }
 
     // 支出計算
-    // 住宅ローン
+    // 住宅
+    if (housing.hasLoan && age === housing.startAge) {
+      currentYearSavings -= (housing.downPayment || 0);
+      expenseDetails['住宅頭金'] = (housing.downPayment || 0);
+      summaryEvents.push(`${age}歳: 住宅購入。頭金${((housing.downPayment || 0)/10000).toFixed(0)}万円を支出し、ローン返済が開始します。`);
+    }
     if (housing.hasLoan && age >= housing.startAge) {
        if (housingLoanRemainingTerm > 0) {
         const loanPayment = annualHousingLoanPayment;
-        const taxPayment = housing.propertyValue * (housing.propertyTaxRate / 100);
+        const taxPayment = (housing.propertyValue || 0) * ((housing.propertyTaxRate || 0) / 100);
         yearlyExpenses += loanPayment + taxPayment;
         expenseDetails['住宅ローン返済'] = loanPayment;
         expenseDetails['固定資産税'] = taxPayment;
@@ -109,11 +118,14 @@ export function calculateSimulation(input: SimulationInputData): BackendSimulati
            summaryEvents.push(`${age}歳: 住宅ローン完済。年間の支出が減少します。`);
        }
     }
+
     // 教育費
     if (education.hasChildren) {
       let totalEducationCost = 0;
-      education.children.forEach((child, index) => {
+      let activeChildren = 0;
+      education.children.forEach((child) => {
         const childAge = age - (new Date().getFullYear() - child.birthYear);
+        if (childAge >= 0) activeChildren++;
         const costPlan = child.plan === 'custom' ? 'public' : child.plan;
         const educationCost = getEducationCost(childAge, costPlan);
         if (educationCost > 0) {
@@ -127,29 +139,40 @@ export function calculateSimulation(input: SimulationInputData): BackendSimulati
         yearlyExpenses += totalEducationCost;
         expenseDetails['教育費'] = totalEducationCost;
       }
+      if (activeChildren > 0 && (education.childLivingCost || 0) > 0) {
+        const totalLivingCost = activeChildren * (education.childLivingCost || 0);
+        yearlyExpenses += totalLivingCost;
+        expenseDetails['子供の生活費'] = totalLivingCost;
+      }
     }
+
     // 自動車
     if (car.hasCar) {
-      yearlyExpenses += car.maintenanceCost;
-      expenseDetails['自動車維持費'] = car.maintenanceCost;
-
+      if (age >= car.purchaseAge) {
+        yearlyExpenses += (car.maintenanceCost || 0);
+        expenseDetails['自動車維持費'] = (car.maintenanceCost || 0);
+      }
       if (age === car.purchaseAge) {
-        summaryEvents.push(`${age}歳: 自動車購入。車両価格${(car.price/10000).toFixed(0)}万円と、ローン・維持費の支出が始まります。`);
+        currentYearSavings -= (car.downPayment || 0);
+        expenseDetails['自動車頭金'] = (car.downPayment || 0);
+        summaryEvents.push(`${age}歳: 自動車購入。車両価格${((car.price || 0)/10000).toFixed(0)}万円（頭金${((car.downPayment || 0)/10000).toFixed(0)}万円）と、ローン・維持費の支出が始まります。`);
       }
       if (age >= car.purchaseAge && carLoanRemainingTerm > 0) {
-        const carLoanPayment = annualCarLoanPayment;
-        yearlyExpenses += carLoanPayment;
-        expenseDetails['自動車ローン返済'] = carLoanPayment;
+        yearlyExpenses += annualCarLoanPayment;
+        expenseDetails['自動車ローン返済'] = annualCarLoanPayment;
         carLoanRemainingTerm--;
-    }
-      // 買い替え
+      }
       if (age > car.purchaseAge && (age - car.purchaseAge) % car.replacementCycle === 0) {
-        yearlyExpenses += car.price;
-        expenseDetails['自動車買い替え'] = car.price;
-        carLoanRemainingTerm = car.loanTerm; // ローン再開
-        summaryEvents.push(`${age}歳: 自動車の買い替え。再び車両価格${(car.price/10000).toFixed(0)}万円の支出が発生します。`);
+        currentYearSavings -= (car.downPayment || 0);
+        expenseDetails['自動車頭金（買い替え）'] = (car.downPayment || 0);
+        const replacementCost = (car.price || 0) - (car.downPayment || 0);
+        yearlyExpenses += replacementCost;
+        expenseDetails['自動車買い替え'] = replacementCost;
+        carLoanRemainingTerm = car.loanTerm;
+        summaryEvents.push(`${age}歳: 自動車の買い替え。再び車両価格${((car.price || 0)/10000).toFixed(0)}万円（頭金${((car.downPayment || 0)/10000).toFixed(0)}万円）の支出が発生します。`);
       }
     }
+    
     // 老後費用
     if (age >= senior.nursingCareStartAge) {
         const nursingCost = senior.nursingCareAnnualCost;
@@ -182,17 +205,13 @@ export function calculateSimulation(input: SimulationInputData): BackendSimulati
     // 資産運用と年間収支
     const investmentReturn = currentYearSavings * (investmentRatio / 100) * (annualReturn / 100);
     incomeDetails['資産運用益'] = investmentReturn;
-    const investmentGains = investmentReturn; // Alias for clarity
+    const investmentGains = investmentReturn;
     const balance = yearlyIncome + investmentGains - yearlyExpenses;
     currentYearSavings += balance;
     
-    let isBankrupt = false;
-    if(currentYearSavings < 0) {
-        if (!isBankrupt) {
-             summaryEvents.push(`${age}歳: 貯蓄がマイナスになりました。プランの見直しが必要です。`);
-             isBankrupt = true;
-        }
-        currentYearSavings = 0; // 資産がマイナスにならない制約
+    if(currentYearSavings < 0 && !isBankrupt) {
+        summaryEvents.push(`${age}歳: 貯蓄がマイナスになりました。プランの見直しが必要です。`);
+        isBankrupt = true;
     }
 
     assetData.push({

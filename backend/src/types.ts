@@ -25,6 +25,7 @@ export interface EducationData {
     plan: 'public' | 'private_liberal' | 'private_science' | 'custom';
     customAmount?: number;
   }[];
+  childLivingCost: number | '';
 }
 
 export interface CarData {

@@ -1,208 +1,83 @@
-import React, { useEffect, useState } from 'react';
-import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, PointElement, LineElement, LineController, BarController, ChartOptions, Scale } from 'chart.js';
-import { Chart } from 'react-chartjs-2';
+import React from 'react';
 import { SimulationResult } from '../types';
-import ChartDataLabels from 'chartjs-plugin-datalabels';
-import annotationPlugin, { AnnotationOptions } from 'chartjs-plugin-annotation';
-import { FaChartBar } from 'react-icons/fa';
-import Icon from './Icon';
-
-ChartJS.register(
-  LineController,
-  BarController,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  ChartDataLabels,
-  annotationPlugin
-);
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from 'recharts';
 
 interface AssetChartProps {
   assetData: SimulationResult[];
   retirementAge: number;
-  lifeExpectancy: number;
 }
 
-const AssetChart: React.FC<AssetChartProps> = ({ assetData, retirementAge, lifeExpectancy }) => {
-    const [tickStep, setTickStep] = useState(1);
-
-    useEffect(() => {
-        const handleResize = () => {
-            const width = window.innerWidth;
-            if (width < 640) { // sm
-                setTickStep(5);
-            } else if (width < 1024) { // lg
-                setTickStep(2);
-            } else {
-                setTickStep(1);
-            }
-        };
-
-        window.addEventListener('resize', handleResize);
-        handleResize(); // 初期ロード時にも実行
-
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
-    if (!assetData || assetData.length === 0) {
-        return (
-            <div className="text-center p-8 bg-gray-50 rounded-lg">
-                <p>シミュレーション結果がありません。</p>
-            </div>
-        );
-    }
-    
-    const labels = assetData.map(d => `${d.age}歳`);
-    const savingsData = assetData.map(d => d.savings / 10000); // 万円単位に
-
-    const data = {
-        labels,
-        datasets: [
-            {
-                type: 'line' as const,
-                label: '資産残高（万円）',
-                data: savingsData,
-                borderColor: 'rgb(59, 130, 246)',
-                backgroundColor: 'rgba(59, 130, 246, 0.5)',
-                yAxisID: 'y',
-                pointRadius: 2,
-                pointHitRadius: 10,
-                tension: 0.1,
-                order: 0,
-            },
-            {
-                type: 'bar' as const,
-                label: '年間収支（万円）',
-                data: assetData.map(d => d.balance / 10000), // 万円単位に
-                backgroundColor: (context: any) => {
-                    const value = context.dataset.data[context.dataIndex];
-                    return value >= 0 ? 'rgba(74, 222, 128, 0.5)' : 'rgba(239, 68, 68, 0.5)';
-                },
-                borderColor: (context: any) => {
-                    const value = context.dataset.data[context.dataIndex];
-                    return value >= 0 ? 'rgba(74, 222, 128, 1)' : 'rgba(239, 68, 68, 1)';
-                },
-                borderWidth: 1,
-                yAxisID: 'y1',
-                order: 1,
-            },
-        ],
-    };
-
-    const retirementAgeIndex = assetData.findIndex(d => d.age === retirementAge);
-
-    const retirementLineAnnotation: AnnotationOptions = {
-        type: 'line',
-        xMin: retirementAgeIndex,
-        xMax: retirementAgeIndex,
-        borderColor: 'rgb(234, 179, 8)',
-        borderWidth: 2,
-        label: {
-            content: 'リタイア',
-            display: true,
-            position: 'start',
-            backgroundColor: 'rgba(234, 179, 8, 0.8)',
-            color: 'white',
-            font: {
-                size: 10,
-            }
-        }
-    };
-
-    const options: ChartOptions<'bar' | 'line'> = {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-            mode: 'index' as const,
-            intersect: false,
-        },
-        plugins: {
-            legend: {
-                position: 'top' as const,
-            },
-            title: {
-                display: false,
-            },
-            tooltip: {
-                callbacks: {
-                    label: function(context: any) {
-                        let label = context.dataset.label || '';
-                        if (label) {
-                            label += ': ';
-                        }
-                        if (context.parsed.y !== null) {
-                            label += Math.round(context.parsed.y).toLocaleString() + '万円';
-                        }
-                        return label;
-                    }
-                }
-            },
-            datalabels: {
-                display: false,
-            },
-            annotation: {
-                annotations: {
-                    retirementLine: retirementLineAnnotation
-                }
-            }
-        },
-        scales: {
-            x: {
-                grid: {
-                    display: false
-                },
-                ticks: {
-                    callback: function(this: Scale, val: number | string, index: number) {
-                        return index % tickStep === 0 ? labels[index] : null;
-                    },
-                    autoSkip: false,
-                    maxRotation: 0,
-                    minRotation: 0,
-                }
-            },
-            y: {
-                type: 'linear' as const,
-                display: true,
-                position: 'left' as const,
-                title: {
-                    display: true,
-                    text: '資産残高（万円）',
-                },
-                grid: {
-                    drawOnChartArea: true,
-                },
-            },
-            y1: {
-                type: 'linear' as const,
-                display: true,
-                position: 'right' as const,
-                title: {
-                    display: true,
-                    text: '年間収支（万円）',
-                },
-                grid: {
-                    drawOnChartArea: false, 
-                },
-            },
-        },
-    };
-
+const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
     return (
-        <div className="p-6 rounded-lg shadow-md bg-white">
-             <h3 className="text-xl font-bold text-slate-800 mb-4 flex items-center">
-                <Icon as={FaChartBar} className="mr-2 text-sky-600" />
-                資産推移グラフ
-            </h3>
-            <div style={{ height: '400px', width: '100%' }}>
-                <Chart type='bar' data={data} options={options} />
-            </div>
-        </div>
+      <div className="bg-white p-2 border border-slate-300 rounded shadow-lg">
+        <p className="font-bold">{`${label}歳`}</p>
+        <p style={{ color: payload[0].color }}>
+          {`${payload[0].name}: ${payload[0].value.toLocaleString()} 万円`}
+        </p>
+      </div>
     );
+  }
+  return null;
+};
+
+const AssetChart: React.FC<AssetChartProps> = ({ assetData, retirementAge }) => {
+
+  const formatYAxis = (tickItem: number) => {
+    return `${tickItem.toLocaleString()}万円`;
+  };
+
+  const uniqueTicks = Array.from(new Set([
+    assetData[0]?.age, 
+    retirementAge, 
+    ...assetData.filter(d => d.age % 10 === 0).map(d => d.age),
+    assetData[assetData.length - 1]?.age
+  ].filter(age => age !== undefined).sort((a,b) => a-b))) as number[];
+
+  return (
+    <div className="bg-white p-4 rounded-lg shadow-md">
+      <h3 className="text-lg font-semibold text-slate-800 mb-4">資産推移</h3>
+      <ResponsiveContainer width="100%" height={400}>
+        <AreaChart
+          data={assetData.map(d => ({ ...d, savings: d.savings / 10000 }))}
+          margin={{
+            top: 5,
+            right: 30,
+            left: 20,
+            bottom: 20,
+          }}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+          <XAxis 
+            dataKey="age" 
+            label={{ value: '年齢', position: 'insideBottom', offset: -10 }} 
+            tick={{ fontSize: 12 }}
+            interval="preserveStartEnd"
+            ticks={uniqueTicks}
+          />
+          <YAxis 
+            tickFormatter={formatYAxis} 
+            label={{ value: '資産額', angle: -90, position: 'insideLeft', offset: -5 }} 
+            tick={{ fontSize: 12 }}
+            width={80}
+          />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend verticalAlign="top" height={36}/>
+          <ReferenceLine y={0} stroke="#000" strokeWidth={1} />
+          <ReferenceLine x={retirementAge} stroke="red" strokeDasharray="3 3" label={{ value: "リタイア", position: "insideTopRight", fill: "red" }}/>
+
+          <defs>
+            <linearGradient id="colorSavings" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#8884d8" stopOpacity={0.8}/>
+              <stop offset="95%" stopColor="#8884d8" stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+
+          <Area type="monotone" dataKey="savings" name="資産残高" stroke="#8884d8" fill="url(#colorSavings)" strokeWidth={2} dot={false} activeDot={{ r: 6 }}/>
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
 };
 
 export default AssetChart; 

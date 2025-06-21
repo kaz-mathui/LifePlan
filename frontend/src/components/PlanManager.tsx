@@ -1,89 +1,177 @@
-import React from 'react';
-import { PlanListItem } from '../types';
-import { FaPlus, FaTrash } from 'react-icons/fa';
+import React, { useState, useRef, useEffect } from 'react';
+import { FaChevronDown, FaFileImport, FaFileExport, FaPlus, FaSave, FaTrash } from 'react-icons/fa';
+import toast from 'react-hot-toast';
 import Icon from './Icon';
-
-// App.tsxから渡されるプランの型 (App.tsxのsavedPlansステートの要素の型に合わせる)
-// interface PlanListItem {
-//   id: string;
-//   planName: string;
-//   updatedAt: string;
-// }
+import { Plan } from '../types';
 
 interface PlanManagerProps {
-  savedPlans: PlanListItem[];
-  currentPlanId?: string; // 現在選択されているプランのID (オプショナル)
+  plans: Plan[];
+  activePlanId: string | null;
+  activePlan: Plan | undefined;
   onSelectPlan: (id: string) => void;
-  onDeletePlan: (id: string) => Promise<void>;
-  onCreateNewPlan: () => void;
+  onSavePlan: () => void;
+  onNewPlan: () => void;
+  onUpdatePlanName: (name: string) => void;
+  onDeletePlan: (id: string) => void;
+  onImport: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onExport: () => void;
+  loading: boolean;
 }
 
-const PlanManager: React.FC<PlanManagerProps> = ({ savedPlans, currentPlanId, onSelectPlan, onDeletePlan, onCreateNewPlan }) => {
+const PlanManager: React.FC<PlanManagerProps> = ({
+  plans,
+  activePlanId,
+  activePlan,
+  onSelectPlan,
+  onSavePlan,
+  onNewPlan,
+  onUpdatePlanName,
+  onDeletePlan,
+  onImport,
+  onExport,
+  loading,
+}) => {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editingName, setEditingName] = useState(activePlan?.planName || "");
 
-  const handleDeleteClick = () => {
-    if (!currentPlanId) {
-      alert("削除するプランが選択されていません。");
-      return;
+  useEffect(() => {
+    if (activePlan) {
+      setEditingName(activePlan.planName);
     }
-    if (window.confirm(`現在編集中のプラン「${savedPlans.find(p => p.id === currentPlanId)?.planName || '無名のプラン'}」を削除してもよろしいですか？\nこの操作は元に戻せません。`)) {
-      onDeletePlan(currentPlanId);
-    }
-  };
+  }, [activePlan]);
 
-  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedId = e.target.value;
-    if (selectedId) {
-      onSelectPlan(selectedId);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleNameUpdate = () => {
+    if (editingName.trim() && activePlan && editingName.trim() !== activePlan.planName) {
+      onUpdatePlanName(editingName.trim());
     }
+    setIsEditingName(false);
   };
 
   return (
-    <div className="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        
-        {/* プラン選択ドロップダウン */}
-        <div className="flex-grow">
-          <label htmlFor="plan-select" className="block text-sm font-medium text-slate-700 mb-1">
-            編集するプランを選択
-          </label>
-          <select
-            id="plan-select"
-            value={currentPlanId || ''}
-            onChange={handleSelectChange}
-            disabled={savedPlans.length === 0}
-            className="w-full px-4 py-2 bg-white border border-slate-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 text-base"
-          >
-            {savedPlans.length === 0 ? (
-              <option value="">保存済みのプランはありません</option>
+    <div className="space-y-4 rounded-lg border bg-white p-4 shadow-md">
+      {/* --- プラン選択・編集エリア --- */}
+      <div>
+        <label htmlFor="plan-name" className="mb-1 block text-sm font-medium text-slate-700">
+          現在のプラン
+        </label>
+        <div className="flex items-center space-x-2">
+          {/* プラン名表示・編集 / ドロップダウン */}
+          <div className="relative w-full" ref={dropdownRef}>
+            {isEditingName ? (
+              <input
+                id="plan-name-edit"
+                type="text"
+                value={editingName}
+                onChange={(e) => setEditingName(e.target.value)}
+                onBlur={handleNameUpdate}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleNameUpdate();
+                  if (e.key === 'Escape') setIsEditingName(false);
+                }}
+                className="block w-full rounded-md border border-sky-500 bg-white py-2 px-3 shadow-sm focus:outline-none focus:ring-sky-500 sm:text-sm"
+                autoFocus
+                disabled={loading}
+              />
             ) : (
-              savedPlans.map(plan => (
-                <option key={plan.id} value={plan.id}>
-                  {plan.planName || '名称未設定プラン'}
-                </option>
-              ))
+              <div
+                className="block w-full cursor-pointer rounded-md border border-slate-300 bg-white py-2 px-3 shadow-sm sm:text-sm"
+                onClick={() => setIsEditingName(true)}
+              >
+                {activePlan?.planName || 'プラン名'}
+              </div>
             )}
-          </select>
-        </div>
-        
-        {/* 操作ボタン */}
-        <div className="flex items-center justify-end space-x-2 pt-2 sm:pt-6">
+            {/* ドロップダウンボタン */}
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="absolute inset-y-0 right-0 flex items-center px-2 text-slate-500 hover:text-sky-600"
+              aria-label="Select a plan"
+            >
+              <Icon as={FaChevronDown} />
+            </button>
+            {/* ドロップダウンメニュー */}
+            {isDropdownOpen && (
+              <div className="absolute top-full left-0 z-10 mt-1 w-full rounded-md border border-slate-200 bg-white shadow-lg">
+                {plans.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      onSelectPlan(p.id);
+                      setIsDropdownOpen(false);
+                      setIsEditingName(false);
+                    }}
+                    className="block w-full px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
+                  >
+                    {p.planName}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* 削除ボタン */}
           <button
-            onClick={onCreateNewPlan}
-            className="flex items-center px-4 py-2 bg-green-500 text-white font-semibold rounded-lg shadow-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 transition duration-150 text-sm"
-          >
-            <Icon as={FaPlus} className="mr-2" />
-            <span>新しいプラン</span>
-          </button>
-          <button 
-            onClick={handleDeleteClick}
-            disabled={!currentPlanId || savedPlans.length === 0}
-            className="flex items-center px-4 py-2 bg-red-500 text-white font-semibold rounded-lg shadow-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-2 transition duration-150 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            aria-label="現在選択中のプランを削除"
+            onClick={() => activePlanId && onDeletePlan(activePlanId)}
+            disabled={!activePlanId || loading || plans.length <= 1}
+            className="rounded-md p-2 text-slate-500 hover:bg-red-100 hover:text-red-600 disabled:opacity-50 disabled:hover:bg-transparent disabled:hover:text-slate-500"
+            aria-label="Delete Plan"
           >
             <Icon as={FaTrash} />
           </button>
         </div>
+      </div>
 
+      {/* --- 操作ボタンエリア --- */}
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => {
+            onSavePlan();
+            toast.success('現在の内容を保存しました！');
+          }}
+          disabled={loading}
+          className="flex h-10 items-center justify-center rounded-lg bg-sky-600 px-4 font-semibold text-white shadow-md hover:bg-sky-700 disabled:opacity-50"
+        >
+          <Icon as={FaSave} className="mr-2" />
+          <span>保存</span>
+        </button>
+        <button
+          onClick={() => onNewPlan()}
+          disabled={loading}
+          className="flex h-10 items-center justify-center rounded-lg bg-green-500 px-4 font-semibold text-white shadow-sm hover:bg-green-600 disabled:opacity-50"
+        >
+          <Icon as={FaPlus} className="mr-2" />
+          <span>新規</span>
+        </button>
+        <input type="file" accept=".json,.csv" onChange={onImport} className="hidden" ref={importInputRef} />
+        <button
+          type="button"
+          onClick={() => importInputRef.current?.click()}
+          className="flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          disabled={loading}
+        >
+          <Icon as={FaFileImport} className="mr-2" />
+          <span>インポート</span>
+        </button>
+        <button
+          type="button"
+          onClick={onExport}
+          className="flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+          disabled={loading}
+        >
+          <Icon as={FaFileExport} className="mr-2" />
+          <span>エクスポート</span>
+        </button>
       </div>
     </div>
   );
