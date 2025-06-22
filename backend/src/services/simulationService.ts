@@ -225,11 +225,8 @@ export function calculateSimulation(input: SimulationInputData): BackendSimulati
         currentYearSavings -= downPayment;
         yearlyExpenses += downPayment; // 年間支出に含める
         expenseDetails['自動車頭金（買い替え）'] = downPayment;
-        const replacementCost = ((Number(car.price) || 0) - (Number(car.downPayment) || 0)) * M; // 万円を円に変換
-        yearlyExpenses += replacementCost;
-        expenseDetails['自動車買い替え'] = replacementCost;
         carLoanRemainingTerm = Number(car.loanTerm) || 0;
-        summaryEvents.push(`${age}歳: 自動車の買い替え。再び車両価格${(Number(car.price) || 0).toFixed(0)}万円（頭金${(Number(car.downPayment) || 0).toFixed(0)}万円）の支出が発生します。`);
+        summaryEvents.push(`${age}歳: 自動車の買い替え。頭金${(Number(car.downPayment) || 0).toFixed(0)}万円の支出が発生し、新たにローン返済が始まります。`);
       }
     }
     

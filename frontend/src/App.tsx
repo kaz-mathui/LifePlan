@@ -3,7 +3,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import { usePlanData } from './hooks/usePlanData';
 import { BackendSimulationResult, SimulationInputData, LifeEvent } from './types';
-import { API_ENDPOINTS } from './constants';
+import { API_ENDPOINTS, API_BASE_URL } from './constants';
 import { debounce } from 'lodash';
 import { auth } from './services/firebase';
 
@@ -13,6 +13,7 @@ import InputForm from './components/InputForm';
 import SimulationResult from './components/SimulationResult';
 import { exportToCsv, importFromCsv } from './utils/csvUtils';
 import LifeEventForm from './components/LifeEventForm';
+import SettingsSummary from './components/SettingsSummary';
 
 // フロントエンドの型からバックエンドの型に変換する関数
 const convertToBackendFormat = (data: SimulationInputData) => {
@@ -79,7 +80,7 @@ const convertToBackendFormat = (data: SimulationInputData) => {
 };
 
 const App: React.FC = () => {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, showAuth, setShowAuth } = useAuth();
   const {
     plans,
     currentPlanId,
@@ -104,7 +105,7 @@ const App: React.FC = () => {
     setSimulationError(null);
     try {
       const backendData = convertToBackendFormat(data);
-      const response = await fetch(API_ENDPOINTS.SIMULATION, {
+      const response = await fetch(API_BASE_URL + API_ENDPOINTS.SIMULATION, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(backendData),
@@ -238,17 +239,12 @@ const App: React.FC = () => {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="bg-white p-6 rounded-lg shadow-lg">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">入力フォーム</h2>
-            <InputForm inputData={inputData} onInputChange={handleInputChange} />
-            <div className="mt-8">
-              <LifeEventForm 
-                lifeEvents={inputData.lifeEvents} 
-                onLifeEventsChange={handleLifeEventsChange}
-                currentAge={inputData.currentAge}
-                lifeExpectancy={inputData.lifeExpectancy}
-              />
-            </div>
+          <div className="md:col-span-1 p-4 bg-white rounded-lg shadow-md md:sticky top-4 self-start">
+            <InputForm
+              inputData={inputData}
+              onInputChange={handleInputChange}
+            />
+            <SettingsSummary inputData={inputData} />
           </div>
           <div className="bg-white p-6 rounded-lg shadow-lg">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">シミュレーション結果</h2>
