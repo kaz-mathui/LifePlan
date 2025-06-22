@@ -51,7 +51,7 @@ app.post('/api/plans', async (req, res) => {
     }
 });
 
-app.use('/api/simulations', simulationRoutes);
+app.use('/api/simulation', simulationRoutes);
 
 // エラーハンドリングミドルウェア (簡易版)
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

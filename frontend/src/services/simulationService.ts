@@ -36,6 +36,9 @@ export const runSimulation = (input: SimulationInputData): BackendSimulationResu
    const investmentRatio = Number(input.investmentRatio) || 0;
    const anuualReturn = Number(input.annualReturn) || 0;
    const severancePay = Number(input.severancePay) || 0;
+   const monthlyExpenses = Number(input.monthlyExpenses) || 0;
+   const pensionAmountPerYear = Number(input.pensionAmountPerYear) || 0;
+   const pensionStartDate = Number(input.pensionStartDate) || 0;
   
     const assetData: SimulationResult[] = [];
    let assets = currentSavings * M;
@@ -53,9 +56,9 @@ export const runSimulation = (input: SimulationInputData): BackendSimulationResu
   
   for (let age = currentAge; age <= lifeExpectancy; age++) {
     let yearlyIncome = 0;
-    let yearlyExpenses = 0; 
+    let yearlyExpenses = monthlyExpenses * 12 * M; // 基本生活費（万円を円に変換）
     let incomeDetails: { [key: string]: number } = {};
-    let expenseDetails: { [key: string]: number } = {};
+    let expenseDetails: { [key: string]: number } = { '基本生活費': monthlyExpenses * 12 * M };
 
     // 収入
     if (age < retirementAge) {
@@ -65,6 +68,13 @@ export const runSimulation = (input: SimulationInputData): BackendSimulationResu
     } else if (age === retirementAge) {
         yearlyIncome += severancePay * M;
         incomeDetails['退職金'] = severancePay * M;
+    }
+
+    // 年金
+    if (age >= pensionStartDate) {
+        const pension = pensionAmountPerYear * M; // 万円を円に変換
+        yearlyIncome += pension;
+        incomeDetails['年金収入'] = pension;
     }
 
     // 住宅
@@ -82,25 +92,52 @@ export const runSimulation = (input: SimulationInputData): BackendSimulationResu
     if (education.hasChildren && education.children) {
       let totalEducationCost = 0;
       let activeChildrenCount = 0;
+      
       education.children.forEach(child => {
-        const childAge = age - (Number(child.birthYear) || new Date().getFullYear());
-        if (childAge >= 0 && childAge < 22) { // 22歳で独立と仮定
+        const parentAgeAtBirth = Number(child.birthYear);
+        if (parentAgeAtBirth > 0) {
+          const childAge = age - parentAgeAtBirth;
+          
+          if (childAge >= 0 && childAge < 22) {
             activeChildrenCount++;
-        }
-        // Simplified education cost logic
-        if (childAge >= 6 && childAge <= 22) {
-            totalEducationCost += (Number(child.educationCost) || 0) * M / (22 - 6 + 1); // 総教育費を在学年数で割る
+          }
+          
+          let educationCost = 0;
+          if (childAge >= 18 && childAge <= 21) {
+            switch (child.plan) {
+              case 'public': educationCost = EDUCATION_COST.university.public; break;
+              case 'private_liberal': educationCost = EDUCATION_COST.university.private_liberal; break;
+              case 'private_science': educationCost = EDUCATION_COST.university.private_science; break;
+              case 'custom': educationCost = Number(child.customAmount) || 0; break;
+            }
+          } else if (childAge >= 15 && childAge <= 17) {
+            educationCost = EDUCATION_COST.high.public; // 仮に公立
+          } else if (childAge >= 12 && childAge <= 14) {
+            educationCost = EDUCATION_COST.middle.public; // 仮に公立
+          } else if (childAge >= 6 && childAge <= 11) {
+            educationCost = EDUCATION_COST.elementary.public; // 仮に公立
+          }
+          totalEducationCost += educationCost * M; // 万円を円に変換
         }
       });
+      
       if (totalEducationCost > 0) {
         yearlyExpenses += totalEducationCost;
         expenseDetails['教育費'] = totalEducationCost;
       }
-      const livingCost = activeChildrenCount * (Number(education.childLivingCost) || 0) * M;
-      if(livingCost > 0){
+      
+      const livingCost = activeChildrenCount * (education.childLivingCost || 0) * M; // 万円を円に変換
+      if (livingCost > 0) {
         yearlyExpenses += livingCost;
         expenseDetails['子供の生活費'] = livingCost;
       }
+    }
+
+    // 住宅の頭金（購入時のみ）
+    if (housing.hasLoan && age === Number(housing.startAge)) {
+      const downPayment = Number(housing.downPayment) * M;
+      assets -= downPayment;
+      expenseDetails['住宅頭金'] = downPayment;
     }
 
     // 自動車
@@ -129,10 +166,14 @@ export const runSimulation = (input: SimulationInputData): BackendSimulationResu
       expenseDetails['自動車維持費'] = (Number(car.maintenanceCost) || 0) * M;
     }
 
-    // 老後
-    if (senior.enabled && age >= (Number(senior.startAge) || 0)) {
-        yearlyExpenses += (Number(senior.careCost) || 0) * M;
-        expenseDetails['介護費用'] = (Number(senior.careCost) || 0) * M;
+    // 老後費用（月間生活費 + 介護費用）
+    if (senior.enabled && age >= Number(senior.startAge)) {
+      const monthlySeniorExpense = Number(senior.monthlyExpense) * M;
+      const annualSeniorExpense = monthlySeniorExpense * 12;
+      const careCost = Number(senior.careCost) * M;
+      yearlyExpenses += annualSeniorExpense + careCost;
+      expenseDetails['老後月間生活費'] = annualSeniorExpense;
+      expenseDetails['老後介護費用'] = careCost;
     }
     
     // ライフイベント
@@ -177,6 +218,15 @@ export const runSimulation = (input: SimulationInputData): BackendSimulationResu
   
   const advice = "シミュレーション結果に基づいたアドバイスです...";
   
-  return { assetData, summaryEvents, advice, retirementAge };
+  return {
+    assetData,
+    finalSavings: assets,
+    lifeExpectancy,
+    retirementAge: input.retirementAge,
+    currentAge: input.currentAge,
+    pensionStartDate: input.pensionStartDate,
+    advice: "シミュレーションが完了しました。結果を確認してください。",
+    calculationSummary: summaryEvents.join('\n')
+  };
 }; 
  

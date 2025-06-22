@@ -1,32 +1,42 @@
-import React, { ReactNode } from 'react';
+import React, { useState } from 'react';
+import { FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import Icon from './Icon';
 
-export type FormSectionKey = 'basic' | 'income' | 'savings' | 'housing' | 'children' | 'car' | 'senior' | 'life-event';
+export type FormSectionKey = 'basic' | 'income' | 'savings' | 'housing' | 'children' | 'car' | 'senior';
 
 interface FormSectionProps {
   title: string;
   sectionKey: FormSectionKey;
+  children: React.ReactNode;
   openSection: FormSectionKey | null;
-  setOpenSection: (key: FormSectionKey | null) => void;
-  children: ReactNode;
+  setOpenSection: (section: FormSectionKey | null) => void;
 }
 
-const FormSection: React.FC<FormSectionProps> = ({ title, sectionKey, openSection, setOpenSection, children }) => {
+const FormSection: React.FC<FormSectionProps> = ({ 
+  title, 
+  sectionKey, 
+  children, 
+  openSection, 
+  setOpenSection 
+}) => {
   const isOpen = openSection === sectionKey;
 
-  const toggleOpen = () => {
+  const toggleSection = () => {
     setOpenSection(isOpen ? null : sectionKey);
   };
 
   return (
-    <div className="border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden mb-4">
+    <div className="border border-gray-300 rounded-lg bg-white shadow-lg overflow-hidden mb-4">
       <button
-        onClick={toggleOpen}
-        className="w-full flex justify-between items-center p-4 bg-slate-50 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
+        onClick={toggleSection}
+        className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-gray-100 transition-colors duration-200 flex items-center justify-between"
       >
-        <div className="flex items-center justify-between w-full">
-            <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
-            <span className={`transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
-        </div>
+        <span className="font-semibold text-gray-800">{title}</span>
+        {isOpen ? (
+          <Icon as={FaChevronDown} className="text-gray-600 w-4 h-4" />
+        ) : (
+          <Icon as={FaChevronRight} className="text-gray-600 w-4 h-4" />
+        )}
       </button>
       {isOpen && (
         <div className="p-4 bg-white">

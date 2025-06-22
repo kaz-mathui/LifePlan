@@ -6,10 +6,11 @@ export const InputField: React.FC<{
   name: string;
   value: number | string;
   onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  onBlur?: () => void;
   type?: string;
   unit?: string;
   min?: number;
-}> = ({ label, name, value, onChange, type = "number", unit, min=0 }) => (
+}> = ({ label, name, value, onChange, onBlur, type = "number", unit, min=0 }) => (
   <div className="mb-4">
     <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
     <div className="flex items-center">
@@ -18,6 +19,12 @@ export const InputField: React.FC<{
         name={name}
         value={value}
         onChange={onChange}
+        onBlur={(e) => {
+          if (type === 'number' && e.target.value === '') {
+            onChange({ ...e, target: { ...e.target, value: '0' } });
+          }
+          onBlur?.();
+        }}
         min={min}
         className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
       />
@@ -44,6 +51,11 @@ export const NestedInputField: React.FC<{
           name={field}
           value={value}
           onChange={(e) => onChange(section, field, type === 'number' ? (e.target.value === '' ? '' : Number(e.target.value)) : e.target.value)}
+          onBlur={(e) => {
+            if (type === 'number' && e.target.value === '') {
+              onChange(section, field, 0);
+            }
+          }}
           min={min}
           className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
         />

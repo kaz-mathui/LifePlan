@@ -10,7 +10,7 @@ interface ResultHeaderProps {
 const ResultHeader: React.FC<ResultHeaderProps> = ({ result }) => {
   if (!result) return null;
 
-  const { advice, summaryEvents } = result;
+  const { advice, calculationSummary } = result;
 
   const getAdviceCard = () => {
     let icon;
@@ -42,15 +42,15 @@ const ResultHeader: React.FC<ResultHeaderProps> = ({ result }) => {
     <div className="space-y-4">
       {getAdviceCard()}
 
-      {summaryEvents && summaryEvents.length > 0 && (
+      {calculationSummary && (
          <div className="p-4 rounded-lg bg-slate-50 border border-slate-200">
             <h3 className="font-bold text-slate-800 mb-2 flex items-center">
               <Icon as={FaInfoCircle} className="mr-2" />
               主なライフイベント
             </h3>
             <ul className="list-disc list-inside space-y-2 text-slate-700">
-              {summaryEvents.map((event, index) => (
-                <li key={index}>{event}</li>
+              {calculationSummary.split('\\n').map((event: string, index: number) => (
+                event && <li key={index}>{event}</li>
               ))}
             </ul>
         </div>

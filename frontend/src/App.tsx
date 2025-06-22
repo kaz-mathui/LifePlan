@@ -1,277 +1,278 @@
-import React, { useState, useEffect, useCallback, useRef, ChangeEvent } from 'react';
-import { auth } from './services/firebase';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Toaster, toast } from 'react-hot-toast';
 import { useAuth } from './hooks/useAuth';
 import { usePlanData } from './hooks/usePlanData';
-import { SimulationInputData, LifeEvent, Child, BackendSimulationResult, HousingLoanData, CarData, EducationData, SeniorData } from './types';
-import { runSimulation } from './services/simulationService';
-import InputForm from './components/InputForm';
-import SimulationResult from './components/SimulationResult';
+import { BackendSimulationResult, SimulationInputData, LifeEvent } from './types';
+import { API_ENDPOINTS } from './constants';
+import { debounce } from 'lodash';
+import { auth } from './services/firebase';
+
 import Auth from './components/Auth';
 import PlanManager from './components/PlanManager';
-import LifeEventForm from './components/LifeEventForm';
-import { Toaster, toast } from 'react-hot-toast';
-import { defaultInput, LOCAL_STORAGE_KEY } from './constants';
+import InputForm from './components/InputForm';
+import SimulationResult from './components/SimulationResult';
 import { exportToCsv, importFromCsv } from './utils/csvUtils';
-import { saveAs } from 'file-saver';
-import { FaGithub } from 'react-icons/fa';
-import { v4 as uuidv4 } from 'uuid';
-import { FormSectionKey } from './components/FormSection';
+import LifeEventForm from './components/LifeEventForm';
 
-type NestedSectionKey = 'housing' | 'education' | 'car' | 'senior';
+// フロントエンドの型からバックエンドの型に変換する関数
+const convertToBackendFormat = (data: SimulationInputData) => {
+  return {
+    planName: data.planName,
+    currentAge: Number(data.currentAge) || 0,
+    retirementAge: Number(data.retirementAge) || 0,
+    lifeExpectancy: Number(data.lifeExpectancy) || 0,
+    annualIncome: Number(data.annualIncome) || 0,
+    salaryIncreaseRate: Number(data.salaryIncreaseRate) || 0,
+    currentSavings: Number(data.currentSavings) || 0,
+    investmentRatio: Number(data.investmentRatio) || 0,
+    annualReturn: Number(data.annualReturn) || 0,
+    severancePay: Number(data.severancePay) || 0,
+    monthlyExpenses: Number(data.monthlyExpenses) || 0,
+    pensionAmountPerYear: Number(data.pensionAmountPerYear) || 0,
+    pensionStartDate: Number(data.pensionStartDate) || 0,
+    housing: {
+      hasLoan: data.housing.hasLoan,
+      propertyValue: Number(data.housing.propertyValue) || 0,
+      downPayment: Number(data.housing.downPayment) || 0,
+      loanAmount: Number(data.housing.loanAmount) || 0,
+      interestRate: Number(data.housing.interestRate) || 0,
+      loanTerm: Number(data.housing.loanTerm) || 0,
+      startAge: Number(data.housing.startAge) || 0,
+      propertyTaxRate: Number(data.housing.propertyTaxRate) || 0,
+    },
+    education: {
+      hasChildren: data.education.hasChildren,
+      children: data.education.children.map(child => ({
+        birthYear: Number(child.birthYear) || 0,
+        plan: child.plan,
+        customAmount: child.customAmount ? Number(child.customAmount) : null,
+      })),
+      childLivingCost: Number(data.education.childLivingCost) || 0,
+    },
+    car: {
+      hasCar: data.car.hasCar,
+      price: Number(data.car.price) || 0,
+      downPayment: Number(data.car.downPayment) || 0,
+      loanAmount: Number(data.car.loanAmount) || 0,
+      loanTerm: Number(data.car.loanTerm) || 0,
+      interestRate: Number(data.car.interestRate) || 0,
+      maintenanceCost: Number(data.car.maintenanceCost) || 0,
+      purchaseAge: Number(data.car.purchaseAge) || 0,
+      replacementCycle: Number(data.car.replacementCycle) || 0,
+    },
+    senior: {
+      enabled: data.senior.enabled,
+      startAge: Number(data.senior.startAge) || 0,
+      monthlyExpense: Number(data.senior.monthlyExpense) || 0,
+      careCost: Number(data.senior.careCost) || 0,
+    },
+    lifeEvents: data.lifeEvents.map(event => ({
+      id: event.id,
+      description: event.description,
+      type: event.type,
+      amount: Number(event.amount) || 0,
+      startAge: Number(event.startAge) || 0,
+      endAge: event.endAge ? Number(event.endAge) : null,
+    })),
+    childCount: data.childCount,
+  };
+};
 
 const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
-  const [simulationInput, setSimulationInput] = useState<SimulationInputData>(() => {
-    try {
-      const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
-        // Merge with default to ensure all keys, especially lifeEvents, exist
-        return {
-          ...defaultInput,
-          ...parsed,
-          housing: { ...defaultInput.housing, ...(parsed.housing || {}) },
-          education: { ...defaultInput.education, ...(parsed.education || {}) },
-          car: { ...defaultInput.car, ...(parsed.car || {}) },
-          senior: { ...defaultInput.senior, ...(parsed.senior || {}) },
-          lifeEvents: Array.isArray(parsed.lifeEvents) ? parsed.lifeEvents : [],
-        };
-      }
-    } catch (error) {
-      console.error("Error reading from local storage", error);
-    }
-    return defaultInput;
-  });
-
   const {
     plans,
-    activePlanId,
+    currentPlanId,
+    inputData,
     loading: planLoading,
-    handleSelectPlan,
-    handleSavePlan,
-    handleNewPlan,
-    handleDeletePlan,
-    handleUpdatePlanName,
-    loading,
-  } = usePlanData(user, setSimulationInput);
-  
+    isSaving,
+    selectPlan,
+    savePlan,
+    newPlan,
+    deletePlan,
+    handleInputChange,
+    handlePlanNameChange,
+  } = usePlanData();
+
   const [simulationResult, setSimulationResult] = useState<BackendSimulationResult | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+  const [simulationLoading, setSimulationLoading] = useState(false);
+  const [simulationError, setSimulationError] = useState<string | null>(null);
 
-  const [openSection, setOpenSection] = useState<FormSectionKey | null>('basic');
+  const runSimulation = useCallback(async (data: SimulationInputData) => {
+    if (!data) return;
+    setSimulationLoading(true);
+    setSimulationError(null);
+    try {
+      const backendData = convertToBackendFormat(data);
+      const response = await fetch(API_ENDPOINTS.SIMULATION, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(backendData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (errorData.details) {
+          // バックエンドのバリデーションエラーを処理
+          const fieldErrors = errorData.details;
+          const errorMessages = Object.entries(fieldErrors)
+            .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
+            .join('\n');
+          setSimulationError(`入力値に問題があります:\n${errorMessages}`);
+          toast.error('シミュレーションの実行に失敗しました。入力値を確認してください。');
+        } else {
+          throw new Error(errorData.error || 'Network response was not ok');
+        }
+        return;
+      }
+      
+      const result: BackendSimulationResult = await response.json();
+      setSimulationResult(result);
+      toast.success('シミュレーションが完了しました。');
+    } catch (error) {
+      console.error('シミュレーションの実行に失敗しました:', error);
+      const errorMessage = error instanceof Error ? error.message : 'シミュレーションの実行に失敗しました。';
+      setSimulationError(errorMessage);
+      toast.error('シミュレーションの実行に失敗しました。');
+    } finally {
+      setSimulationLoading(false);
+    }
+  }, []);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const debouncedRunSimulation = useCallback(debounce(runSimulation, 1000), [runSimulation]);
 
   useEffect(() => {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(simulationInput));
-  }, [simulationInput]);
+    if (inputData) {
+      debouncedRunSimulation(inputData);
+    }
+  }, [inputData, debouncedRunSimulation]);
+
+  const handleSavePlan = async () => {
+    if (!currentPlanId) {
+      toast.error("保存するプランが選択されていません。");
+      return;
+    }
+    const planToSave = {
+      id: currentPlanId,
+      planName: inputData.planName,
+      data: inputData,
+    };
+    await savePlan(planToSave);
+  };
   
-  const activePlan = plans.find(p => p.id === activePlanId);
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    setSimulationInput(prev => ({
-      ...prev,
-      [name]: type === 'number' ? Number(value) : value,
-    }));
+  const handleExport = () => {
+    if (!inputData) return;
+    exportToCsv(inputData);
+    toast.success('プランをCSVとしてエクスポートしました。');
   };
 
-  const handleNestedInputChange = (
-    section: NestedSectionKey, 
-    field: string, 
-    value: any
-  ) => {
-    setSimulationInput(prev => {
-      const newSectionData = { ...(prev[section] as any), [field]: value };
-
-        if (section === 'housing') {
-            const s = newSectionData as HousingLoanData;
-            s.loanAmount = Math.max(0, Number(s.propertyValue) - Number(s.downPayment));
-        } else if (section === 'car') {
-            const c = newSectionData as CarData;
-            c.loanAmount = Math.max(0, Number(c.price) - Number(c.downPayment));
-        }
-
-      return {
-        ...prev,
-        [section]: newSectionData,
-      };
-    });
-  };
-
-  const handleChildrenChange = (index: number, field: string, value: any) => {
-    setSimulationInput(prev => {
-        const children = [...(prev.education.children || [])];
-        children[index] = { ...children[index], [field]: value };
-        return { ...prev, education: { ...prev.education, children } };
-    });
-  };
-
-  const handleAddChild = () => {
-    setSimulationInput(prev => {
-      const newChild: Child = { 
-        birthYear: new Date().getFullYear(),
-        educationCost: 1000
-      };
-      const children = [...(prev.education.children || []), newChild];
-      return { ...prev, education: { ...prev.education, children: children } };
-    });
-  };
-
-  const handleRemoveChild = (index: number) => {
-    setSimulationInput(prev => {
-        const children = [...(prev.education.children || [])];
-        children.splice(index, 1);
-        return { ...prev, education: { ...prev.education, children } };
-    });
-  };
-
-  const handleLifeEventsChange = (updatedEvents: LifeEvent[]) => {
-    setSimulationInput(prev => ({
-      ...prev,
-      lifeEvents: updatedEvents,
-    }));
-  };
-
-  const handleRunSimulation = () => {
-    if (!simulationInput) return;
-    try {
-      const result = runSimulation(simulationInput);
-      setSimulationResult(result);
-      toast.success('シミュレーションを実行しました！');
-    } catch (error) {
-      console.error(error);
-      toast.error('シミュレーションの実行中にエラーが発生しました。');
-    }
-  };
-
-  const handleCreateNewPlan = () => {
-    const newPlanName = `新しいプラン ${plans.length + 1}`;
-    const newPlanData = { ...defaultInput, planName: newPlanName };
-    setSimulationInput(newPlanData);
-    handleSelectPlan(null); // Deselect any active plan
-    toast.success(`${newPlanName}を作成しました。`);
-  };
-
-  const handleExportCsv = (planId: string) => {
-    const planToExport = plans.find(p => p.id === planId);
-    if (planToExport) {
-      const csvString = exportToCsv(planToExport.data);
-      const blob = new Blob([`\uFEFF${csvString}`], { type: 'text/csv;charset=utf-8;' });
-      saveAs(blob, `${planToExport.data.planName || 'lifeplan'}.csv`);
-    } else {
-      console.error('エクスポート対象のプランが見つかりません');
-    }
-  };
-
-  const handleImportCsv = async (file: File) => {
-    if (!file) return;
-
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const text = e.target?.result as string;
-        const partialData = await importFromCsv(text);
-        
-        // 新しいプランとして読み込む
-        await handleNewPlan(false); // これで新しいプランが作成され、アクティブになる
-
-        // usePlanDataフックが状態を更新するのを待つ必要があるかもしれないが、
-        // activePlanIdはすぐに更新されると仮定する。
-        // より堅牢にするには、handleNewPlanが新しいIDを返すようにするのが望ましい。
-        // 今回は、直後にsimulationInputを更新し、それを保存する。
-        
-        const mergedData = {
-          ...defaultInput,
-          ...partialData,
-          planName: partialData.planName || `インポートプラン ${new Date().toLocaleDateString()}`,
+  const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          try {
+            const text = e.target?.result as string;
+            if (text) {
+              const importedData = await importFromCsv(text);
+              handleInputChange('root', importedData); // Replace all data
+              toast.success('プランをインポートしました。');
+            }
+          } catch (readError) {
+             console.error('Failed to process imported CSV data:', readError);
+             toast.error('CSVデータの処理中にエラーが発生しました。');
+          }
         };
-
-        setSimulationInput(mergedData); // UIを更新
-        
-        // activePlanIdが更新されているはずなので、それを使って保存
-        if (activePlanId) {
-          await handleSavePlan(mergedData);
-        }
-      };
-      reader.readAsText(file);
-    } catch (error) {
-      console.error('CSVインポートエラー:', error);
-      alert('CSVファイルのインポートに失敗しました。');
+        reader.onerror = () => {
+          console.error('Failed to read file');
+          toast.error('ファイルの読み込みに失敗しました。');
+        };
+        reader.readAsText(file);
+      } catch (error) {
+        console.error('Failed to import from CSV:', error);
+        toast.error('CSVファイルのインポートに失敗しました。');
+      }
     }
   };
 
-  const handleSaveActivePlan = () => {
-    if (activePlanId) {
-      handleSavePlan(simulationInput);
-    }
+  const handleLifeEventsChange = (events: LifeEvent[]) => {
+    handleInputChange('lifeEvents', events);
   };
 
   if (authLoading) {
-    return <div className="flex justify-center items-center h-screen"><p>認証情報を読み込んでいます...</p></div>;
+    return <div className="min-h-screen bg-gray-900 flex items-center justify-center text-white">読み込み中...</div>;
   }
+
   if (!user) {
-    return <div className="flex justify-center items-center min-h-screen bg-slate-50"><Auth auth={auth} /></div>;
+    return <Auth auth={auth} />;
   }
-  if (planLoading) {
-    return <div className="flex justify-center items-center h-screen"><p>プランを読み込んでいます...</p></div>;
-  }
-  
+
   return (
-    <div className="min-h-screen bg-slate-100">
-      <Toaster position="top-right" />
-      <main className="mx-auto max-w-screen-xl p-4 lg:p-8">
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-          <div className="lg:col-span-2">
-            <div className="lg:sticky lg:top-8 space-y-6">
-              <PlanManager
-                plans={plans}
-                activePlan={activePlan}
-                activePlanId={activePlanId}
-                onSelectPlan={handleSelectPlan}
-                onSavePlan={handleSaveActivePlan}
-                onNewPlan={handleNewPlan}
-                onUpdatePlanName={handleUpdatePlanName}
-                onDeletePlan={handleDeletePlan}
-                onImportCsv={handleImportCsv}
-                onExportCsv={handleExportCsv}
-                fileInputRef={fileInputRef}
-                isSaving={loading}
-                onPlanNameChange={handleUpdatePlanName}
-                loading={loading}
+    <div className="min-h-screen bg-gray-50">
+      <Toaster />
+      <header className="bg-white shadow-md sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <h1 className="text-xl font-bold text-gray-900">ライフプランシミュレーター</h1>
+            </div>
+            <div className="flex items-center space-x-4">
+              <PlanManager 
+                plans={plans} 
+                onSelectPlan={selectPlan}
+                onDeletePlan={deletePlan}
+                onSavePlan={handleSavePlan}
+                currentPlanId={currentPlanId}
+                planName={inputData.planName}
+                onNewPlan={newPlan}
+                onPlanNameChange={handlePlanNameChange}
+                onExport={handleExport}
+                onImport={handleImport}
+                loading={planLoading || isSaving}
               />
-              <div className="space-y-6">
-                <InputForm
-                  input={simulationInput}
-                  openSection={openSection}
-                  setOpenSection={setOpenSection}
-                  onInputChange={handleInputChange}
-                  onNestedChange={handleNestedInputChange}
-                  onChildrenChange={handleChildrenChange}
-                  onAddChild={handleAddChild}
-                  onRemoveChild={handleRemoveChild}
-                />
-                <div className="bg-white p-6 rounded-lg shadow-sm border">
-                  <LifeEventForm
-                    lifeEvents={simulationInput.lifeEvents}
-                    onLifeEventsChange={handleLifeEventsChange}
-                    currentAge={simulationInput.currentAge}
-                    lifeExpectancy={simulationInput.lifeExpectancy}
-                  />
-                </div>
-              </div>
             </div>
           </div>
-          <div className="lg:col-span-3">
-            <div className="bg-slate-50 p-4 sm:p-6 lg:p-8">
-              <h2 className="text-xl font-bold text-slate-800 mb-4">シミュレーション結果</h2>
-              <SimulationResult
-                result={simulationResult}
-                loading={isSaving}
-                retirementAge={simulationInput.retirementAge as number}
-                onRunSimulation={handleRunSimulation}
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">入力フォーム</h2>
+            <InputForm inputData={inputData} onInputChange={handleInputChange} />
+            <div className="mt-8">
+              <LifeEventForm 
+                lifeEvents={inputData.lifeEvents} 
+                onLifeEventsChange={handleLifeEventsChange}
+                currentAge={inputData.currentAge}
+                lifeExpectancy={inputData.lifeExpectancy}
               />
             </div>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">シミュレーション結果</h2>
+            {simulationError ? (
+              <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <h3 className="text-sm font-medium text-red-800">シミュレーションエラー</h3>
+                    <div className="mt-2 text-sm text-red-700 whitespace-pre-line">
+                      {simulationError}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : simulationResult ? (
+              <SimulationResult result={simulationResult} loading={simulationLoading} retirementAge={Number(inputData.retirementAge)} />
+            ) : (
+              <p className="text-gray-600">入力値を変更するとシミュレーション結果が表示されます。</p>
+            )}
           </div>
         </div>
       </main>

@@ -26,14 +26,15 @@ const housingLoanSchema = z.object({
 });
 
 const educationChildSchema = z.object({
-  birthYear: z.number().int().min(1950).max(new Date().getFullYear() + 100),
-  plan: z.enum(['public', 'private_liberal', 'private_science', 'custom']),
-  customAmount: z.number().min(0).optional(),
+  birthYear: z.number().int().min(0).max(60),
+  plan: z.enum(["custom", "public", "private_liberal", "private_science"]),
+  customAmount: z.number().min(0).optional().nullable(),
 });
 
 const educationSchema = z.object({
   hasChildren: z.boolean(),
   children: z.array(educationChildSchema),
+  childLivingCost: z.number().min(0),
 });
 
 const carSchema = z.object({
@@ -49,14 +50,15 @@ const carSchema = z.object({
 });
 
 const seniorSchema = z.object({
-  nursingCareStartAge: z.number().int().min(0),
-  nursingCareAnnualCost: z.number().min(0),
-  funeralCost: z.number().min(0),
+  enabled: z.boolean(),
+  startAge: z.number().int().min(0),
+  monthlyExpense: z.number().min(0),
+  careCost: z.number().min(0),
 });
 
 const lifeEventSchema = z.object({
     id: z.string(),
-    eventName: z.string().min(1, "イベント名は必須です。"),
+    description: z.string().min(1, "イベント内容は必須です。"),
     type: z.enum(['income', 'expense']),
     amount: z.number().min(0, "金額は0以上である必要があります。"),
     startAge: z.number().int().min(0, "開始年齢は0歳以上である必要があります。"),
@@ -82,6 +84,7 @@ const simulationSchema = z.object({
   car: carSchema,
   senior: seniorSchema,
   lifeEvents: z.array(lifeEventSchema),
+  childCount: z.number().int().min(0),
 }).refine(data => data.currentAge < data.retirementAge, {
   message: "リタイア目標年齢は現在の年齢より大きく設定してください。",
   path: ["retirementAge"],
@@ -97,10 +100,13 @@ const simulationSchema = z.object({
  */
 router.post('/', (req: Request, res: Response) => {
   try {
+    console.log('Received request body:', JSON.stringify(req.body, null, 2));
+    
     const parseResult = simulationSchema.safeParse(req.body);
 
     if (!parseResult.success) {
       console.error('Backend Validation Failed:', parseResult.error.flatten());
+      console.error('Validation error details:', parseResult.error.errors);
       return res.status(400).json({ 
         error: "入力値が無効です。",
         details: parseResult.error.flatten().fieldErrors 

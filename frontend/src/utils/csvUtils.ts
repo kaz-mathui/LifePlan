@@ -31,19 +31,30 @@ const unflattenObject = (flatData: Record<string, any>): SimulationInputData => 
       if (index === keys.length - 1) {
         let value = flatData[key];
         // 型変換
-        if (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '') {
+        if (typeof value === 'string' && value.trim() !== '') {
+          if (!isNaN(Number(value))) {
             value = Number(value);
-        } else if (value === 'true') {
+          } else if (value === 'true') {
             value = true;
-        } else if (value === 'false') {
+          } else if (value === 'false') {
             value = false;
-        } else if (key.endsWith('lifeEvents') || key.endsWith('children')) {
+          } else if (key.endsWith('lifeEvents') || key.endsWith('children')) {
             try {
-                value = JSON.parse(value);
+              value = JSON.parse(value);
             } catch (e) {
-                console.error(`Error parsing JSON for ${key}:`, e);
-                value = [];
+              console.error(`Error parsing JSON for ${key}:`, e);
+              value = [];
             }
+          }
+        } else if (value === '' || value === null || value === undefined) {
+          // 空の値は数値フィールドの場合は0に、その他はデフォルト値に
+          if (key.includes('Age') || key.includes('Income') || key.includes('Savings') || 
+              key.includes('Ratio') || key.includes('Return') || key.includes('Pay') || 
+              key.includes('Expenses') || key.includes('Cost') || key.includes('Price') || 
+              key.includes('Amount') || key.includes('Rate') || key.includes('Term') || 
+              key.includes('Cycle')) {
+            value = 0;
+          }
         }
         acc[part] = value;
       } else {

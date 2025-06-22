@@ -15,43 +15,44 @@ export interface LifeEvent {
 
 export interface HousingLoanData {
   hasLoan: boolean;
-  propertyValue: number | '';
-  downPayment: number | '';
-  loanAmount: number | '';
-  loanTerm: number | '';
-  interestRate: number | '';
-  startAge: number | '';
-  propertyTaxRate: number | '';
+  propertyValue: number;
+  downPayment: number;
+  loanAmount: number;
+  loanTerm: number;
+  interestRate: number;
+  startAge: number;
+  propertyTaxRate: number;
 }
 
 export interface EducationData {
   hasChildren: boolean;
   children: Child[];
-  childLivingCost: number | '';
+  childLivingCost: number;
 }
 
 export interface Child {
   birthYear: number | '';
-  educationCost: number | '';
+  plan: "custom" | "public" | "private_liberal" | "private_science";
+  customAmount?: number | '';
 }
 
 export interface CarData {
   hasCar: boolean;
-  price: number | '';
-  downPayment: number | '';
-  loanAmount: number | '';
-  loanTerm: number | '';
-  interestRate: number | '';
-  maintenanceCost: number | '';
-  purchaseAge: number | '';
-  replacementCycle: number | '';
+  price: number;
+  downPayment: number;
+  loanAmount: number;
+  loanTerm: number;
+  interestRate: number;
+  maintenanceCost: number;
+  purchaseAge: number;
+  replacementCycle: number;
 }
 
 export interface SeniorData {
   enabled: boolean;
-  startAge: number | '';
-  careCost: number | '';
-  monthlyExpense: number | '';
+  startAge: number;
+  careCost: number;
+  monthlyExpense: number;
 }
 
 export interface Plan {
@@ -65,21 +66,21 @@ export interface Plan {
 export interface SimulationInputData {
   planName: string;
   // Basic info
-  currentAge: number | '';
-  retirementAge: number | '';
-  lifeExpectancy: number | '';
+  currentAge: number;
+  retirementAge: number;
+  lifeExpectancy: number;
   // Income
-  annualIncome: number | '';
-  salaryIncreaseRate: number | '';
+  annualIncome: number;
+  salaryIncreaseRate: number;
   // Savings and Investment
-  currentSavings: number | '';
-  investmentRatio: number | '';
-  annualReturn: number | '';
-  severancePay: number | '';
+  currentSavings: number;
+  investmentRatio: number;
+  annualReturn: number;
+  severancePay: number;
   // Expenses
-  monthlyExpenses: number | '';
-  pensionAmountPerYear: number | '';
-  pensionStartDate: number | '';
+  monthlyExpenses: number;
+  pensionAmountPerYear: number;
+  pensionStartDate: number;
   // Detailed Expenses
   housing: HousingLoanData;
   // Education
@@ -106,9 +107,13 @@ export interface SimulationResult {
 
 export interface BackendSimulationResult {
   assetData: SimulationResult[];
-  advice: string;
-  summaryEvents: string[];
+  finalSavings: number;
+  lifeExpectancy: number;
   retirementAge: number;
+  currentAge: number;
+  pensionStartDate: number;
+  advice: string;
+  calculationSummary: string;
 }
 
 export interface AssetDataPoint {
