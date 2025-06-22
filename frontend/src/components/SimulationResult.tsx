@@ -38,35 +38,37 @@ const CashFlowTable: React.FC<{
 
   return (
     <div className="space-y-4">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-200">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">年齢</th>
-              <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">収入</th>
-              <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">支出</th>
-              <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">収支</th>
-              <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">資産</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-slate-200">
-            {currentData.map((row, index) => (
-              <tr 
-                key={index} 
-                className="hover:bg-sky-50 cursor-pointer"
-                onClick={() => onRowClick(row)}
-              >
-                <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-slate-800">{row.age}歳</td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-700 text-right">{Math.round(row.income / 10000).toLocaleString()}万円</td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-700 text-right">{Math.round(row.expense / 10000).toLocaleString()}万円</td>
-                <td className={`px-3 py-2 whitespace-nowrap text-sm font-medium text-right ${row.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {row.balance >= 0 ? '+' : ''}{Math.round(row.balance / 10000).toLocaleString()}万円
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-slate-900 text-right">{Math.round(row.savings / 10000).toLocaleString()}万円</td>
+      <div className="overflow-x-auto -mx-4 sm:mx-0">
+        <div className="inline-block min-w-full align-middle">
+          <table className="min-w-full divide-y divide-slate-200">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">年齢</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">収入</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">支出</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">収支</th>
+                <th className="px-3 py-2 text-right text-xs font-medium text-slate-500 uppercase tracking-wider">資産</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-slate-200">
+              {currentData.map((row, index) => (
+                <tr 
+                  key={index} 
+                  className="hover:bg-sky-50 cursor-pointer"
+                  onClick={() => onRowClick(row)}
+                >
+                  <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-slate-800">{row.age}歳</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-700 text-right">{Math.round(row.income / 10000).toLocaleString()}万円</td>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm text-slate-700 text-right">{Math.round(row.expense / 10000).toLocaleString()}万円</td>
+                  <td className={`px-3 py-2 whitespace-nowrap text-sm font-medium text-right ${row.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {row.balance >= 0 ? '+' : ''}{Math.round(row.balance / 10000).toLocaleString()}万円
+                  </td>
+                  <td className="px-3 py-2 whitespace-nowrap text-sm font-semibold text-slate-900 text-right">{Math.round(row.savings / 10000).toLocaleString()}万円</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       
       {totalPages > 1 && (

@@ -244,6 +244,14 @@ const App: React.FC = () => {
               inputData={inputData}
               onInputChange={handleInputChange}
             />
+            <div className="mt-8">
+              <LifeEventForm 
+                lifeEvents={inputData.lifeEvents} 
+                onLifeEventsChange={handleLifeEventsChange}
+                currentAge={inputData.currentAge}
+                lifeExpectancy={inputData.lifeExpectancy}
+              />
+            </div>
             <SettingsSummary inputData={inputData} />
           </div>
           <div className="bg-white p-6 rounded-lg shadow-lg">

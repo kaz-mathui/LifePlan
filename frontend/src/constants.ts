@@ -5,6 +5,7 @@ import { SimulationInputData } from './types';
 import { v4 as uuidv4 } from 'uuid';
 
 // API関連の定数
+// 必ず.envでREACT_APP_BACKEND_URLを指定してください。未指定時はlocalhost:3001になります。
 export const API_BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001';
 
 export const API_ENDPOINTS = {
