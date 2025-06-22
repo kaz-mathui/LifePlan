@@ -142,16 +142,14 @@ const PlanManager: React.FC<PlanManagerProps> = ({
           disabled={loading}
           className="flex h-10 items-center justify-center rounded-lg bg-sky-600 px-4 font-semibold text-white shadow-md hover:bg-sky-700 disabled:opacity-50"
         >
-          <Icon as={FaSave} className="mr-2" />
-          <span>保存</span>
+          <Icon as={FaSave} />
         </button>
         <button
           onClick={() => onNewPlan()}
           disabled={loading}
           className="flex h-10 items-center justify-center rounded-lg bg-green-500 px-4 font-semibold text-white shadow-sm hover:bg-green-600 disabled:opacity-50"
         >
-          <Icon as={FaPlus} className="mr-2" />
-          <span>新規</span>
+          <Icon as={FaPlus} />
         </button>
         <input type="file" accept=".json,.csv" onChange={onImport} className="hidden" ref={importInputRef} />
         <button

@@ -5,12 +5,12 @@ export interface PlanListItem {
 }
 
 export interface LifeEvent {
-  id: string; 
-  description: string; 
+  id: string;
+  description: string;
   type: 'income' | 'expense';
-  amount: number | ''; 
-  startAge: number | '';
-  endAge?: number | '' | null;
+  startAge: number;
+  amount: number;
+  endAge?: number | null;
 }
 
 export interface HousingLoanData {
@@ -49,9 +49,9 @@ export interface CarData {
 }
 
 export interface SeniorData {
-  nursingCareStartAge: number | '';
-  nursingCareAnnualCost: number | '';
-  funeralCost: number | '';
+  enabled: boolean;
+  startAge: number;
+  monthlyExpense: number;
 }
 
 export interface Plan {
@@ -87,6 +87,7 @@ export interface SimulationInputData {
   senior: SeniorData;
   // Other events
   lifeEvents: LifeEvent[];
+  childCount: number;
 }
 
 export interface SimulationResult {

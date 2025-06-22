@@ -23,11 +23,16 @@ const App: React.FC = () => {
       const savedData = localStorage.getItem(LOCAL_STORAGE_KEY);
       if (savedData) {
         const parsed = JSON.parse(savedData);
-        // A simple check to see if it's old data format
-        if (parsed.hasOwnProperty('initialRetirementAge')) {
-          return defaultInput;
-        }
-        return parsed;
+        // Merge with default to ensure all keys, especially lifeEvents, exist
+        return {
+          ...defaultInput,
+          ...parsed,
+          housing: { ...defaultInput.housing, ...(parsed.housing || {}) },
+          education: { ...defaultInput.education, ...(parsed.education || {}) },
+          car: { ...defaultInput.car, ...(parsed.car || {}) },
+          senior: { ...defaultInput.senior, ...(parsed.senior || {}) },
+          lifeEvents: Array.isArray(parsed.lifeEvents) ? parsed.lifeEvents : [],
+        };
       }
     } catch (error) {
       console.error("Error reading from local storage", error);
@@ -217,12 +222,14 @@ const App: React.FC = () => {
                   onAddChild={handleAddChild}
                   onRemoveChild={handleRemoveChild}
                 />
-                <LifeEventForm 
-                  lifeEvents={simulationInput.lifeEvents}
-                  onLifeEventsChange={handleLifeEventsChange}
-                  currentAge={simulationInput.currentAge}
-                  lifeExpectancy={simulationInput.lifeExpectancy}
-                />
+                <div className="bg-white p-6 rounded-lg shadow-sm border">
+                  <LifeEventForm
+                    lifeEvents={simulationInput.lifeEvents}
+                    onLifeEventsChange={handleLifeEventsChange}
+                    currentAge={simulationInput.currentAge}
+                    lifeExpectancy={simulationInput.lifeExpectancy}
+                  />
+                </div>
               </div>
             </div>
           </div>

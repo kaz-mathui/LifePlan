@@ -65,12 +65,12 @@ export const defaultInput: SimulationInputData = {
     replacementCycle: 10,
   },
   senior: {
-    nursingCareStartAge: 80,
-    nursingCareAnnualCost: 100,
-    funeralCost: 200,
+    enabled: false,
+    startAge: 65,
+    monthlyExpense: 15,
   },
-  // Other events
   lifeEvents: [],
+  childCount: 0,
 };
 
 // 教育費（年間、万円）

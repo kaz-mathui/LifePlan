@@ -7,14 +7,17 @@ interface AssetChartProps {
   retirementAge: number;
 }
 
+const formatYAxis = (tickItem: number) => {
+  if (tickItem === 0) return '0';
+  return `${tickItem / 10000}億円`;
+};
+
 const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white p-2 border border-slate-300 rounded shadow-lg">
-        <p className="font-bold">{`${label}歳`}</p>
-        <p style={{ color: payload[0].color }}>
-          {`${payload[0].name}: ${payload[0].value.toLocaleString()} 万円`}
-        </p>
+      <div className="custom-tooltip bg-white p-3 rounded-lg shadow-lg border border-slate-200">
+        <p className="label font-bold text-lg">{`${label}歳`}</p>
+        <p className="intro text-slate-700">{`資産残高: ${(payload[0].value as number).toLocaleString()} 万円`}</p>
       </div>
     );
   }
@@ -22,10 +25,6 @@ const CustomTooltip: React.FC<any> = ({ active, payload, label }) => {
 };
 
 const AssetChart: React.FC<AssetChartProps> = ({ assetData, retirementAge }) => {
-
-  const formatYAxis = (tickItem: number) => {
-    return `${tickItem.toLocaleString()}万円`;
-  };
 
   const uniqueTicks = Array.from(new Set([
     assetData[0]?.age, 
@@ -60,6 +59,7 @@ const AssetChart: React.FC<AssetChartProps> = ({ assetData, retirementAge }) => 
             label={{ value: '資産額', angle: -90, position: 'insideLeft', offset: -5 }} 
             tick={{ fontSize: 12 }}
             width={80}
+            domain={['dataMin', 'auto']}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend verticalAlign="top" height={36}/>

@@ -156,18 +156,19 @@ export const calculateSimulation = (input: SimulationInputData): BackendSimulati
       }
     }
     
-    if (age >= (Number(senior.nursingCareStartAge) || 0)) {
-        yearlyExpenses += (Number(senior.nursingCareAnnualCost) || 0) * M;
-        expenseDetails['介護費用'] = (Number(senior.nursingCareAnnualCost) || 0) * M;
+    if (age >= retirementAge) {
+        // No specific logic for retirement year expenses other than salary stopping.
     }
-    if (age === lifeExpectancy) {
-        yearlyExpenses += (Number(senior.funeralCost) || 0) * M;
-        expenseDetails['葬儀費用'] = (Number(senior.funeralCost) || 0) * M;
+
+    if (senior.enabled && age >= senior.startAge) {
+        const seniorMonthlyExpense = (Number(senior.monthlyExpense) || 0) * M / 12;
+        yearlyExpenses += seniorMonthlyExpense * 12;
+        expenseDetails['シニア生活費'] = (expenseDetails['シニア生活費'] || 0) + seniorMonthlyExpense * 12;
     }
 
     lifeEvents.forEach(event => {
-        if (event.startAge && age >= Number(event.startAge)) {
-            const endAge = event.endAge ? Number(event.endAge) : event.startAge;
+        if (age >= event.startAge) {
+            const endAge = event.endAge ?? event.startAge;
             if (age <= endAge) {
                 const amount = (Number(event.amount) || 0) * M;
                 if (event.type === 'income') {
