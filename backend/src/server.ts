@@ -23,9 +23,17 @@ const app: Express = express();
 const PORT: string | number = process.env.PORT || 3001;
 
 // ミドルウェア
-app.use(cors()); // すべてのオリジンからのリクエストを許可 (開発用)
-// 本番環境では、フロントエンドのオリジンのみを許可するように設定してください。
-// 例: app.use(cors({ origin: 'http://your-frontend-domain.com' }));
+app.use(cors({
+  origin: [
+    'http://localhost:3000',
+    'http://100.64.1.32:3000',
+    'http://127.0.0.1:3000',
+    // 本番環境のドメインを追加
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 app.use(express.json()); // リクエストボディをJSONとしてパース
 
 // ルート
@@ -51,7 +59,7 @@ app.post('/api/plans', async (req, res) => {
     }
 });
 
-app.use('/api/simulations', simulationRoutes);
+app.use('/api/simulation', simulationRoutes);
 
 // エラーハンドリングミドルウェア (簡易版)
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

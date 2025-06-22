@@ -1,32 +1,45 @@
-import React, { useState, ReactNode } from 'react';
-import { FiChevronDown, FiChevronUp } from 'react-icons/fi';
+import React, { useState } from 'react';
+import { FaChevronDown, FaChevronRight } from 'react-icons/fa';
 import Icon from './Icon';
+
+export type FormSectionKey = 'basic' | 'income' | 'savings' | 'housing' | 'children' | 'car' | 'senior';
 
 interface FormSectionProps {
   title: string;
-  icon?: ReactNode;
-  initialOpen?: boolean;
-  children: ReactNode;
+  sectionKey: FormSectionKey;
+  children: React.ReactNode;
+  openSection: FormSectionKey | null;
+  setOpenSection: (section: FormSectionKey | null) => void;
 }
 
-const FormSection: React.FC<FormSectionProps> = ({ title, icon, initialOpen = false, children }) => {
-  const [isOpen, setIsOpen] = useState(initialOpen);
+const FormSection: React.FC<FormSectionProps> = ({ 
+  title, 
+  sectionKey, 
+  children, 
+  openSection, 
+  setOpenSection 
+}) => {
+  const isOpen = openSection === sectionKey;
+
+  const toggleSection = () => {
+    setOpenSection(isOpen ? null : sectionKey);
+  };
 
   return (
-    <div className="mb-6 border-b border-slate-200">
+    <div className="border border-gray-300 rounded-lg bg-white shadow-lg overflow-hidden mb-4">
       <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex justify-between items-center py-4 text-left text-xl font-semibold text-slate-800 focus:outline-none"
+        onClick={toggleSection}
+        className="w-full px-4 py-3 text-left bg-gray-50 hover:bg-gray-100 transition-colors duration-200 flex items-center justify-between"
       >
-        <span className="flex items-center">
-          {icon && <span className="mr-3 text-sky-600">{icon}</span>}
-          {title}
-        </span>
-        {isOpen ? <Icon as={FiChevronUp} className="w-6 h-6 text-sky-600" /> : <Icon as={FiChevronDown} className="w-6 h-6 text-slate-500" />}
+        <span className="font-semibold text-gray-800">{title}</span>
+        {isOpen ? (
+          <Icon as={FaChevronDown} className="text-gray-600 w-4 h-4" />
+        ) : (
+          <Icon as={FaChevronRight} className="text-gray-600 w-4 h-4" />
+        )}
       </button>
       {isOpen && (
-        <div className="pt-2 pb-6 px-1">
+        <div className="p-4 bg-white">
           {children}
         </div>
       )}

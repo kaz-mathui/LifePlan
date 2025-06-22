@@ -1,240 +1,209 @@
-import React, { ChangeEvent, useEffect, useMemo, useRef } from 'react';
-import { SimulationInputData } from '../types';
-import FormSection from './FormSection';
-import { FaSave, FaFileImport, FaFileExport, FaTrash, FaPlus, FaAngleDown } from 'react-icons/fa';
+import React, { useState } from 'react';
+import { SimulationInputData, Child } from '../types';
+import FormSection, { FormSectionKey } from './FormSection';
+import { InputField, NestedInputField, Toggle } from './InputField';
+import { FaUser, FaBriefcase, FaPiggyBank, FaHome, FaCar, FaChild, FaUsers, FaPlus, FaTrash } from 'react-icons/fa';
+import { EDUCATION_COST } from '../constants';
 import Icon from './Icon';
-import { NestedSectionKey } from '../App';
-import { toast } from 'react-hot-toast';
-import { debounce } from 'lodash';
 
 interface InputFormProps {
-  input: SimulationInputData;
-  onInputChange: (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
-  onNestedChange: (section: NestedSectionKey, field: string, value: any) => void;
-  onChildrenChange: (index: number, field: string, value: any) => void;
-  onAddChild: () => void;
-  onRemoveChild: (index: number) => void;
-  onSubmit: () => void;
-  onSave: () => void;
-  loading: boolean;
-  onExport: () => void;
-  onImport: (e: ChangeEvent<HTMLInputElement>) => void;
+  inputData: SimulationInputData;
+  onInputChange: (name: string, value: any) => void;
 }
 
-export { FormSection };
+const InputForm: React.FC<InputFormProps> = ({ inputData, onInputChange }) => {
+  const [openSections, setOpenSections] = useState<Set<FormSectionKey>>(new Set(['basic']));
 
-interface InputFieldProps extends React.ComponentPropsWithoutRef<'input'> {
-  label: string;
-  unit?: string;
-  description?: string;
-}
-
-const InputField: React.FC<InputFieldProps> = ({ label, unit, description, ...props }) => (
-    <div className="w-full">
-        <label htmlFor={props.id || props.name} className="block text-sm font-medium text-slate-700">
-            {label}
-        </label>
-        {description && <p className="text-xs text-slate-500 mt-0.5">{description}</p>}
-        <div className="mt-1 flex rounded-lg shadow-sm">
-            <input
-                {...props}
-                className={`block w-full flex-1 min-w-0 border border-slate-300 px-3 py-2 focus:border-sky-500 focus:ring-sky-500 sm:text-sm disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-50 disabled:text-slate-500 ${
-                    unit ? 'rounded-none rounded-l-lg' : 'rounded-lg'
-                }`}
-            />
-            {unit && (
-                <span className="inline-flex items-center rounded-r-lg border border-l-0 border-slate-300 bg-slate-50 px-3 text-slate-500 sm:text-sm">
-                    {unit}
-                </span>
-            )}
-        </div>
-    </div>
-);
-
-const InputForm: React.FC<InputFormProps> = ({ input, onInputChange, onNestedChange, onChildrenChange, onAddChild, onRemoveChild, onSubmit, onSave, loading, onExport, onImport }) => {
-  const debouncedSubmit = useMemo(() => debounce(onSubmit, 500), [onSubmit]);
-
-  useEffect(() => {
-    debouncedSubmit();
-  }, [input, debouncedSubmit]);
-
-  const handleNestedInputChange = (section: NestedSectionKey) => (e: ChangeEvent<HTMLInputElement>) => {
+  // For top-level properties (e.g., currentAge)
+  const handleDirectChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
-    const processedValue = type === 'number' ? (value === '' ? '' : Number(value)) : value;
-    onNestedChange(section, name, processedValue);
-  };
-  
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    onSubmit();
-    toast.success("シミュレーションを再計算しました！");
+    let finalValue: string | number = value;
+    if (type === 'number') {
+      finalValue = value === '' ? '' : (value.includes('.') ? parseFloat(value) : parseInt(value, 10));
+    }
+    onInputChange(name, finalValue);
   };
 
-  const handleSaveClick = async () => {
-    onSave();
+  // For nested properties (e.g., housing.propertyValue)
+  const handleNestedChange = (section: keyof SimulationInputData, field: string, value: any) => {
+    onInputChange(`${section}.${field}`, value);
   };
-  
-  const importInputRef = useRef<HTMLInputElement>(null);
-  const handleImportClick = () => {
-      importInputRef.current?.click();
-  }
+
+  const handleChildChange = (index: number, field: keyof Child, value: any) => {
+    const updatedChildren = [...(inputData.education.children || [])];
+    let finalValue = value;
+    if (field === 'birthYear' || field === 'customAmount') {
+      if (typeof value === 'string' && value !== '') {
+        finalValue = value.includes('.') ? parseFloat(value) : parseInt(value, 10);
+      } else if (value === '') {
+        finalValue = ''; // 空文字列を許可
+      }
+    } else {
+      finalValue = value;
+    }
+    const child = { ...updatedChildren[index], [field]: finalValue };
+    updatedChildren[index] = child;
+    onInputChange('education.children', updatedChildren);
+  };
+
+  const handleChildBlur = (index: number, field: keyof Child) => {
+    const updatedChildren = [...(inputData.education.children || [])];
+    const child = updatedChildren[index];
+    if ((field === 'birthYear' || field === 'customAmount') && 
+        (child[field] === '' || child[field] === null || child[field] === undefined)) {
+      const updatedChild = { ...child, [field]: 0 };
+      updatedChildren[index] = updatedChild;
+      onInputChange('education.children', updatedChildren);
+    }
+  };
+
+  const addChild = () => {
+    const newChild: Child = { 
+      birthYear: inputData.currentAge || 30, // 親が子供を産んだ時の年齢
+      plan: "public",
+      customAmount: 0
+    };
+    const updatedChildren = [...(inputData.education.children || []), newChild];
+    onInputChange('education.children', updatedChildren);
+  };
+
+  const removeChild = (index: number) => {
+    const updatedChildren = [...(inputData.education.children || [])];
+    updatedChildren.splice(index, 1);
+    onInputChange('education.children', updatedChildren);
+  };
+
+  const toggleSection = (sectionKey: FormSectionKey) => {
+    const newOpenSections = new Set(openSections);
+    if (newOpenSections.has(sectionKey)) {
+      newOpenSections.delete(sectionKey);
+    } else {
+      newOpenSections.add(sectionKey);
+    }
+    setOpenSections(newOpenSections);
+  };
+
+  const isSectionOpen = (sectionKey: FormSectionKey) => openSections.has(sectionKey);
 
   return (
-    // `onSubmit`は手動での再計算用に残しておく
-    <form onSubmit={handleFormSubmit} className="space-y-6 pb-24"> 
-      <FormSection title="基本情報" initialOpen={true}>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-4">
-          <InputField label="現在年齢" name="currentAge" type="number" value={input.currentAge} onChange={onInputChange} unit="歳" />
-          <InputField label="リタイア年齢" name="retirementAge" type="number" value={input.retirementAge} onChange={onInputChange} unit="歳" />
-          <InputField label="想定寿命" name="lifeExpectancy" type="number" value={input.lifeExpectancy} onChange={onInputChange} unit="歳" />
-        </div>
+    <div className="space-y-4">
+      {/* Basic Section */}
+      <FormSection title="基本情報" sectionKey="basic" openSection={isSectionOpen('basic') ? 'basic' : null} setOpenSection={() => toggleSection('basic')}>
+        <InputField label="現在の年齢" name="currentAge" value={inputData.currentAge} onChange={handleDirectChange} type="number" unit="歳" />
+        <InputField label="退職年齢" name="retirementAge" value={inputData.retirementAge} onChange={handleDirectChange} type="number" unit="歳" />
+        <InputField label="平均寿命" name="lifeExpectancy" value={inputData.lifeExpectancy} onChange={handleDirectChange} type="number" unit="歳" />
       </FormSection>
 
-      <FormSection title="収入・資産" initialOpen={true}>
-        <div className="grid grid-cols-2 md:grid-cols-2 gap-x-4 gap-y-4">
-            <InputField label="手取り年収" name="annualIncome" type="number" value={input.annualIncome} onChange={onInputChange} unit="万円" />
-            <InputField label="昇給率" name="salaryIncreaseRate" type="number" value={input.salaryIncreaseRate} onChange={onInputChange} unit="％" step="0.1" />
-            <InputField label="現在資産" name="currentSavings" type="number" value={input.currentSavings} onChange={onInputChange} unit="万円" />
-            <InputField label="退職金" name="severancePay" type="number" value={input.severancePay} onChange={onInputChange} unit="万円" />
-        </div>
+      {/* Income Section */}
+      <FormSection title="収入" sectionKey="income" openSection={isSectionOpen('income') ? 'income' : null} setOpenSection={() => toggleSection('income')}>
+        <InputField label="現在の年収" name="annualIncome" value={inputData.annualIncome} onChange={handleDirectChange} type="number" unit="万円" />
+        <InputField label="年収の昇給率" name="salaryIncreaseRate" value={inputData.salaryIncreaseRate} onChange={handleDirectChange} type="number" unit="%" />
+        <InputField label="退職金" name="severancePay" value={inputData.severancePay} onChange={handleDirectChange} type="number" unit="万円" />
+        <InputField label="年金受給額（年）" name="pensionAmountPerYear" value={inputData.pensionAmountPerYear} onChange={handleDirectChange} type="number" unit="万円" />
+        <InputField label="年金受給開始年齢" name="pensionStartDate" value={inputData.pensionStartDate} onChange={handleDirectChange} type="number" unit="歳" />
       </FormSection>
 
-      <FormSection title="支出・年金" initialOpen={true}>
-        <div className="grid grid-cols-2 md:grid-cols-2 gap-x-4 gap-y-4">
-            <InputField label="毎月の生活費" name="monthlyExpenses" type="number" value={input.monthlyExpenses} onChange={onInputChange} unit="万円" />
-            <InputField label="年金（年間）" name="pensionAmountPerYear" type="number" value={input.pensionAmountPerYear} onChange={onInputChange} unit="万円" />
-            <InputField label="年金開始年齢" name="pensionStartDate" type="number" value={input.pensionStartDate} onChange={onInputChange} unit="歳" />
-        </div>
+      {/* Assets/Investments Section */}
+      <FormSection title="資産・運用" sectionKey="savings" openSection={isSectionOpen('savings') ? 'savings' : null} setOpenSection={() => toggleSection('savings')}>
+        <InputField label="現在の貯蓄額" name="currentSavings" value={inputData.currentSavings} onChange={handleDirectChange} type="number" unit="万円" />
+        <InputField label="投資比率" name="investmentRatio" value={inputData.investmentRatio} onChange={handleDirectChange} type="number" unit="%" />
+        <InputField label="年間リターン（利回り）" name="annualReturn" value={inputData.annualReturn} onChange={handleDirectChange} type="number" unit="%" />
       </FormSection>
 
-      <FormSection title="投資設定">
-        <div className="grid grid-cols-2 md:grid-cols-2 gap-x-4 gap-y-4">
-            <InputField label="投資割合" name="investmentRatio" type="number" value={input.investmentRatio} onChange={onInputChange} unit="％" description="資産のうち投資に回す割合" />
-            <InputField label="想定利回り（年率）" name="annualReturn" type="number" value={input.annualReturn} onChange={onInputChange} unit="％" step="0.1" description="投資の平均的なリターン" />
-        </div>
+      {/* Expenses Section */}
+      <FormSection title="生活費" sectionKey="basic" openSection={isSectionOpen('basic') ? 'basic' : null} setOpenSection={() => toggleSection('basic')}>
+        <InputField label="毎月の生活費" name="monthlyExpenses" value={inputData.monthlyExpenses} onChange={handleDirectChange} type="number" unit="万円" />
       </FormSection>
-      
-      <div className="mt-8 pt-6 border-t border-slate-200">
-        <h3 className="text-lg font-semibold text-slate-800 mb-2 flex items-center">
-          <Icon as={FaAngleDown} className="mr-2" />
-          詳細設定（任意）
-        </h3>
-        <p className="text-sm text-slate-500 mb-4">住宅、教育、車などの大きな支出をより詳細にシミュレーションに反映できます。</p>
-        
-        <div className="space-y-4">
-          <FormSection title="住宅ローン">
-            <div className="space-y-4 p-4 bg-slate-50 rounded-b-lg">
-              <div className="flex items-start">
-                <div className="flex items-center h-5">
-                  <input
-                    id="hasLoan"
-                    name="hasLoan"
-                    type="checkbox"
-                    checked={input.housing.hasLoan}
-                    onChange={(e) => onNestedChange('housing', 'hasLoan', e.target.checked)}
-                    className="focus:ring-sky-500 h-4 w-4 text-sky-600 border-gray-300 rounded"
+
+      {/* Housing Section */}
+      <FormSection title="住宅" sectionKey="housing" openSection={isSectionOpen('housing') ? 'housing' : null} setOpenSection={() => toggleSection('housing')}>
+        <Toggle label="住宅ローンあり" section="housing" field="hasLoan" checked={inputData.housing.hasLoan} onChange={handleNestedChange} />
+        {inputData.housing.hasLoan && (
+          <div className="pl-4 border-l-2 border-gray-300 mt-4">
+            <NestedInputField label="物件価格" section="housing" field="propertyValue" value={inputData.housing.propertyValue} onChange={handleNestedChange} unit="万円" />
+            <NestedInputField label="頭金" section="housing" field="downPayment" value={inputData.housing.downPayment} onChange={handleNestedChange} unit="万円" />
+            <NestedInputField label="ローン金利" section="housing" field="interestRate" value={inputData.housing.interestRate} onChange={handleNestedChange} unit="%" />
+            <NestedInputField label="ローン期間" section="housing" field="loanTerm" value={inputData.housing.loanTerm} onChange={handleNestedChange} unit="年" />
+            <NestedInputField label="ローン開始年齢" section="housing" field="startAge" value={inputData.housing.startAge} onChange={handleNestedChange} unit="歳" />
+            <NestedInputField label="固定資産税率" section="housing" field="propertyTaxRate" value={inputData.housing.propertyTaxRate} onChange={handleNestedChange} unit="%" />
+          </div>
+        )}
+      </FormSection>
+
+      {/* Education Section */}
+      <FormSection title="教育" sectionKey="children" openSection={isSectionOpen('children') ? 'children' : null} setOpenSection={() => toggleSection('children')}>
+        <Toggle label="子供あり" section="education" field="hasChildren" checked={inputData.education.hasChildren} onChange={handleNestedChange} />
+        {inputData.education.hasChildren && (
+          <div className="pl-4 border-l-2 border-gray-300 mt-4">
+            <NestedInputField label="子供の生活費（1人あたり年額）" section="education" field="childLivingCost" value={inputData.education.childLivingCost} onChange={handleNestedChange} unit="万円" />
+            {inputData.education.children.map((child, index) => (
+              <div key={index} className="p-3 my-2 border border-gray-300 rounded-md">
+                <h4 className="font-semibold mb-2 text-gray-700">子供 {index + 1}</h4>
+                <InputField 
+                  label="親の年齢（子供誕生時）" 
+                  name={`birthYear-${index}`} 
+                  value={child.birthYear} 
+                  onChange={(e) => handleChildChange(index, 'birthYear', e.target.value)} 
+                  onBlur={() => handleChildBlur(index, 'birthYear')}
+                  type="number" 
+                  unit="歳"
+                />
+                <select
+                  value={child.plan}
+                  onChange={(e) => handleChildChange(index, 'plan', e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-sky-500 focus:border-sky-500"
+                >
+                  <option value="public">国公立</option>
+                  <option value="private_liberal">私立文系</option>
+                  <option value="private_science">私立理系</option>
+                  <option value="custom">カスタム</option>
+                </select>
+                {child.plan === 'custom' && (
+                  <InputField 
+                    label="年間教育費（カスタム）" 
+                    name={`customAmount-${index}`} 
+                    value={child.customAmount || ''} 
+                    onChange={(e) => handleChildChange(index, 'customAmount', e.target.value)} 
+                    type="number" 
+                    unit="万円" 
                   />
-                </div>
-                <div className="ml-3 text-sm">
-                  <label htmlFor="hasLoan" className="font-medium text-gray-700">住宅ローンを計算に含める</label>
-                </div>
+                )}
+                <button onClick={() => removeChild(index)} className="text-red-500 hover:text-red-700 mt-2"><Icon as={FaTrash} /></button>
               </div>
+            ))}
+            <button onClick={addChild} className="flex items-center gap-2 text-green-500 hover:text-green-700 mt-2"><Icon as={FaPlus} className="mr-1" /> 新しい子供を追加</button>
+          </div>
+        )}
+      </FormSection>
 
-              {input.housing.hasLoan && (
-                <div className="pt-4 mt-4 border-t border-gray-200 grid grid-cols-2 gap-x-4 gap-y-4">
-                  <InputField label="物件価格" name="propertyValue" type="number" value={input.housing.propertyValue} onChange={handleNestedInputChange('housing')} unit="万円" />
-                  <InputField label="頭金" name="downPayment" type="number" value={input.housing.downPayment} onChange={handleNestedInputChange('housing')} unit="万円" />
-                  <InputField label="ローン借入額" name="loanAmount" type="number" value={input.housing.loanAmount} onChange={handleNestedInputChange('housing')} unit="万円" />
-                  <InputField label="ローン開始年齢" name="startAge" type="number" value={input.housing.startAge} onChange={handleNestedInputChange('housing')} unit="歳" />
-                  <InputField label="返済期間" name="loanTerm" type="number" value={input.housing.loanTerm} onChange={handleNestedInputChange('housing')} unit="年" />
-                  <InputField label="金利（年率）" name="interestRate" type="number" value={input.housing.interestRate} onChange={handleNestedInputChange('housing')} unit="％" step="0.01" />
-                  <InputField label="固定資産税率" name="propertyTaxRate" type="number" value={input.housing.propertyTaxRate} onChange={handleNestedInputChange('housing')} unit="％" step="0.01" />
-                </div>
-              )}
-            </div>
-          </FormSection>
-          <FormSection title="教育費">
-            <div className="space-y-4 p-4 bg-slate-50 rounded-b-lg">
-              <div className="flex items-start">
-                <div className="flex items-center h-5">
-                  <input
-                    id="hasChildren"
-                    name="hasChildren"
-                    type="checkbox"
-                    checked={input.education.hasChildren}
-                    onChange={(e) => onNestedChange('education', 'hasChildren', e.target.checked)}
-                    className="focus:ring-sky-500 h-4 w-4 text-sky-600 border-gray-300 rounded"
-                  />
-                </div>
-                <div className="ml-3 text-sm">
-                  <label htmlFor="hasChildren" className="font-medium text-gray-700">子供の教育費を計算に含める</label>
-                </div>
-              </div>
+      {/* Car Section */}
+      <FormSection title="自動車" sectionKey="car" openSection={isSectionOpen('car') ? 'car' : null} setOpenSection={() => toggleSection('car')}>
+        <Toggle label="自動車あり" section="car" field="hasCar" checked={inputData.car.hasCar} onChange={handleNestedChange} />
+        {inputData.car.hasCar && (
+          <div className="pl-4 border-l-2 border-gray-300 mt-4">
+            <NestedInputField label="車両価格" section="car" field="price" value={inputData.car.price} onChange={handleNestedChange} unit="万円" />
+            <NestedInputField label="頭金" section="car" field="downPayment" value={inputData.car.downPayment} onChange={handleNestedChange} unit="万円" />
+            <NestedInputField label="ローン金利" section="car" field="interestRate" value={inputData.car.interestRate} onChange={handleNestedChange} unit="%" />
+            <NestedInputField label="ローン期間" section="car" field="loanTerm" value={inputData.car.loanTerm} onChange={handleNestedChange} unit="年" />
+            <NestedInputField label="年間維持費" section="car" field="maintenanceCost" value={inputData.car.maintenanceCost} onChange={handleNestedChange} unit="万円" />
+            <NestedInputField label="購入年齢" section="car" field="purchaseAge" value={inputData.car.purchaseAge} onChange={handleNestedChange} unit="歳" />
+            <NestedInputField label="買い替え周期" section="car" field="replacementCycle" value={inputData.car.replacementCycle} onChange={handleNestedChange} unit="年" />
+          </div>
+        )}
+      </FormSection>
 
-              {input.education.hasChildren && (
-                <div className="pt-4 mt-4 border-t border-gray-200 space-y-4">
-                  {input.education.children.map((child, index) => (
-                    <div key={index} className="p-4 border rounded-md relative bg-white shadow-sm">
-                      <h4 className="font-semibold mb-3 text-slate-700">子供 {index + 1}</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <InputField label="誕生年" type="number" value={child.birthYear} onChange={(e) => onChildrenChange(index, 'birthYear', Number(e.target.value))} />
-                          <div>
-                              <label className="block text-sm font-medium text-gray-700">進学プラン</label>
-                              <select
-                                value={child.plan}
-                                onChange={(e) => onChildrenChange(index, 'plan', e.target.value)}
-                                className="mt-1 block w-full rounded-md border-gray-300 py-2 pl-3 pr-10 text-base focus:border-sky-500 focus:outline-none focus:ring-sky-500 sm:text-sm"
-                              >
-                                <option value="public">すべて国公立</option>
-                                <option value="private_liberal">大学のみ私立文系</option>
-                                <option value="private_science">大学のみ私立理系</option>
-                              </select>
-                          </div>
-                      </div>
-                      <button type="button" onClick={() => onRemoveChild(index)} className="absolute top-3 right-3 text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-100">
-                        <Icon as={FaTrash} />
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={onAddChild}
-                    className="w-full flex items-center justify-center text-sm py-2 px-4 border border-dashed rounded-md text-sky-600 border-sky-500 hover:bg-sky-50"
-                  >
-                    <Icon as={FaPlus} className="mr-2" />
-                    子供を追加する
-                  </button>
-                </div>
-              )}
-            </div>
-          </FormSection>
-        </div>
-      </div>
-      
-      {/* --- フローティングアクションバー --- */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-t border-slate-200 p-4 z-10">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <div className="text-sm font-medium text-slate-700">
-                {loading ? "再計算中..." : "自動計算 ON"}
-            </div>
-            <div className="flex items-center space-x-2">
-                <button type="button" onClick={handleSaveClick} disabled={loading} className="flex items-center px-3 py-2 bg-sky-600 text-white font-semibold rounded-lg shadow-md hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 transition duration-150 disabled:opacity-50">
-                    <Icon as={FaSave} className="mr-1.5" />
-                    <span className="hidden sm:inline">保存</span>
-                </button>
-                <input type="file" accept=".json" onChange={onImport} className="hidden" ref={importInputRef} />
-                <button type="button" onClick={handleImportClick} disabled={loading} className="flex items-center px-3 py-2 bg-white text-slate-700 border border-slate-300 font-semibold rounded-lg shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 transition duration-150 disabled:opacity-50">
-                    <Icon as={FaFileImport} className="mr-1.5" />
-                    <span className="hidden sm:inline">読込</span>
-                </button>
-                <button type="button" onClick={onExport} disabled={loading} className="flex items-center px-3 py-2 bg-white text-slate-700 border border-slate-300 font-semibold rounded-lg shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 transition duration-150 disabled:opacity-50">
-                    <Icon as={FaFileExport} className="mr-1.5" />
-                    <span className="hidden sm:inline">書出</span>
-                </button>
-            </div>
-        </div>
-      </div>
-    </form>
+      {/* Senior Section */}
+      <FormSection title="老後" sectionKey="senior" openSection={isSectionOpen('senior') ? 'senior' : null} setOpenSection={() => toggleSection('senior')}>
+        <Toggle label="老後の追加費用を考慮" section="senior" field="enabled" checked={inputData.senior.enabled} onChange={handleNestedChange} />
+        {inputData.senior.enabled && (
+          <div className="pl-4 border-l-2 border-gray-300 mt-4">
+            <NestedInputField label="追加費用開始年齢" section="senior" field="startAge" value={inputData.senior.startAge} onChange={handleNestedChange} unit="歳" />
+            <NestedInputField label="老後の月間生活費" section="senior" field="monthlyExpense" value={inputData.senior.monthlyExpense} onChange={handleNestedChange} unit="万円" />
+            <NestedInputField label="年間介護費用" section="senior" field="careCost" value={inputData.senior.careCost} onChange={handleNestedChange} unit="万円" />
+          </div>
+        )}
+      </FormSection>
+    </div>
   );
 };
 

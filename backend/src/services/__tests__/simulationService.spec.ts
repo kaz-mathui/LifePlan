@@ -29,6 +29,7 @@ describe('calculateSimulation', () => {
     education: {
       hasChildren: false,
       children: [],
+      childLivingCost: 0,
     },
     car: {
       hasCar: false,
@@ -42,11 +43,13 @@ describe('calculateSimulation', () => {
       replacementCycle: 0,
     },
     senior: {
-      nursingCareStartAge: 80,
-      nursingCareAnnualCost: 500000,
-      funeralCost: 1000000,
+      enabled: false,
+      startAge: 65,
+      monthlyExpense: 0,
+      careCost: 0,
     },
     lifeEvents: [],
+    childCount: 0,
   };
 
   it('基本的な入力でエラーなくシミュレーション結果を返すこと', () => {

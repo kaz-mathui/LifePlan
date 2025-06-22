@@ -1,6 +1,6 @@
 export interface LifeEvent {
   id: string;
-  eventName: string;
+  description: string;
   type: 'income' | 'expense';
   amount: number;
   startAge: number;
@@ -18,13 +18,16 @@ export interface HousingLoanData {
   propertyTaxRate: number;
 }
 
+export interface Child {
+  birthYear: number | '';
+  plan: "custom" | "public" | "private_liberal" | "private_science";
+  customAmount?: number | '' | null;
+}
+
 export interface EducationData {
   hasChildren: boolean;
-  children: {
-    birthYear: number;
-    plan: 'public' | 'private_liberal' | 'private_science' | 'custom';
-    customAmount?: number;
-  }[];
+  children: Child[];
+  childLivingCost: number;
 }
 
 export interface CarData {
@@ -40,9 +43,10 @@ export interface CarData {
 }
 
 export interface SeniorData {
-  nursingCareStartAge: number;
-  nursingCareAnnualCost: number;
-  funeralCost: number;
+  enabled: boolean;
+  startAge: number;
+  monthlyExpense: number;
+  careCost: number;
 }
 
 export interface SimulationInputData {
@@ -65,6 +69,7 @@ export interface SimulationInputData {
   car: CarData;
   senior: SeniorData;
   lifeEvents: LifeEvent[];
+  childCount: number;
 }
 
 export interface SimulationResult {

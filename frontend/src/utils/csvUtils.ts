@@ -2,10 +2,9 @@ import Papa from 'papaparse';
 import { SimulationInputData } from '../types';
 
 const CSV_HEADERS = [
-  'id', 'planName', 'currentAge', 'retirementAge', 'lifeExpectancy', 
-  'currentSavings', 'annualIncome', 'monthlyExpenses', 'investmentRatio', 
-  'annualReturn', 'pensionAmountPerYear', 'pensionStartDate', 'severancePay',
-  'lifeEvents_json' // ライフイベントはJSON文字列として格納
+  'planName', 'currentAge', 'retirementAge', 'lifeExpectancy', 
+  'annualIncome', 'salaryIncreaseRate', 'currentSavings',
+  'investmentRatio', 'investmentYield', 'severancePay'
 ];
 
 // ネストされたオブジェクトをフラットなキーに変換
@@ -32,19 +31,30 @@ const unflattenObject = (flatData: Record<string, any>): SimulationInputData => 
       if (index === keys.length - 1) {
         let value = flatData[key];
         // 型変換
-        if (typeof value === 'string' && !isNaN(Number(value)) && value.trim() !== '') {
+        if (typeof value === 'string' && value.trim() !== '') {
+          if (!isNaN(Number(value))) {
             value = Number(value);
-        } else if (value === 'true') {
+          } else if (value === 'true') {
             value = true;
-        } else if (value === 'false') {
+          } else if (value === 'false') {
             value = false;
-        } else if (key.endsWith('lifeEvents') || key.endsWith('children')) {
+          } else if (key.endsWith('lifeEvents') || key.endsWith('children')) {
             try {
-                value = JSON.parse(value);
+              value = JSON.parse(value);
             } catch (e) {
-                console.error(`Error parsing JSON for ${key}:`, e);
-                value = [];
+              console.error(`Error parsing JSON for ${key}:`, e);
+              value = [];
             }
+          }
+        } else if (value === '' || value === null || value === undefined) {
+          // 空の値は数値フィールドの場合は0に、その他はデフォルト値に
+          if (key.includes('Age') || key.includes('Income') || key.includes('Savings') || 
+              key.includes('Ratio') || key.includes('Return') || key.includes('Pay') || 
+              key.includes('Expenses') || key.includes('Cost') || key.includes('Price') || 
+              key.includes('Amount') || key.includes('Rate') || key.includes('Term') || 
+              key.includes('Cycle')) {
+            value = 0;
+          }
         }
         acc[part] = value;
       } else {
@@ -93,71 +103,47 @@ export const exportPlanToCsv = (planData: SimulationInputData) => {
  */
 export const importPlanFromCsv = (file: File): Promise<Partial<SimulationInputData>> => {
   return new Promise((resolve, reject) => {
-    Papa.parse<any>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        if (results.errors.length) {
-          return reject(new Error('CSVの解析に失敗しました: ' + results.errors[0].message));
-        }
-        if (!results.data || results.data.length === 0) {
-          return reject(new Error('CSVにデータが含まれていません。'));
-        }
+    const reader = new FileReader();
+    reader.readAsText(file);
 
-        const importedRow = results.data[0];
+    reader.onload = (e: ProgressEvent<FileReader>) => {
+      try {
+        const text = e.target?.result as string;
+        const rows = text.split('\\n').map(row => row.trim()).filter(row => row.length > 0);
+        if (rows.length < 2) {
+          return reject(new Error('CSVファイルにデータがありません。'));
+        }
+        const header = rows[0].split(',').map(h => h.trim());
+        const values = rows[1].split(',').map(v => v.trim());
         
-        try {
-          // 数値フィールドをパース
-          const numericFields: (keyof SimulationInputData)[] = [
-            'currentAge', 'retirementAge', 'lifeExpectancy', 'currentSavings', 
-            'annualIncome', 'monthlyExpenses', 'investmentRatio', 'annualReturn',
-            'pensionAmountPerYear', 'pensionStartDate', 'severancePay'
-          ];
-          
-          const parsedData: Partial<SimulationInputData> = {};
+        const numericFields: (keyof SimulationInputData)[] = [
+          'currentAge', 'retirementAge', 'lifeExpectancy', 'currentSavings', 
+          'annualIncome', 'salaryIncreaseRate', 'investmentRatio', 'annualReturn',
+          'severancePay'
+        ];
+        
+        const parsedData: Partial<SimulationInputData> = {};
+        
+        header.forEach((h, i) => {
+          const key = h as keyof SimulationInputData;
+          const value = values[i];
 
-          // planNameは必須
-          if (typeof importedRow.planName === 'string' && importedRow.planName.trim()) {
-              parsedData.planName = importedRow.planName;
+          if (numericFields.includes(key)) {
+            (parsedData as any)[key] = value ? Number(value) : 0;
           } else {
-              parsedData.planName = 'インポートされたプラン';
+            (parsedData as any)[key] = value;
           }
+        });
 
-          // 数値フィールドの処理
-          numericFields.forEach(field => {
-            if (importedRow[field] !== undefined && importedRow[field] !== '') {
-              const num = Number(importedRow[field]);
-              if (!isNaN(num)) {
-                (parsedData as any)[field] = num;
-              }
-            } else {
-              (parsedData as any)[field] = ''; // 空文字は許容
-            }
-          });
-
-          // lifeEventsをJSONからパース
-          if (importedRow.lifeEvents_json) {
-            const lifeEvents = JSON.parse(importedRow.lifeEvents_json);
-            if (Array.isArray(lifeEvents)) {
-              // ここでlifeEventsの各要素の型チェックを厳密に行うことも可能
-              parsedData.lifeEvents = lifeEvents;
-            }
-          } else {
-            parsedData.lifeEvents = [];
-          }
-
-          // idはインポートしない（新規プランとして扱うため）
-          parsedData.id = undefined;
-
-          resolve(parsedData);
-        } catch (error: any) {
-          reject(new Error('インポートデータのフォーマットが不正です: ' + error.message));
-        }
-      },
-      error: (error: Error) => {
-        reject(new Error('ファイルの読み込みに失敗しました: ' + error.message));
+        resolve(parsedData);
+      } catch (error: any) {
+        reject(new Error(`CSVパースエラー: ${error.message}`));
       }
-    });
+    };
+
+    reader.onerror = () => {
+      reject(new Error('ファイルの読み込みに失敗しました: ' + reader.error));
+    };
   });
 };
 
