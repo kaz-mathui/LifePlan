@@ -1,33 +1,35 @@
-import React, { useState, ReactNode } from 'react';
-import { FiChevronDown, FiChevronUp } from 'react-icons/fi';
-import Icon from './Icon';
+import React, { ReactNode } from 'react';
+
+export type FormSectionKey = 'basic' | 'income' | 'savings' | 'housing' | 'children' | 'car' | 'senior' | 'life-event';
 
 interface FormSectionProps {
   title: string;
-  icon?: ReactNode;
-  initialOpen?: boolean;
+  sectionKey: FormSectionKey;
+  openSection: FormSectionKey | null;
+  setOpenSection: (key: FormSectionKey | null) => void;
   children: ReactNode;
-  defaultOpen?: boolean;
 }
 
-const FormSection: React.FC<FormSectionProps> = ({ title, icon, initialOpen = false, children, defaultOpen = false }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+const FormSection: React.FC<FormSectionProps> = ({ title, sectionKey, openSection, setOpenSection, children }) => {
+  const isOpen = openSection === sectionKey;
+
+  const toggleOpen = () => {
+    setOpenSection(isOpen ? null : sectionKey);
+  };
 
   return (
-    <div className="mb-6 border-b border-slate-200">
+    <div className="border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden mb-4">
       <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex justify-between items-center py-4 text-left text-xl font-semibold text-slate-800 focus:outline-none"
+        onClick={toggleOpen}
+        className="w-full flex justify-between items-center p-4 bg-slate-50 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500"
       >
-        <span className="flex items-center">
-          {icon && <span className="mr-3 text-sky-600">{icon}</span>}
-          {title}
-        </span>
-        {isOpen ? <Icon as={FiChevronUp} className="w-6 h-6 text-sky-600" /> : <Icon as={FiChevronDown} className="w-6 h-6 text-slate-500" />}
+        <div className="flex items-center justify-between w-full">
+            <h2 className="text-lg font-semibold text-slate-800">{title}</h2>
+            <span className={`transform transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>▼</span>
+        </div>
       </button>
       {isOpen && (
-        <div className="pt-2 pb-6 px-1">
+        <div className="p-4 bg-white">
           {children}
         </div>
       )}

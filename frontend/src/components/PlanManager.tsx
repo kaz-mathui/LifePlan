@@ -11,10 +11,13 @@ interface PlanManagerProps {
   onSelectPlan: (id: string) => void;
   onSavePlan: () => void;
   onNewPlan: () => void;
-  onUpdatePlanName: (name: string) => void;
+  onUpdatePlanName: (id: string, name: string) => void;
   onDeletePlan: (id: string) => void;
-  onImport: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onExport: () => void;
+  onExportCsv: (planId: string) => void;
+  onImportCsv: (file: File) => void;
+  fileInputRef: React.RefObject<HTMLInputElement>;
+  isSaving: boolean;
+  onPlanNameChange: (name: string) => Promise<void>;
   loading: boolean;
 }
 
@@ -27,8 +30,11 @@ const PlanManager: React.FC<PlanManagerProps> = ({
   onNewPlan,
   onUpdatePlanName,
   onDeletePlan,
-  onImport,
-  onExport,
+  onExportCsv,
+  onImportCsv,
+  fileInputRef,
+  isSaving,
+  onPlanNameChange,
   loading,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -55,9 +61,20 @@ const PlanManager: React.FC<PlanManagerProps> = ({
 
   const handleNameUpdate = () => {
     if (editingName.trim() && activePlan && editingName.trim() !== activePlan.planName) {
-      onUpdatePlanName(editingName.trim());
+      onUpdatePlanName(activePlan.id, editingName.trim());
     }
     setIsEditingName(false);
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      onImportCsv(file);
+    }
   };
 
   return (
@@ -135,14 +152,11 @@ const PlanManager: React.FC<PlanManagerProps> = ({
       {/* --- 操作ボタンエリア --- */}
       <div className="flex flex-wrap items-center gap-2">
         <button
-          onClick={() => {
-            onSavePlan();
-            toast.success('現在の内容を保存しました！');
-          }}
-          disabled={loading}
+          onClick={onSavePlan}
+          disabled={isSaving || !activePlan}
           className="flex h-10 items-center justify-center rounded-lg bg-sky-600 px-4 font-semibold text-white shadow-md hover:bg-sky-700 disabled:opacity-50"
         >
-          <Icon as={FaSave} />
+          {isSaving ? '保存中...' : <Icon as={FaSave} />}
         </button>
         <button
           onClick={() => onNewPlan()}
@@ -151,10 +165,10 @@ const PlanManager: React.FC<PlanManagerProps> = ({
         >
           <Icon as={FaPlus} />
         </button>
-        <input type="file" accept=".json,.csv" onChange={onImport} className="hidden" ref={importInputRef} />
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept=".csv" />
         <button
           type="button"
-          onClick={() => importInputRef.current?.click()}
+          onClick={handleImportClick}
           className="flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
           disabled={loading}
         >
@@ -163,9 +177,9 @@ const PlanManager: React.FC<PlanManagerProps> = ({
         </button>
         <button
           type="button"
-          onClick={onExport}
+          onClick={() => activePlanId && onExportCsv(activePlanId)}
           className="flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 font-semibold text-slate-700 shadow-sm hover:bg-slate-50 disabled:opacity-50"
-          disabled={loading}
+          disabled={!activePlanId}
         >
           <Icon as={FaFileExport} className="mr-2" />
           <span>エクスポート</span>

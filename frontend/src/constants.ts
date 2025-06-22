@@ -19,7 +19,6 @@ export const API_ENDPOINTS = {
 export const LOCAL_STORAGE_KEY = 'lifePlanSimulationInput';
 
 export const defaultInput: SimulationInputData = {
-  id: '',
   planName: '新しいプラン',
   // Basic
   currentAge: 30,
@@ -68,6 +67,7 @@ export const defaultInput: SimulationInputData = {
     enabled: false,
     startAge: 65,
     monthlyExpense: 15,
+    careCost: 200,
   },
   lifeEvents: [],
   childCount: 0,

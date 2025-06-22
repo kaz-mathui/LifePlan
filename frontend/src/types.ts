@@ -18,8 +18,8 @@ export interface HousingLoanData {
   propertyValue: number | '';
   downPayment: number | '';
   loanAmount: number | '';
-  interestRate: number | '';
   loanTerm: number | '';
+  interestRate: number | '';
   startAge: number | '';
   propertyTaxRate: number | '';
 }
@@ -32,8 +32,7 @@ export interface EducationData {
 
 export interface Child {
   birthYear: number | '';
-  plan: 'public' | 'private_liberal' | 'private_science' | 'custom';
-  customAmount?: number | '';
+  educationCost: number | '';
 }
 
 export interface CarData {
@@ -50,8 +49,9 @@ export interface CarData {
 
 export interface SeniorData {
   enabled: boolean;
-  startAge: number;
-  monthlyExpense: number;
+  startAge: number | '';
+  careCost: number | '';
+  monthlyExpense: number | '';
 }
 
 export interface Plan {
@@ -63,15 +63,15 @@ export interface Plan {
 }
 
 export interface SimulationInputData {
-  id: string;
   planName: string;
+  // Basic info
   currentAge: number | '';
   retirementAge: number | '';
   lifeExpectancy: number | '';
   // Income
   annualIncome: number | '';
-  salaryIncreaseRate: number | ''; // 昇給率
-  // Assets
+  salaryIncreaseRate: number | '';
+  // Savings and Investment
   currentSavings: number | '';
   investmentRatio: number | '';
   annualReturn: number | '';
@@ -82,8 +82,11 @@ export interface SimulationInputData {
   pensionStartDate: number | '';
   // Detailed Expenses
   housing: HousingLoanData;
+  // Education
   education: EducationData;
+  // Car
   car: CarData;
+  // Senior
   senior: SeniorData;
   // Other events
   lifeEvents: LifeEvent[];

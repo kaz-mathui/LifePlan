@@ -44,31 +44,27 @@ export const usePlanData = (
       const plansQuery = query(getPlansCollection(), orderBy('updatedAt', 'desc'));
       const querySnapshot = await getDocs(plansQuery);
       
-      const fetchedPlans: Plan[] = querySnapshot.docs.map(doc => {
+      const plansData = querySnapshot.docs.map(doc => {
         const docData = doc.data();
-        const planInputData = docData.data || docData;
-        const sanitizedInputData = sanitizeData(planInputData);
-        const planName = sanitizedInputData.planName || `プラン ${doc.id.substring(0, 4)}`;
+        const planName = docData.data?.planName || '無題のプラン';
+        
+        // dataフィールドが存在し、かつオブジェクトであることを確認
+        const sanitizedInputData = (docData.data && typeof docData.data === 'object') 
+          ? docData.data as SimulationInputData 
+          : defaultInput;
 
-        const plan: Plan = {
+        return {
           id: doc.id,
           planName: planName,
-          data: {
-            ...sanitizedInputData,
-            id: doc.id,
-            planName: planName
-          },
+          data: sanitizedInputData,
           createdAt: docData.createdAt,
           updatedAt: docData.updatedAt
         };
-        return plan;
       });
-      
-      setPlans(fetchedPlans);
-
-      if (fetchedPlans.length > 0) {
+      setPlans(plansData);
+      if (plansData.length > 0 && !activePlanId) {
         const lastActivePlanId = localStorage.getItem('lastActivePlanId');
-        const planToSelect = fetchedPlans.find(p => p.id === lastActivePlanId) || fetchedPlans[0];
+        const planToSelect = plansData.find(p => p.id === lastActivePlanId) || plansData[0];
         setActivePlanId(planToSelect.id);
         setSimulationInput(planToSelect.data);
       } else {
@@ -124,7 +120,6 @@ export const usePlanData = (
     const newPlanId = uuidv4();
     const newPlanData: SimulationInputData = {
       ...defaultInput,
-      id: newPlanId,
       planName: `新しいプラン ${new Date().toLocaleTimeString()}`,
     };
 

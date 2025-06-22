@@ -54,16 +54,18 @@ export function calculateSimulation(input: SimulationInputData): BackendSimulati
   } = input;
 
   const assetData: SimulationResult[] = [];
-  let currentYearSavings = currentSavings;
-  let currentAnnualIncome = annualIncome;
+  let currentYearSavings = Number(currentSavings) * 10000;
+  let currentAnnualIncome = Number(annualIncome) * 10000;
   let housingLoanRemainingTerm = housing.hasLoan ? housing.loanTerm : 0;
   let carLoanRemainingTerm = car.hasCar ? car.loanTerm : 0;
   let isBankrupt = false; // 破産状態を追跡するフラグ
 
-  const housingLoanAmount = Math.max(0, (housing.propertyValue || 0) - (housing.downPayment || 0));
-  const annualHousingLoanPayment = housing.hasLoan ? calculateAnnualLoanPayment(housingLoanAmount, housing.interestRate, housing.loanTerm) : 0;
+  const M = 10000; // 万円を円に変換
 
-  const carLoanAmount = Math.max(0, (car.price || 0) - (car.downPayment || 0));
+  const housingLoanAmount = Math.max(0, (Number(housing.propertyValue) || 0) - (Number(housing.downPayment) || 0)) * M;
+  const annualHousingLoanPayment = housing.hasLoan ? calculateAnnualLoanPayment(housingLoanAmount, Number(housing.interestRate) || 0, Number(housing.loanTerm) || 0) : 0;
+
+  const carLoanAmount = Math.max(0, (Number(car.price) || 0) - (Number(car.downPayment) || 0)) * M;
   const annualCarLoanPayment = car.hasCar ? calculateAnnualLoanPayment(carLoanAmount, car.interestRate, car.loanTerm) : 0;
 
   const summaryEvents: string[] = [];
@@ -97,24 +99,19 @@ export function calculateSimulation(input: SimulationInputData): BackendSimulati
 
     // 支出計算
     // 住宅
-    if (housing.hasLoan && age === housing.startAge) {
-      currentYearSavings -= (housing.downPayment || 0);
-      expenseDetails['住宅頭金'] = (housing.downPayment || 0);
-      summaryEvents.push(`${age}歳: 住宅購入。頭金${((housing.downPayment || 0)/10000).toFixed(0)}万円を支出し、ローン返済が開始します。`);
-    }
-    if (housing.hasLoan && age >= housing.startAge) {
+    if (housing.hasLoan && age >= (Number(housing.startAge) || 0)) {
+       const housingLoanRemainingTerm = (Number(housing.startAge) || 0) + (Number(housing.loanTerm) || 0) - age;
        if (housingLoanRemainingTerm > 0) {
-        const loanPayment = annualHousingLoanPayment;
-        const taxPayment = (housing.propertyValue || 0) * ((housing.propertyTaxRate || 0) / 100);
-        yearlyExpenses += loanPayment + taxPayment;
-        expenseDetails['住宅ローン返済'] = loanPayment;
+        const taxPayment = (Number(housing.propertyValue) || 0) * M * ((Number(housing.propertyTaxRate) || 0) / 100);
+        yearlyExpenses += annualHousingLoanPayment + taxPayment;
+        expenseDetails['住宅ローン返済'] = annualHousingLoanPayment;
         expenseDetails['固定資産税'] = taxPayment;
         housingLoanRemainingTerm--;
 
-        if (age === housing.startAge) {
-            summaryEvents.push(`${age}歳: 住宅ローン返済開始。年間約${((loanPayment + taxPayment)/10000).toFixed(0)}万円の支出が${housing.loanTerm}年間発生します。`);
+        if (age === (Number(housing.startAge) || 0)) {
+            summaryEvents.push(`${age}歳: 住宅ローン返済開始。年間約${((annualHousingLoanPayment + taxPayment)/10000).toFixed(0)}万円の支出が${housing.loanTerm}年間発生します。`);
         }
-       } else if (age === housing.startAge + housing.loanTerm) {
+       } else if (age === (Number(housing.startAge) || 0) + (Number(housing.loanTerm) || 0)) {
            summaryEvents.push(`${age}歳: 住宅ローン完済。年間の支出が減少します。`);
        }
     }

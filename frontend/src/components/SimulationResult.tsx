@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { BackendSimulationResult, SimulationResult as SimulationResultYear } from '../types';
 import FormSection from './FormSection';
 import Icon from './Icon';
-import { FaChartBar, FaTable, FaChevronLeft, FaChevronRight, FaCalculator } from 'react-icons/fa';
+import { FaChartBar, FaTable, FaChevronLeft, FaChevronRight, FaCalculator, FaDownload, FaUndo } from 'react-icons/fa';
 import Modal from './Modal';
 import AssetChart from './AssetChart';
 import ResultHeader from './ResultHeader';
@@ -50,6 +50,7 @@ interface SimulationResultProps {
   result: BackendSimulationResult | null;
   loading: boolean;
   retirementAge: number;
+  onRunSimulation: () => void;
 }
 
 const TabButton: React.FC<{
@@ -129,7 +130,7 @@ const CashFlowTable: React.FC<{
     );
 };
 
-const SimulationResultDisplay: React.FC<SimulationResultProps> = ({ result, loading, retirementAge }) => {
+const SimulationResultDisplay: React.FC<SimulationResultProps> = ({ result, loading, retirementAge, onRunSimulation }) => {
   const [selectedYearData, setSelectedYearData] = useState<SimulationResultYear | null>(null);
   const [activeTab, setActiveTab] = useState('chart');
 
