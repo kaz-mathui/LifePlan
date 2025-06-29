@@ -22,13 +22,12 @@ const db = admin.firestore();
 const app: Express = express();
 const PORT: string | number = process.env.PORT || 3001;
 
-// ミドルウェア
+// CORS設定、ローカルでは別のドメインを設定してるので、ローカルではlocalhost:3000を許可する。本番では同じドメインのため不要。
 app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://100.64.1.32:3000',
     'http://127.0.0.1:3000',
-    // 本番環境のドメインを追加
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
