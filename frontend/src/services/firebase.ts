@@ -20,15 +20,26 @@ const firebaseConfig = {
   storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.REACT_APP_FIREBASE_APP_ID,
-  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID // measurementIdも追加
+  measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID
 };
 
-// Firebase構成が正しく読み込まれたか確認 (いずれかのキーがundefinedならエラー)
-if (Object.values(firebaseConfig).some(value => value === undefined && value !== firebaseConfig.measurementId)) { // measurementId はオプショナルなので除外
-  console.error("Firebase configuration is missing or incomplete. Check your .env file and REACT_APP_ prefixed environment variables.");
-  // 開発環境でエラーを見やすくするために、ここで処理を止めるか、目立つ警告を出す
-  // throw new Error("Firebase configuration is missing."); // あるいは
-  // alert("Firebaseの設定が不完全です。.envファイルを確認してください。");
+// 必須のキーを定義（measurementIdはオプションなので含めない）
+const requiredConfigKeys: Array<keyof typeof firebaseConfig> = [
+  'apiKey',
+  'authDomain',
+  'projectId',
+  'storageBucket',
+  'messagingSenderId',
+  'appId',
+];
+
+const missingKeys = requiredConfigKeys.filter(key => !firebaseConfig[key]);
+
+if (missingKeys.length > 0) {
+  const errorMessage = `Firebaseの必須の設定が.envファイルにありません。次のキーを確認してください: ${missingKeys.map(key => `REACT_APP_${key.replace(/([A-Z])/g, '_$1').toUpperCase()}`).join(', ')}`;
+  console.error(errorMessage);
+  // エラーをスローしてアプリケーションの実行を停止
+  throw new Error(errorMessage);
 }
 
 const app: FirebaseApp = initializeApp(firebaseConfig);
