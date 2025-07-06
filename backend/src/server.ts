@@ -22,14 +22,31 @@ const db = admin.firestore();
 const app: Express = express();
 const PORT: string | number = process.env.PORT || 3001;
 
-// CORS設定、ローカルでは別のドメインを設定してるので、ローカルではlocalhost:3000を許可する。本番では同じドメインのため不要。
-app.use(cors({
-  origin: [
+// CORS設定：環境変数を使用した動的設定
+const getCorsOrigins = () => {
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  if (!isDevelopment) {
+    // 本番環境では同じドメインからのアクセスのためCORS設定は不要
+    return [];
+  }
+  
+  // 開発環境でのデフォルト設定
+  const defaultOrigins = [
     'http://localhost:3000',
-    'http://100.64.1.32:3000',
-    'http://100.64.1.37:3000',
     'http://127.0.0.1:3000',
-  ],
+  ];
+  
+  // 環境変数からカスタムオリジンを追加
+  const customOrigins = process.env.CORS_ORIGINS 
+    ? process.env.CORS_ORIGINS.split(',').map((origin: string) => origin.trim())
+    : [];
+  
+  return [...defaultOrigins, ...customOrigins];
+};
+
+app.use(cors({
+  origin: getCorsOrigins(),
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
