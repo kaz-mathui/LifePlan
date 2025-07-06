@@ -302,3 +302,4 @@ const getCorsOrigins = () => {
 - CORS設定の環境変数化による動的設定
 - ESLintとPrettierによるコード品質の統一化
 - エラーハンドリングの強化（フロントエンド・バックエンド）
+
