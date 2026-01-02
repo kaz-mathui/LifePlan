@@ -145,24 +145,87 @@ pnpm install
 ```
 
 **2. 環境変数の設定**:
-各ディレクトリの `.env.example` をコピーして `.env` ファイルを作成し、内容を編集します。
-- **フロントエンド**: `cp frontend/.env.example frontend/.env`
-- **バックエンド**: `cp backend/.env.example backend/.env`
-    - `SERVICE_ACCOUNT_KEY`には、FirebaseのサービスアカウントキーJSONをBase64エンコードした文字列を設定します。
-    - `base64 -i path/to/serviceAccountKey.json | tr -d '\n'`
+
+各ディレクトリの `.env.example` をコピーして `.env` ファイルを作成します。
+
+```bash
+cp frontend/.env.example frontend/.env
+cp backend/.env.example backend/.env
+```
+
+| ファイル | 設定が必要な項目 |
+|---------|----------------|
+| `frontend/.env` | Firebase設定（`REACT_APP_FIREBASE_*`）を入力 |
+| `backend/.env` | `SERVICE_ACCOUNT_KEY` を入力 |
+
+> **📝 SERVICE_ACCOUNT_KEY の取得方法**:
+> Firebase Console > プロジェクト設定 > サービスアカウント > 新しい秘密鍵を生成 でJSONをダウンロードし、以下でBase64エンコードします:
+> ```bash
+> base64 -i path/to/serviceAccountKey.json | tr -d '\n'
+> ```
 
 **3. 開発サーバーの起動**:
 ```bash
 pnpm dev
 ```
-- **PCブラウザからのアクセス**:
-    - フロントエンド: `http://localhost:3000`
-    - バックエンド: `http://localhost:3001`
-- **実機（スマートフォン）からのアクセス**:
-    1. PCのローカルIPアドレスを確認します (`ipconfig getifaddr en0` など)。
-    2. `frontend/.env` に `REACT_APP_BACKEND_URL=http://<あなたのPCのIPアドレス>:3001` を設定します。
-    3. 開発サーバーを再起動します (`pnpm dev`)。
-    4. スマートフォンのブラウザから `http://<あなたのPCのIPアドレス>:3000` にアクセスします。
+
+#### 📱 PCブラウザからのアクセス
+
+- フロントエンド: http://localhost:3000
+- バックエンド: http://localhost:3001
+
+> **⚠️ 注意**: `frontend/.env` の `REACT_APP_BACKEND_URL` は**コメントアウト**してください。  
+> 設定されていると `localhost` ではなく指定IPに接続しようとしてエラーになります。
+> ```bash
+> # frontend/.env
+> # REACT_APP_BACKEND_URL=http://192.168.1.100:3001  ← コメントアウトのまま
+> ```
+
+#### 📲 実機（スマートフォン）からのアクセス
+
+実機からアクセスする場合は、以下の設定が**すべて必須**です。  
+⚠️ **IPアドレスが変更された場合は、手順1〜4を再度実施してください。**
+
+1. **PCのローカルIPアドレスを確認**:
+   ```bash
+   # macOS/Linux
+   ipconfig getifaddr en0
+   ```
+
+2. **`frontend/.env` を更新**:
+   ```bash
+   REACT_APP_BACKEND_URL=http://<あなたのPCのIPアドレス>:3001
+   ```
+
+3. **`backend/.env` を更新**:
+   ```bash
+   CORS_ORIGINS=http://<あなたのPCのIPアドレス>:3000
+   
+   # 複数のデバイスからアクセスする場合はカンマ区切りで指定
+   # CORS_ORIGINS=http://192.168.1.100:3000,http://10.0.0.50:3000
+   ```
+
+4. **Firebase Authentication に承認済みドメインを追加**:
+   
+   Firebase認証を使用しているため、実機からログインするにはドメインの承認が必要です。
+   
+   1. [Firebase Console](https://console.firebase.google.com/) を開く
+   2. プロジェクトを選択 > **Authentication** > **設定** タブ
+   3. **承認済みドメイン** セクションで「**ドメインの追加**」をクリック
+   4. PCのIPアドレス（例: `192.168.1.100`）を追加
+   
+   > ⚠️ IPアドレスが変わるたびに新しいIPを追加する必要があります。
+
+5. **開発サーバーを再起動**:
+   ```bash
+   pnpm dev:down
+   pnpm dev
+   ```
+
+6. **スマートフォンのブラウザからアクセス**:
+   ```
+   http://<あなたのPCのIPアドレス>:3000
+   ```
 
 **4. 開発サーバーの停止**:
 ```bash
@@ -171,60 +234,23 @@ pnpm dev:down
 
 ### ⚙️ CORS設定について
 
-**動的CORS設定**:
-本プロジェクトでは、環境変数を使用した柔軟なCORS設定を採用しています。IPアドレスを変更するたびにコードを修正する必要がありません。
+本プロジェクトでは、環境変数を使用した柔軟なCORS設定を採用しています。
 
-**設定方法**:
-1. **デフォルト設定**: 開発環境では `localhost:3000` と `127.0.0.1:3000` が自動的に許可されます。
-2. **カスタム設定**: 実機からのアクセスには環境変数 `CORS_ORIGINS` を使用します。
+- **PCブラウザ**: `localhost:3000` と `127.0.0.1:3000` はデフォルトで許可されています（設定不要）
+- **実機**: 環境変数 `CORS_ORIGINS` で許可するオリジンを追加します（設定手順は上記「実機からのアクセス」を参照）
 
-**実機からのアクセス設定例**:
-```bash
-# backend/.env ファイルに追加
-CORS_ORIGINS=http://192.168.1.100:3000,http://10.0.0.50:3000
-```
-
-**設定手順**:
-1. PCのローカルIPアドレスを確認:
-   ```bash
-   # macOS/Linux
-   ipconfig getifaddr en0
-   # または
-   ifconfig | grep "inet " | grep -v 127.0.0.1
-   
-   # Windows
-   ipconfig | findstr /i "IPv4"
-   ```
-
-2. `backend/.env` ファイルに `CORS_ORIGINS` を追加:
-   ```bash
-   # 例：IPアドレスが 192.168.1.100 の場合
-   CORS_ORIGINS=http://192.168.1.100:3000
-   
-   # 複数のIPアドレスがある場合（カンマ区切り）
-   CORS_ORIGINS=http://192.168.1.100:3000,http://10.0.0.50:3000
-   ```
-
-3. 開発サーバーを再起動:
-   ```bash
-   pnpm dev:down
-   pnpm dev
-   ```
-
-4. 実機から `http://あなたのPCのIPアドレス:3000` にアクセス
-
-**現在の実装**:
+**実装詳細**:
 ```typescript
 // backend/src/server.ts
 const getCorsOrigins = () => {
-  const isDevelopment = process.env.NODE_ENV === 'development';
+  const isDevelopment = process.env.NODE_ENV !== 'production';
   
   if (!isDevelopment) {
     // 本番環境では同じドメインからのアクセスのためCORS設定は不要
     return [];
   }
   
-  // 開発環境でのデフォルト設定
+  // 開発環境でのデフォルト設定（NODE_ENVが未設定または'production'以外の場合）
   const defaultOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
@@ -238,6 +264,8 @@ const getCorsOrigins = () => {
   return [...defaultOrigins, ...customOrigins];
 };
 ```
+
+> **📝 補足**: `NODE_ENV` を明示的に設定する必要はありません。未設定の場合は開発モードとして動作します。本番環境では `NODE_ENV=production` が設定されます。
 
 **利点**:
 - IPアドレスが変わってもコードを修正する必要がない
@@ -299,7 +327,6 @@ const getCorsOrigins = () => {
 - ステージング環境の構築
 - CloudWatchによる監視体制の強化
 - HTTPS対応 (ALBへのACM証明書割当)
-- CORS設定の環境変数化による動的設定
 - ESLintとPrettierによるコード品質の統一化
 - エラーハンドリングの強化（フロントエンド・バックエンド）
 
