@@ -25,23 +25,23 @@ const PORT: string | number = process.env.PORT || 3001;
 // CORS設定：環境変数を使用した動的設定
 const getCorsOrigins = () => {
   const isDevelopment = process.env.NODE_ENV !== 'production';
-  
+
+  // 環境変数からカスタムオリジンを追加（本番・開発共通）
+  const customOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map((origin: string) => origin.trim())
+    : [];
+
   if (!isDevelopment) {
-    // 本番環境では同じドメインからのアクセスのためCORS設定は不要
-    return [];
+    // 本番環境：CORS_ORIGINSが設定されていればそれを使用（Cloud Run等の別ドメイン構成用）
+    return customOrigins;
   }
-  
+
   // 開発環境でのデフォルト設定
   const defaultOrigins = [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
   ];
-  
-  // 環境変数からカスタムオリジンを追加
-  const customOrigins = process.env.CORS_ORIGINS 
-    ? process.env.CORS_ORIGINS.split(',').map((origin: string) => origin.trim())
-    : [];
-  
+
   return [...defaultOrigins, ...customOrigins];
 };
 
