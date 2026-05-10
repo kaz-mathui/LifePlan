@@ -19,13 +19,14 @@ services:
       context: .
       dockerfile: ./frontend/Dockerfile.dev
     ports:
-      - "3000:3000"
+      - "3002:3000"
     volumes:
       # ソースコードのホットリロード
       - ./frontend/src:/usr/src/app/frontend/src
       - ./frontend/public:/usr/src/app/frontend/public
     environment:
       - CHOKIDAR_USEPOLLING=true
+      - WDS_SOCKET_PORT=3002
     container_name: lifeplan-frontend-dev
     restart: unless-stopped
     depends_on:
