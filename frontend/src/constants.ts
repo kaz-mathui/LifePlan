@@ -5,10 +5,10 @@ import { SimulationInputData } from './types';
 import { v4 as uuidv4 } from 'uuid';
 
 // API関連の定数
-// 本番環境では相対パスを使用し、開発環境では.envでREACT_APP_BACKEND_URLを指定してください。
-export const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? '' // 本番環境では相対パスを使用
-  : (process.env.REACT_APP_BACKEND_URL || 'http://localhost:3001');
+// REACT_APP_BACKEND_URLが設定されていればそれを使用（Cloud Run等の別ドメイン構成）
+// 未設定なら本番は相対パス、開発はlocalhost:3001
+export const API_BASE_URL = process.env.REACT_APP_BACKEND_URL
+  || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001');
 
 export const API_ENDPOINTS = {
   SIMULATION: '/api/simulation',
