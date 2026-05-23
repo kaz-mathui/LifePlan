@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LifePlan アーキテクチャ解説</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Helvetica Neue", sans-serif;
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    min-height: 100vh;
+    margin: 0;
+    overflow-x: hidden;
+  }
+  .slide {
+    display: none;
+    min-height: calc(100vh - 60px);
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 40px 60px 100px;
+    box-sizing: border-box;
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  .slide.active { display: block; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .slide h1 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 1.5rem;
+  }
+  .slide h2 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #1a202c;
+    margin: 2.5rem 0 1rem;
+    border-left: 5px solid #667eea;
+    padding-left: 0.75rem;
+    letter-spacing: -0.01em;
+  }
+  .slide p, .slide li { font-size: 1.05rem; line-height: 1.7; color: #2d3748; }
+  .slide strong { color: #5b21b6; font-weight: 700; }
+  .slide code {
+    background: #edf2f7;
+    color: #86198f;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.95em;
+    font-family: "SF Mono", Monaco, Menlo, monospace;
+  }
+  .nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 60px;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 30px;
+    z-index: 100;
+  }
+  .nav button {
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    color: white;
+    padding: 8px 24px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .nav button:hover { transform: translateY(-2px); }
+  .nav button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; background: #cbd5e0; }
+  .nav button:focus-visible,
+  .toc-item:focus-visible,
+  .toc-btn:focus-visible { outline: 3px solid #fbbf24; outline-offset: 2px; }
+  .page-num { font-weight: 600; color: #4a5568; }
+  .toc-btn {
+    background: none;
+    color: #667eea;
+    border: 1px solid #cbd5e0;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    margin: 1rem 0;
+  }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .step {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    align-items: flex-start;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+  }
+  .badge {
+    display: inline-block;
+    background: #ddd6fe;
+    color: #5b21b6;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  .badge-green { background: #d1fae5; color: #065f46; }
+  .badge-orange { background: #fed7aa; color: #9a3412; }
+  .badge-red { background: #fecaca; color: #991b1b; }
+  .badge-blue { background: #dbeafe; color: #1e40af; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+  .badge-pink { background: #fce7f3; color: #9d174d; }
+  .key-vs-pass {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+  }
+  .approach {
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 2px solid;
+  }
+  .old { border-color: #ef4444; background: #fef2f2; }
+  .new { border-color: #10b981; background: #f0fdf4; }
+  .emoji-big { font-size: 3rem; line-height: 1; display: block; margin-bottom: 0.5rem; }
+  .mermaid {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem 2.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    overflow-x: auto;
+    text-align: center;
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+  table.glossary tr:nth-child(even) td { background: #f9fafb; }
+  table.glossary tr:hover td { background: #ede9fe; }
+  table.glossary td:first-child { width: 220px; white-space: nowrap; font-weight: 600; }
+  .toc-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 1.5rem; margin-top: 1rem; }
+  .toc-item {
+    padding: 8px 12px;
+    background: white;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #4a5568;
+    transition: all 0.15s;
+  }
+  .toc-item:hover { background: #ede9fe; color: #5b21b6; }
+  table.glossary { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+  table.glossary th, table.glossary td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+  table.glossary th { background: #f7fafc; font-weight: 700; color: #2d3748; }
+  table.glossary code { font-size: 0.85em; }
+</style>
+</head>
+<body>
+
+<!-- Slide 1: Title -->
+<div class="slide active">
+  <div style="display: flex; align-items: center; justify-content: center; min-height: 70vh; text-align: center;">
+    <div>
+      <div style="font-size: 5rem;">🏠💰</div>
+      <h1 style="font-size: 3.5rem;">LifePlan アーキテクチャ解説</h1>
+      <p style="font-size: 1.4rem; color: #4a5568; margin-top: 1rem;">Cloud Run × Firebase × WIF</p>
+      <div style="margin-top: 3rem; display: flex; gap: 1rem; justify-content: center;">
+        <span class="badge">📅 2026-05-23 版</span>
+      </div>
+      <p style="margin-top: 2rem; color: #718096;">→ キーボードの ← / → またはスペースキーでめくれます</p>
+    </div>
+  </div>
+</div>
+
+<!-- Slide 2: 目次 -->
+<div class="slide">
+  <h1>📚 目次</h1>
+  <p>このスライドで扱う内容を一気に俯瞰しておきます。クリックでジャンプできます。</p>
+  <div class="toc-list">
+    <div class="toc-item" onclick="goto(3)">3. LifePlan ってどんなアプリ？</div>
+    <div class="toc-item" onclick="goto(4)">4. 全体像（1枚絵）</div>
+    <div class="toc-item" onclick="goto(5)">5. リクエストの旅</div>
+    <div class="toc-item" onclick="goto(6)">6. デプロイの流れ（CI/CD）</div>
+    <div class="toc-item" onclick="goto(7)">7. WIF — キーレス認証の仕組み</div>
+    <div class="toc-item" onclick="goto(8)">8. なぜこの技術を選んだのか</div>
+    <div class="toc-item" onclick="goto(9)">9. 用語集</div>
+    <div class="toc-item" onclick="goto(10)">10. まとめ & 次に学ぶといいこと</div>
+  </div>
+</div>
+
+<!-- Slide 3: What is LifePlan -->
+<div class="slide">
+  <h1>🏠 LifePlan ってどんなアプリ？</h1>
+  <div class="card">
+    <h2 style="border:none; padding:0; margin-top:0;">ひとことで言うと</h2>
+    <p style="font-size: 1.3rem;"><strong>未来の家計をシミュレーションし、グラフで可視化する</strong> Webアプリ。</p>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2 style="border:none; padding:0; margin-top:0;">👤 ユーザーから見ると</h2>
+      <ul style="margin: 0; padding-left: 1.2rem;">
+        <li>ブラウザでアクセス（PC/スマホ）</li>
+        <li>Google アカウントでログイン</li>
+        <li>収入・支出・資産を入力</li>
+        <li>未来の資産推移をグラフで確認</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h2 style="border:none; padding:0; margin-top:0;">💻 技術的に何が動いてる？</h2>
+      <ul style="margin: 0; padding-left: 1.2rem;">
+        <li><span class="badge badge-blue">frontend</span> React (CRA) + Chart.js</li>
+        <li><span class="badge badge-blue">backend</span> Node.js + Express</li>
+        <li><span class="badge badge-green">DB</span> Firestore（NoSQL）</li>
+        <li><span class="badge badge-orange">認証</span> Firebase Authentication</li>
+        <li><span class="badge">インフラ</span> Google Cloud Run</li>
+      </ul>
+    </div>
+  </div>
+
+  <p style="margin-top: 1.5rem; color: #718096; font-size: 0.95rem;">💡 個人開発プロジェクト。コストは月数百円〜数千円レベル（min-instances=0 のおかげ）。</p>
+</div>
+
+<!-- Slide 4: 全体像 -->
+<div class="slide">
+  <h1>🗺️ 全体像（1枚絵）</h1>
+  <p>登場人物は大きく分けて<strong>4つ</strong>です。色で役割を分けています。</p>
+  <div class="mermaid">
+flowchart TB
+    User([ユーザー ブラウザ])
+
+    subgraph GCP["Google Cloud lifeplan-f73ae"]
+        FE["Cloud Run frontend<br>nginx + React build"]
+        BE["Cloud Run backend<br>Node.js + Express"]
+        AR["Artifact Registry<br>Docker Images"]
+        SM["Secret Manager<br>Firebase SA Key"]
+    end
+
+    subgraph FB["Firebase"]
+        Auth["Firebase Auth<br>ログイン管理"]
+        FS[("Firestore<br>ユーザーデータ")]
+    end
+
+    subgraph GH["GitHub"]
+        Repo["コードリポジトリ"]
+        GA["GitHub Actions<br>CI / CD"]
+    end
+
+    User -- 画面取得 HTTPS --> FE
+    User -- API + IDトークン --> BE
+    User -- ログイン --> Auth
+    BE -- データ読書 --> FS
+    BE -- SAキー取得 --> SM
+
+    Repo -- main push --> GA
+    GA -- WIF認証 --> GCP
+    GA -- image push --> AR
+    GA -- deploy --> FE
+    GA -- deploy --> BE
+
+    style User fill:#fef3c7,stroke:#f59e0b,stroke-width:2px
+    style FE fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+    style BE fill:#dbeafe,stroke:#3b82f6,stroke-width:2px
+    style Auth fill:#fce7f3,stroke:#ec4899,stroke-width:2px
+    style FS fill:#fce7f3,stroke:#ec4899,stroke-width:2px
+    style GA fill:#d1fae5,stroke:#10b981,stroke-width:2px
+  </div>
+  <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+    <span class="badge badge-blue">Cloud Run = アプリ本体</span>
+    <span class="badge badge-pink">Firebase = データと認証</span>
+    <span class="badge badge-green">GitHub Actions = 自動デプロイ</span>
+    <span class="badge badge-orange">ユーザー = ブラウザから操作</span>
+  </div>
+  <p style="margin-top: 1rem; color: #4a5568; font-size: 0.95rem;">
+    💡 ブラウザは <strong>frontend（画面ファイル）</strong> と <strong>backend（API）</strong> の両方に直接アクセスします。CORS 設定は別オリジン間のアクセスを許可するために必要。
+  </p>
+</div>
+
+<!-- Slide 5: リクエストの旅 -->
+<div class="slide">
+  <h1>🚶 リクエストの旅</h1>
+  <p>Slide 4 の全体像を <strong>時系列</strong> で追います。例として「収入を保存」ボタンを押す動作。</p>
+
+  <div class="grid-2" style="margin-top: 1.5rem;">
+    <div>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div>
+          <strong>URL を開く</strong>
+          <p style="margin: 0.25rem 0; color: #4a5568;">Cloud Run の frontend が HTML / JS / CSS を返す。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div>
+          <strong>React アプリ起動</strong>
+          <p style="margin: 0.25rem 0; color: #4a5568;">Firebase Auth にログイン状態を問い合わせ。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div>
+          <strong>Google でログイン</strong>
+          <p style="margin: 0.25rem 0; color: #4a5568;">Firebase Auth が <strong>IDトークン (JWT)</strong> を発行。以降のAPI呼び出しに添える。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num" style="background: linear-gradient(90deg,#f59e0b,#ef4444);">4</div>
+        <div>
+          <strong>「収入を保存」を押す</strong>
+          <p style="margin: 0.25rem 0; color: #4a5568;">React が <code>POST /api/income</code> を backend に送信。<strong>ヘッダに IDトークン付き</strong>。</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div>
+          <strong>backend が IDトークンを検証</strong>
+          <p style="margin: 0.25rem 0; color: #4a5568;">Firebase Admin SDK が <strong>Google の公開鍵</strong>（自動取得）でトークンの署名を検証。改ざんされてないか・誰のものかが分かる。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num" style="background: linear-gradient(90deg,#f59e0b,#ef4444);">6</div>
+        <div>
+          <strong>Firestore に保存</strong>
+          <p style="margin: 0.25rem 0; color: #4a5568;"><code>users/{uid}/income</code> に書き込み。<br>Admin SDK の認証には <strong>SAキー（Secret Manager 経由で注入）</strong> を使用。</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">7</div>
+        <div>
+          <strong>200 OK を返す</strong>
+          <p style="margin: 0.25rem 0; color: #4a5568;">React が UI を更新して「保存しました」を表示。</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top: 1.5rem; background: #fef3c7; border-left: 4px solid #f59e0b;">
+        <strong>📌 現状の過渡期構成</strong>
+        <p style="margin: 0.5rem 0 0; font-size: 0.95rem;">CI/CD は WIF でキーレスだが、backend の Firestore 接続には SA キー JSON を使用中。将来的には <strong>Cloud Run ランタイム SA に Firestore 権限を付与する ADC 方式</strong> に置き換えると、アプリ側からも JSON キーが消える。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Slide 6: デプロイの流れ -->
+<div class="slide">
+  <h1>🚀 デプロイの流れ（CI/CD）</h1>
+  <p><code>git push origin main</code> したあと、自動で何が起きるか。<strong>所要時間およそ 3 分</strong>。</p>
+
+  <div class="mermaid">
+flowchart LR
+    Dev([開発者]) -- git push --> Main["main branch"]
+    Main -- Trigger --> GA["GitHub Actions"]
+
+    subgraph Pipeline["GitHub Actions Pipeline （単一 job 内で直列実行）"]
+        direction TB
+        Check["Checkout"]
+        Auth["WIF Auth<br>GCP短命トークン取得"]
+        BuildBE["Build backend image"]
+        PushBE["Push backend"]
+        BuildFE["Build frontend image"]
+        PushFE["Push frontend"]
+        DeployBE["Deploy backend"]
+        DeployFE["Deploy frontend"]
+
+        Check --> Auth --> BuildBE --> PushBE --> BuildFE --> PushFE --> DeployBE --> DeployFE
+    end
+
+    GA --> Pipeline
+    DeployFE --> CR["Cloud Run<br>新リビジョン公開"]
+
+    style Auth fill:#fef3c7,stroke:#f59e0b
+    style CR fill:#d1fae5,stroke:#10b981
+  </div>
+
+  <div class="grid-3" style="margin-top: 1.5rem;">
+    <div class="card">
+      <h2 style="border:none; padding:0; margin-top:0; font-size: 1.2rem;">🔄 無停止デプロイ</h2>
+      <p style="margin: 0; font-size: 0.95rem;">新リビジョンを立ち上げてから古いのを止める方式。<strong>ユーザーが見ているページは切れない</strong>。</p>
+    </div>
+    <div class="card">
+      <h2 style="border:none; padding:0; margin-top:0; font-size: 1.2rem;">💸 アイドル時 0 円</h2>
+      <p style="margin: 0; font-size: 0.95rem;">min-instances=0 のためアクセスがなければインスタンス0。<strong>固定費ゼロ</strong>で個人開発の友。</p>
+    </div>
+    <div class="card" style="border-left: 4px solid #f59e0b;">
+      <h2 style="border:none; padding:0; margin-top:0; font-size: 1.2rem;">⚠️ コールドスタートあり</h2>
+      <p style="margin: 0; font-size: 0.95rem;">アイドルからの初回アクセスは <strong>1〜3秒</strong>の起動待ちが発生。レイテンシ重視なら min-instances=1（月数百円〜）。</p>
+    </div>
+  </div>
+</div>
+
+<!-- Slide 7: WIF -->
+<div class="slide">
+  <h1>🔐 WIF — キーレス認証の仕組み</h1>
+  <p><strong>Workload Identity Federation（ワークロード・アイデンティティ・フェデレーション）</strong>。
+  CI/CD が GCP にアクセスするときに、<strong>JSONキーを使わない</strong>仕組み。</p>
+
+  <h2>例え話で理解する</h2>
+  <div class="key-vs-pass">
+    <div class="approach old">
+      <span class="emoji-big">🔑</span>
+      <strong style="font-size: 1.2rem;">昔のやり方（SA キー JSON）</strong>
+      <p style="margin: 0.5rem 0;">家の<strong>合鍵を1本作って渡す</strong>。</p>
+      <ul style="margin: 0.5rem 0; padding-left: 1.2rem;">
+        <li>持ってる人は誰でも家に入れる</li>
+        <li>なくしたら大事故 → 鍵交換</li>
+        <li>定期的にローテーション必要</li>
+      </ul>
+    </div>
+    <div class="approach new">
+      <span class="emoji-big">🪪</span>
+      <strong style="font-size: 1.2rem;">WIF のやり方</strong>
+      <p style="margin: 0.5rem 0;">受付（WIF Provider）で<strong>身分証 → 一時パス</strong>に交換。</p>
+      <ul style="margin: 0.5rem 0; padding-left: 1.2rem;">
+        <li>受付は <strong><code>kaz-mathui/LifePlan</code> リポからの提示しか受け付けない</strong></li>
+        <li>一時パスは <strong>1時間</strong>で失効</li>
+        <li>JSON キーがそもそも存在しない</li>
+      </ul>
+    </div>
+  </div>
+
+  <p style="margin-top: 1rem; color: #4a5568; font-size: 0.95rem;">
+    💡 <strong>OIDC の本質</strong>は「リポジトリ・ブランチ・ワークフロー等のクレーム（主張）を含む JWT」。WIF Provider 側で<strong>「どのリポからの提示なら通すか」を厳密に絞る</strong>のがセキュリティの要。
+  </p>
+
+  <h2>実際の流れ</h2>
+  <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant GA as GitHub Actions
+    participant OIDC as GitHub OIDC
+    participant Pro as WIF Provider
+    participant STS as GCP STS
+    participant CR as Cloud Run
+
+    GA->>OIDC: 身分証ください
+    OIDC-->>GA: JWT リポ名 ブランチ等を含む
+    GA->>Pro: この身分証で GCP 入れますか
+    Pro->>Pro: リポジトリ条件チェック
+    Pro->>STS: OK SA impersonated トークン発行
+    STS-->>GA: アクセストークン 有効1時間
+    GA->>CR: そのトークンでデプロイ実行
+    Note over GA,CR: ジョブ終了、トークン自動失効
+  </div>
+
+  <div class="card" style="margin-top: 1rem; background: #fef2f2; border-left: 4px solid #ef4444;">
+    <strong>⚠️ アンチパターン</strong>
+    <p style="margin: 0.5rem 0 0; font-size: 0.95rem;">attribute condition を緩く <code>repository_owner</code> だけにすると、同じ owner の他リポからも同じトークンが取得できてしまう。<strong><code>repository</code> か <code>google.subject</code> を必ず条件に入れる</strong>こと。</p>
+  </div>
+
+  <p style="margin-top: 1rem; background: #ede9fe; padding: 12px 16px; border-radius: 8px; color: #5b21b6;">
+    💡 <strong>ポイント</strong>: もし GitHub Actions のログがどこかに漏れても、その時には既にトークンが失効している。被害が限定的。
+  </p>
+</div>
+
+<!-- Slide 8: なぜこの技術 -->
+<div class="slide">
+  <h1>🤔 なぜこの技術を選んだのか</h1>
+
+  <div class="grid-3">
+    <div class="card">
+      <h2 style="border:none; padding:0; margin-top:0; font-size: 1.3rem;">☁️ なぜ Cloud Run？</h2>
+      <ul style="margin: 0; padding-left: 1.2rem;">
+        <li><strong>サーバ管理不要</strong>。OS パッチ・スケーリング全部おまかせ</li>
+        <li><strong>使った分だけ課金</strong>。min=0 でアイドル時0円</li>
+        <li><strong>HTTPS 自動</strong>。証明書管理も自動</li>
+        <li><strong>Docker さえあれば動く</strong>。コンテナ部分のポータビリティはある</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h2 style="border:none; padding:0; margin-top:0; font-size: 1.3rem;">🔥 なぜ Firebase？</h2>
+      <p style="margin: 0 0 0.5rem; font-weight: 600;">個人開発で「認証 + DB を最短で揃える」なら現状ほぼ一強。</p>
+      <ul style="margin: 0; padding-left: 1.2rem;">
+        <li>Google ログイン即実装、自前管理不要</li>
+        <li>Firestore はリアルタイム同期可</li>
+        <li>無料枠が広く個人利用ならほぼ課金されない</li>
+      </ul>
+      <p style="margin: 0.75rem 0 0; color: #9a3412; font-size: 0.9rem; background: #fff7ed; padding: 6px 10px; border-radius: 6px;">⚠️ Firestore と Auth は GCP 固有。<strong>ロックインは強い</strong>。それを受け入れる代わりに開発速度を取る選択。</p>
+    </div>
+
+    <div class="card">
+      <h2 style="border:none; padding:0; margin-top:0; font-size: 1.3rem;">🔐 なぜ WIF？</h2>
+      <ul style="margin: 0; padding-left: 1.2rem;">
+        <li><strong>JSON キーが存在しない</strong> → 漏洩リスク・ローテ作業ゼロ</li>
+        <li>Google が公式に推奨しており、<strong>新規構築時の第一候補</strong>になりつつある</li>
+        <li>リポジトリ条件で<strong>第三者からの偽装を防御</strong></li>
+        <li>失敗時のトークン失効も自動</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card" style="opacity: 0.85; margin-top: 1rem;">
+    <h2 style="border:none; padding:0; margin-top:0; font-size: 1.1rem; color: #4a5568;">⚛️ 補足: React (CRA) について</h2>
+    <p style="margin: 0; font-size: 0.95rem;">情報量が多く Firebase の React SDK も充実。ただし <strong>CRA 自体は開発が止まりつつある</strong>ため、将来的には Vite への移行も検討余地あり。</p>
+  </div>
+</div>
+
+<!-- Slide 9: 用語集 -->
+<div class="slide">
+  <h1>📖 用語集</h1>
+  <p>このスライドで出てきた言葉を整理。同僚との会話で「これ何？」と聞かれたら答えられるレベルで覚えておくと吉。</p>
+
+  <table class="glossary">
+    <tr><th>用語</th><th>意味</th></tr>
+    <tr><td><strong>Cloud Run</strong></td><td>Googleのサーバレスコンテナ実行環境。Dockerイメージを渡すと自動でHTTPS付きで動く</td></tr>
+    <tr><td><strong>Artifact Registry</strong></td><td>GCPの Docker イメージ保管庫。AWS でいう ECR</td></tr>
+    <tr><td><strong>Firestore</strong></td><td>FirebaseのNoSQLデータベース。JSON っぽい形でデータを保存できる</td></tr>
+    <tr><td><strong>Firebase Auth</strong></td><td>Googleが提供する認証サービス。Googleログイン・メール認証等を簡単に実装できる</td></tr>
+    <tr><td><strong>Service Account (SA)</strong></td><td>「人間じゃないユーザー」。アプリやCI/CDがGCPを操作する時に使うID</td></tr>
+    <tr><td><strong>WIF</strong></td><td>Workload Identity Federation。外部サービス（GitHub等）の身分証でGCPに入れる仕組み</td></tr>
+    <tr><td><strong>OIDC</strong></td><td>OpenID Connect。「私は誰々です」を証明する身分証の標準規格</td></tr>
+    <tr><td><strong>JWT</strong></td><td>JSON Web Token。署名付きで<strong>改ざん検知ができる</strong>身分証データ。中身は base64 エンコードなので<strong>誰でも読める</strong>（暗号化ではない）→ 機密情報は入れない</td></tr>
+    <tr><td><strong>impersonate</strong></td><td>「このSAとして振る舞ってよし」という権限委譲</td></tr>
+    <tr><td><strong>ADC</strong></td><td>Application Default Credentials。Cloud Run などのGCP上で動くアプリが、自動でランタイムSAの権限を使う仕組み。JSONキー不要</td></tr>
+    <tr><td><strong>Docker</strong></td><td>「アプリと環境を1つの箱にまとめる」技術。Cloud Runはこの箱を動かす</td></tr>
+    <tr><td><strong>min-instances</strong></td><td>Cloud Runで「常に何台動かしておくか」の設定。0にするとアイドル時は0台で課金されない（代わりにコールドスタートあり）</td></tr>
+    <tr><td><strong>コールドスタート</strong></td><td>Cloud Run でインスタンス数0から起動するときの初回アクセス遅延（Node.js+Firebaseで1〜3秒）</td></tr>
+    <tr><td><strong>monorepo</strong></td><td>1つのリポジトリに複数のアプリ（frontend/backend）をまとめる構成</td></tr>
+  </table>
+</div>
+
+<!-- Slide 10: まとめ -->
+<div class="slide">
+  <h1>🎯 まとめ & 次に学ぶといいこと</h1>
+
+  <h2>このアプリで覚えてほしい3つ</h2>
+  <div class="grid-3">
+    <div class="card" style="text-align: center;">
+      <span class="emoji-big">☁️</span>
+      <strong>コンテナ型サーバレスは個人開発に合う</strong>
+      <p style="margin: 0.5rem 0; font-size: 0.95rem;">Cloud Run の min=0 でアイドル時0円。FaaS と違って言語/ランタイム自由。</p>
+    </div>
+    <div class="card" style="text-align: center;">
+      <span class="emoji-big">🔥</span>
+      <strong>マネージドDBは時間を買う</strong>
+      <p style="margin: 0.5rem 0; font-size: 0.95rem;">Firebase Auth + Firestore で認証〜永続化が一気通貫。ロックインの代償と引き換え。</p>
+    </div>
+    <div class="card" style="text-align: center;">
+      <span class="emoji-big">🔐</span>
+      <strong>WIF でキーレス CI/CD</strong>
+      <p style="margin: 0.5rem 0; font-size: 0.95rem;">JSONキーをリポに置く構成を WIF に置き換えると、漏洩リスクとローテ作業がなくなる。</p>
+    </div>
+  </div>
+
+  <h2>もっと深く知るためのキーワード</h2>
+  <div class="card">
+    <ul style="margin: 0; padding-left: 1.2rem;">
+      <li><strong>Cloud Run 第二世代実行環境</strong> — gen2 ランタイムでより高速</li>
+      <li><strong>Cloud Run 同時実行数（concurrency）</strong> — 1インスタンスで何リクエスト捌くか</li>
+      <li><strong>Firestore セキュリティルール</strong> — クライアントから直接アクセス時の権限制御</li>
+      <li><strong>Cloud Build / Cloud Deploy</strong> — GitHub Actions の代わりにGCP内で完結させる選択肢</li>
+      <li><strong>VPC コネクタ</strong> — Cloud Run から VPC 内リソースにアクセスする方法</li>
+      <li><strong>Workload Identity（GKE版）</strong> — Kubernetes ポッドへの応用</li>
+    </ul>
+  </div>
+
+  <h2>関連リンク</h2>
+  <div class="card">
+    <ul style="margin: 0; padding-left: 1.2rem;">
+      <li><a href="https://cloud.google.com/run/docs" target="_blank" style="color: #5b21b6;">Cloud Run 公式ドキュメント</a></li>
+      <li><a href="https://github.com/google-github-actions/auth" target="_blank" style="color: #5b21b6;">google-github-actions/auth (WIF対応の公式アクション)</a></li>
+      <li><a href="https://firebase.google.com/docs" target="_blank" style="color: #5b21b6;">Firebase 公式ドキュメント</a></li>
+      <li><a href="../README.md" style="color: #5b21b6;">プロジェクトREADME</a></li>
+    </ul>
+  </div>
+
+  <p style="margin-top: 2rem; text-align: center; color: #718096;">
+    👏 おつかれさまでした。質問あれば気軽にどうぞ
+  </p>
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+  <button class="toc-btn" onclick="goto(2)">📚 目次へ</button>
+  <div style="display: flex; gap: 1rem; align-items: center;">
+    <button onclick="prev()" id="prevBtn">← 前へ</button>
+    <span class="page-num"><span id="curPage">1</span> / <span id="totalPage">10</span></span>
+    <button onclick="next()" id="nextBtn">次へ →</button>
+  </div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'default',
+    securityLevel: 'loose',
+    flowchart: { padding: 20, nodeSpacing: 50, rankSpacing: 60, useMaxWidth: true },
+    sequence: { useMaxWidth: true, mirrorActors: false },
+    themeVariables: { fontFamily: '-apple-system, BlinkMacSystemFont, "Hiragino Sans", sans-serif' }
+  });
+
+  const slides = document.querySelectorAll('.slide');
+  let current = 0;
+  document.getElementById('totalPage').textContent = slides.length;
+
+  // 各 .mermaid ブロックの元ソースを保存（一度 render すると textContent が SVG に書き換わるため）
+  document.querySelectorAll('.mermaid').forEach((el) => {
+    el.setAttribute('data-source', el.textContent);
+  });
+  const renderedSlides = new Set();
+
+  async function renderSlideMermaid(slideIdx) {
+    if (renderedSlides.has(slideIdx)) return;
+    const slide = slides[slideIdx];
+    const blocks = slide.querySelectorAll('.mermaid');
+    if (!blocks.length) {
+      renderedSlides.add(slideIdx);
+      return;
+    }
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      const source = block.getAttribute('data-source');
+      const id = `mermaid-${slideIdx}-${i}`;
+      try {
+        const { svg } = await mermaid.render(id, source);
+        block.innerHTML = svg;
+      } catch (err) {
+        block.innerHTML = `<div style="color:#b91c1c;padding:1rem;background:#fef2f2;border-radius:8px;"><strong>図の描画に失敗しました</strong><br><pre style="white-space:pre-wrap;font-size:0.85rem;">${err.message || err}</pre></div>`;
+        console.error('mermaid render error', err);
+      }
+    }
+    renderedSlides.add(slideIdx);
+  }
+
+  function show(i) {
+    slides.forEach((s, idx) => s.classList.toggle('active', idx === i));
+    current = i;
+    document.getElementById('curPage').textContent = i + 1;
+    document.getElementById('prevBtn').disabled = i === 0;
+    document.getElementById('nextBtn').disabled = i === slides.length - 1;
+    window.scrollTo(0, 0);
+    renderSlideMermaid(i);
+  }
+  function next() { if (current < slides.length - 1) show(current + 1); }
+  function prev() { if (current > 0) show(current - 1); }
+  function goto(n) { show(n - 1); }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { next(); e.preventDefault(); }
+    if (e.key === 'ArrowLeft') { prev(); e.preventDefault(); }
+  });
+
+  show(0);
+</script>
+
+</body>
+</html>

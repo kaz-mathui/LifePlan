@@ -12,59 +12,59 @@
   - [🚀 開発環境のセットアップ](#-開発環境のセットアップ)
   - [⚙️ CORS設定について](#️-cors設定について)
 - [✅ テスト](#-テスト)
-- [🚀 本番環境（AWS）](#-本番環境aws)
+- [🚀 本番環境（Google Cloud Run）](#-本番環境google-cloud-run)
 - [🔄 CI/CD](#-cicd)
 - [🔒 環境変数とシークレット](#-環境変数とシークレット)
 - [🔮 今後の改善案](#-今後の改善案)
 
 ## ✨ 概要
 
-React (Create React App) と Node.js (Express) によるモノレポ構成のアプリケーションです。インフラは Terraform でコード管理され、AWS 上に構築されます。
+React (Create React App) と Node.js (Express) によるモノレポ構成の Webアプリケーションです。
+インフラは **Google Cloud Run** にデプロイされ、認証データベースは **Firebase** を使用しています。
+CI/CD は **GitHub Actions + Workload Identity Federation（キーレス認証）** で構築しています。
 
-**アーキテクチャの特徴**: インフラを**永続** (`base`) と**オンデマンド** (`alb`) の2レイヤーに分割。開発時間外は `alb` レイヤー（ALB, ECSサービス等）を `terraform destroy` することで、コストを最小限に抑えます。
+> 📘 **アーキテクチャ解説スライド**: [docs/architecture.html](docs/architecture.html) をブラウザで開くと、図解で構成を一通り把握できます。
+
+**アーキテクチャの特徴**:
+- **サーバレス**: Cloud Run の min-instances=0 でアイドル時はコスト0円
+- **キーレス**: GitHub Actions から GCP への認証は WIF 経由で、JSON キーをリポに置かない
+- **マネージドDB**: Firestore + Firebase Auth で、運用負荷を最小化
 
 ```mermaid
 graph TD
-    subgraph "開発者"
-        A[Git Push to main]
+    User[👤 ユーザー]
+
+    subgraph "Google Cloud (lifeplan-f73ae)"
+        FE[Cloud Run: frontend<br/>React + nginx]
+        BE[Cloud Run: backend<br/>Node.js + Express]
+        SM[Secret Manager<br/>Firebase SA Key]
+        AR[Artifact Registry<br/>Docker Images]
     end
 
-    subgraph "AWS CI/CD"
-        A --> B(CodePipeline: Source)
-        B --> C{CodeBuild}
-        C -- ビルド & ECRへプッシュ --> D[ECR]
-        C -- ビルド情報をS3へ --> E[S3: アーティファクト]
-        E --> F(CodePipeline: Deploy)
+    subgraph "Firebase"
+        Auth[Firebase Authentication]
+        FS[(Firestore)]
     end
 
-    subgraph "AWS 本番環境"
-        subgraph "base レイヤー (永続)"
-            D
-            J[Route 53: Hosted Zone]
-            L[VPC, Subnets, etc.]
-            M[ECS Cluster]
-            N[IAM Roles]
-            O[Secrets Manager]
-        end
-
-        subgraph "alb レイヤー (オンデマンド)"
-            G[ALB]
-            H[ECS Fargate: Frontend]
-            I[ECS Fargate: Backend]
-            K[Route 53: A Record]
-        end
-        F -- サービス更新 --> H & I
-        O -- 読込 --> C & I
-    end
-    
-    subgraph "エンドユーザー"
-        P[ユーザー]
+    subgraph "CI/CD (GitHub Actions)"
+        Push[Git Push to main]
+        WIF{Workload Identity<br/>Federation}
+        Build[Build & Push Images]
+        Deploy[Deploy to Cloud Run]
     end
 
-    P -- app.your-domain.com --> K --> G
-    G -- トラフィック --> H & I
-    I -- DBアクセス --> Q((Firebase))
-    P -- 認証 --> Q
+    User -- HTTPS --> FE
+    FE -- API call --> BE
+    BE -- ユーザーデータ読書 --> FS
+    BE -- SA Key参照 --> SM
+    User -- ログイン --> Auth
+
+    Push --> WIF
+    WIF -- 短命トークン --> Build
+    Build -- イメージpush --> AR
+    Build --> Deploy
+    Deploy -- 新リビジョン --> FE
+    Deploy -- 新リビジョン --> BE
 ```
 
 ## 🛠️ 技術スタック
@@ -74,22 +74,30 @@ graph TD
 | **フロントエンド** | React, TypeScript, Create React App, pnpm, Tailwind CSS, Chart.js |
 | **バックエンド** | Node.js, Express, TypeScript, pnpm, Zod |
 | **データベース** | Google Firestore |
-| **インフラ** | AWS (ECS Fargate, ALB, ECR, S3, Route 53), Terraform |
-| **CI/CD** | AWS CodePipeline, AWS CodeBuild, GitHub Actions |
+| **認証** | Firebase Authentication |
+| **インフラ** | Google Cloud Run (asia-northeast1), Artifact Registry, Secret Manager |
+| **CI/CD** | GitHub Actions + Workload Identity Federation（キーレス認証） |
 
 ## 📂 プロジェクト構造
 
 ```
 .
-├── .github/workflows/ci.yml # CI (テスト実行) の定義
-├── backend/                 # バックエンド (Node.js/Express)
-├── frontend/                # フロントエンド (React/CRA)
-├── infra/
-│   ├── base/                # 永続インフラ (VPC, ECR, ECS Clusterなど)
-│   └── alb/                 # オンデマンドインフラ (ALB, ECS Service, CI/CDなど)
-├── scripts/                 # サービス起動・停止スクリプト
+├── .github/workflows/
+│   ├── ci.yml              # PR時のテスト・ビルドチェック
+│   └── cd.yml              # mainプッシュ時のCloud Runデプロイ
+├── backend/                # バックエンド (Node.js/Express)
+│   ├── Dockerfile          # 本番用イメージ定義
+│   └── src/
+├── frontend/               # フロントエンド (React/CRA)
+│   ├── Dockerfile          # 本番用イメージ定義（nginx）
+│   └── src/
+├── docs/
+│   └── architecture.html   # アーキテクチャ解説スライド（ジュニア向け）
+├── docker-compose.dev.yml  # ローカル開発用
 └── pnpm-workspace.yaml
 ```
+
+> ⚠️ `infra/`（Terraform）と `scripts/start_services.sh, stop_services.sh` は旧AWS時代の遺物です。Cloud Run 移行（2026-05）後は使用していません。削除予定。
 
 ## 💻 ローカル開発
 
@@ -290,43 +298,76 @@ const getCorsOrigins = () => {
   pnpm --filter lifeplan-backend test --watch
   ```
 
-## 🚀 本番環境（AWS）
+## 🚀 本番環境（Google Cloud Run）
 
-**前提**: AWSアカウント, AWS CLI, 取得済みドメイン, Firebaseプロジェクト, GitHubリポジトリ
+**前提**: GCPアカウント, gcloud CLI, Firebaseプロジェクト, GitHubリポジトリ
 
-1.  **永続インフラ (`base`) のデプロイ**:
-    1.  **シークレット登録**: AWS Secrets Managerに `prd/life-plan-app/firebase` (FirebaseキーJSON) と `dockerhub/credentials` (DockerHubアクセストークン) を作成します。
-    2.  **変数設定**: `infra/base/terraform.tfvars` に `domain_name` を設定します。
-    3.  **適用**: `cd infra/base && terraform init && terraform apply` を実行します。
+### URL
+- **frontend**: https://lifeplan-frontend-qn2crluibq-an.a.run.app/
+- **backend**: https://lifeplan-backend-qn2crluibq-an.a.run.app/
 
-2.  **オンデマンドインフラ (`alb`) のデプロイ**:
-    1.  **変数設定**: `infra/alb/terraform.tfvars` に `domain_name`, `subdomain_name`, `dockerhub_username` を設定します。
-    2.  **適用**: プロジェクトルートで `./scripts/start_services.sh` を実行します。
-    3.  **承認**: AWSコンソールの `CodeStar Connections` で保留中の接続を承認します。
-    4.  **初回実行**: AWS `CodePipeline` のコンソールからパイプラインを手動で初回実行します。
+### Cloud Run の設定
+| 項目 | backend | frontend |
+|:---|:---|:---|
+| Memory | 256Mi | 128Mi |
+| CPU | 1 | 1 |
+| Min instances | 0（コールドスタート許容） | 0 |
+| Max instances | 2 | 2 |
+| Port | 3001 | 80 |
 
-**運用（コスト削減）**:
-- **停止**: `./scripts/stop_services.sh` (`alb` レイヤーを `destroy`)
-- **起動**: `./scripts/start_services.sh` (`alb` レイヤーを `apply`)
+### 初回セットアップ手順
+1. **GCP プロジェクト作成** & 以下のAPI有効化:
+   - Cloud Run, Artifact Registry, Secret Manager, IAM Credentials, STS, IAM
+2. **Artifact Registry リポジトリ作成**: `lifeplan`（asia-northeast1, Docker形式）
+3. **Firebase サービスアカウントキーを Secret Manager に登録**: 名前は `firebase-service-account`
+4. **Workload Identity Federation セットアップ**: 後述「CI/CD」章を参照
+5. **GitHub Secrets を設定**: 後述「環境変数とシークレット」章を参照
+6. **mainブランチにpush** → GitHub Actions が自動デプロイ
 
 ## 🔄 CI/CD
 
-- **CI (Pull Request時)**: GitHub Actionsが `main` ブランチへのPRをトリガーに、全テストとビルドチェックを自動実行します。 (`.github/workflows/ci.yml`)
-- **CD (Merge時)**: PRがマージされると、AWS CodePipelineが `main` ブランチの最新コードを検知し、ビルド→ECRへプッシュ→ECSへローリングアップデート、という一連のデプロイを自動で行います。
+GitHub Actions + **Workload Identity Federation（WIF, キーレス認証）** で構成しています。
+JSON のサービスアカウントキーを GitHub Secrets に置かない設計です。
+
+### CI（PR時）
+`.github/workflows/ci.yml` がトリガー。テスト・ビルドチェックを実行。
+
+### CD（mainマージ時）
+`.github/workflows/cd.yml` がトリガー。以下の流れ:
+
+1. GitHub Actions が起動、OIDC トークンを自動取得
+2. GCP の Workload Identity Provider に提示 → 短命の GCP アクセストークン発行（有効1時間）
+3. そのトークンで `github-actions-deployer@lifeplan-f73ae.iam.gserviceaccount.com` に impersonate
+4. Backend / Frontend の Docker イメージをビルドし Artifact Registry に push
+5. Cloud Run に新リビジョンとしてデプロイ
+6. ジョブ終了、トークン自動失効
+
+### WIF の構成
+
+| 項目 | 値 |
+|:---|:---|
+| GCP Project Number | `401060844770` |
+| Pool | `github-pool` |
+| Provider | `github-provider` |
+| 受入条件 | `repository_owner == 'kaz-mathui' && repository == 'kaz-mathui/LifePlan'` |
+| デプロイ SA | `github-actions-deployer@lifeplan-f73ae.iam.gserviceaccount.com` |
+| SA ロール | `run.admin` / `artifactregistry.writer` / `iam.serviceAccountUser` / `secretmanager.secretAccessor` |
 
 ## 🔒 環境変数とシークレット
 
 | 環境 | 設定場所 | 詳細 |
 |:---|:---|:---|
-| **ローカル** | `frontend/.env`, `backend/.env` | `docker-compose.yml` により各コンテナに読み込まれます。 |
-| **本番** | AWS Secrets Manager, CodeBuild Env | Terraformコードには秘密情報を含まず、IAMロール経由で安全に読み込まれます。 |
+| **ローカル** | `frontend/.env`, `backend/.env` | `docker-compose.dev.yml` により各コンテナに読み込まれます |
+| **本番（コード時注入）** | GitHub Secrets | `REACT_APP_BACKEND_URL`, `CORS_ORIGINS` — ビルド時に build-arg / 環境変数として注入 |
+| **本番（実行時）** | GCP Secret Manager | `firebase-service-account` — Cloud Run の `--set-secrets` で `SERVICE_ACCOUNT_KEY` 環境変数として注入 |
+| **GCP認証** | **WIF（鍵なし）** | GitHub Secrets に JSON キーは置かない。WIF が OIDC トークンを短命GCPトークンに引き換える |
 
 ## 🔮 今後の改善案
 
-- Terraform StateのS3バックエンドへの移行
-- ステージング環境の構築
-- CloudWatchによる監視体制の強化
-- HTTPS対応 (ALBへのACM証明書割当)
-- ESLintとPrettierによるコード品質の統一化
+- 旧AWS時代の `infra/`（Terraform）と `scripts/start_services.sh, stop_services.sh` を削除
+- ステージング環境（プレビュー Cloud Run）
+- Cloud Monitoring / Logging のダッシュボード整備
+- カスタムドメイン割当（現状は `*.run.app`）
+- ESLint と Prettier 統一
 - エラーハンドリングの強化（フロントエンド・バックエンド）
 
