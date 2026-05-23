@@ -23,7 +23,7 @@ React (Create React App) と Node.js (Express) によるモノレポ構成の We
 インフラは **Google Cloud Run** にデプロイされ、認証データベースは **Firebase** を使用しています。
 CI/CD は **GitHub Actions + Workload Identity Federation（キーレス認証）** で構築しています。
 
-> 📘 **アーキテクチャ解説スライド**: [docs/architecture.html](docs/architecture.html) をブラウザで開くと、図解で構成を一通り把握できます。
+> 📘 **アーキテクチャ解説スライド**: [https://kaz-mathui.github.io/LifePlan/docs/architecture.html](https://kaz-mathui.github.io/LifePlan/docs/architecture.html)（ソース: [docs/architecture.html](docs/architecture.html)）
 
 **アーキテクチャの特徴**:
 - **サーバレス**: Cloud Run の min-instances=0 でアイドル時はコスト0円
