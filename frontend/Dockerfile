@@ -19,10 +19,12 @@ RUN pnpm install --filter lifeplan-frontend
 
 # アプリケーションのソースコードをコピー
 COPY frontend/ ./frontend/
-# buildspec.ymlで生成した.envファイルをコピー
-COPY frontend/.env ./frontend/.env
 # frontendが参照する可能性のあるbackendの型定義をコピー
 COPY backend/src/types.ts ./backend/src/
+
+# ビルド時に注入する環境変数（CRAは REACT_APP_* をビルド時にバンドルに埋め込む）
+ARG REACT_APP_BACKEND_URL
+ENV REACT_APP_BACKEND_URL=$REACT_APP_BACKEND_URL
 
 # frontendアプリをビルド
 RUN pnpm --filter lifeplan-frontend run build

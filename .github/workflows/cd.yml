@@ -50,13 +50,12 @@ jobs:
       - name: Build and push frontend image
         run: |
           docker build --platform linux/amd64 \
+            --build-arg REACT_APP_BACKEND_URL="${{ secrets.REACT_APP_BACKEND_URL }}" \
             -t ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }} \
             -t ${{ env.FRONTEND_IMAGE }}:latest \
             -f frontend/Dockerfile .
           docker push ${{ env.FRONTEND_IMAGE }}:${{ env.IMAGE_TAG }}
           docker push ${{ env.FRONTEND_IMAGE }}:latest
-        env:
-          REACT_APP_BACKEND_URL: ${{ secrets.REACT_APP_BACKEND_URL }}
 
       - name: Deploy backend to Cloud Run
         run: |
