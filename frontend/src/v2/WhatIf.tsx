@@ -24,12 +24,7 @@ export const SCENARIOS: Scenario[] = [
     min: 0, max: 30, step: 1, unit: '万円/月',
     format: v => `+${v}万`,
     baseValueFromAnswers: () => 0,
-    applyToAnswers: (a, v) => {
-      const income = parseFloat(a.is_annual_income) || 500;
-      const baseSav = (parseFloat(a.is_savings_rate) || 20);
-      const addPct = (v * 12) / income * 100;
-      return { ...a, is_savings_rate: baseSav + addPct };
-    },
+    applyToAnswers: (a, v) => ({ ...a, _whatif_extra_savings_monthly: v }),
   },
   {
     key: 'retire_age', label: '退職年齢を変える', icon: '🌴',
