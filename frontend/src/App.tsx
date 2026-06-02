@@ -14,6 +14,7 @@ import SimulationResult from './components/SimulationResult';
 import { exportToCsv, importFromCsv } from './utils/csvUtils';
 import LifeEventForm from './components/LifeEventForm';
 import SettingsSummary from './components/SettingsSummary';
+import MissionHome from './v2/MissionHome';
 
 // フロントエンドの型からバックエンドの型に変換する関数
 const convertToBackendFormat = (data: SimulationInputData) => {
@@ -142,11 +143,15 @@ const App: React.FC = () => {
 
   const debouncedRunSimulation = useCallback(debounce(runSimulation, 1000), [runSimulation]);
 
+  // v2 モード判定: URL に ?v2 があれば既存シミュレーション API は呼ばない
+  const isV2Mode = typeof window !== 'undefined' && window.location.search.includes('v2');
+
   useEffect(() => {
+    if (isV2Mode) return; // v2 モード時は既存 fetch をスキップ(localhost:3001 を叩かない)
     if (inputData) {
       debouncedRunSimulation(inputData);
     }
-  }, [inputData, debouncedRunSimulation]);
+  }, [inputData, debouncedRunSimulation, isV2Mode]);
 
   const handleSavePlan = async () => {
     if (!currentPlanId) {
@@ -209,6 +214,16 @@ const App: React.FC = () => {
     return <Auth auth={auth} />;
   }
 
+  // v2 モード切り替え(既存 fetch ガードと同じフラグを使用)
+  if (isV2Mode) {
+    return (
+      <>
+        <Toaster />
+        <MissionHome />
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster />
@@ -217,9 +232,10 @@ const App: React.FC = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <h1 className="text-xl font-bold text-gray-900">ライフプランシミュレーター</h1>
+              <a href="?v2" className="ml-3 px-2 py-1 text-xs font-bold bg-blue-100 text-blue-700 rounded-full">v2 試す →</a>
             </div>
             <div className="flex items-center space-x-4">
-              <PlanManager 
+              <PlanManager
                 plans={plans} 
                 onSelectPlan={selectPlan}
                 onDeletePlan={deletePlan}
