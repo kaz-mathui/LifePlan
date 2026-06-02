@@ -113,13 +113,13 @@ const WhatIfControls: React.FC<WhatIfControlsProps> = ({
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-600">65歳時の変化</span>
             <span className={`text-base font-extrabold ${diff65 >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {diff65 >= 0 ? '+' : ''}¥{formatMan(diff65)}万
+              {diff65 >= 0 ? '+' : ''}{formatMan(diff65)}
             </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-xs text-gray-600">{lastAge}歳時の変化</span>
             <span className={`text-sm font-bold ${diffLast >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              {diffLast >= 0 ? '+' : ''}¥{formatMan(diffLast)}万
+              {diffLast >= 0 ? '+' : ''}{formatMan(diffLast)}
             </span>
           </div>
         </div>

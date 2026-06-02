@@ -498,10 +498,11 @@ export function simulateFromAnswers(answers: Record<string, any>): YearPoint[] {
     }
 
     // === NISA / iDeCo 積立 ===
-    const nisaAnnual = nisaMonthly * 12;
-    const idecoAnnual = idecoMonthly * 12;
-    // iDeCo は所得控除(節税効果を yearlyIncome に上乗せ・限界税率20%概算)
-    const idecoTaxSavings = a < retireAge ? idecoAnnual * 0.20 : 0;
+    // 月額積立そのものは手取り→貯蓄の流れの中で yearlySaving に含まれる(二重計上回避)。
+    // iDeCo は所得控除があるので、節税効果(限界税率20%概算)のみ income に上乗せ
+    const idecoActive = a < Math.min(retireAge, 60) && idecoMonthly > 0;
+    const idecoAnnual = idecoActive ? idecoMonthly * 12 : 0;
+    const idecoTaxSavings = idecoAnnual * 0.20;
     yearlyIncome += idecoTaxSavings;
 
     // === What-If 月貯蓄上乗せ ===
@@ -567,10 +568,16 @@ export function getWeatherScores(series: YearPoint[]): {
   return { overall, retire, lifespan, valley };
 }
 
+/**
+ * 万円単位の数値を「¥1,234万」「¥1.23億」「¥-300万」形式に整形。
+ * 符号付き(プラス記号は付けない)、通貨記号と単位を内包する。
+ */
 export function formatMan(n: number): string {
-  if (n == null || isNaN(n)) return '0';
-  if (Math.abs(n) >= 10000) return (n / 10000).toFixed(2) + '億';
-  return Math.round(n).toLocaleString();
+  if (n == null || isNaN(n)) return '¥0万';
+  const sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  if (abs >= 10000) return `${sign}¥${(abs / 10000).toFixed(2)}億`;
+  return `${sign}¥${Math.round(abs).toLocaleString()}万`;
 }
 
 export interface MonteCarloResult {

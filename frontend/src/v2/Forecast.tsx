@@ -97,7 +97,7 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact }) => {
       },
       tooltip: {
         callbacks: {
-          label: (ctx: any) => `${ctx.dataset.label}: ¥${formatMan(ctx.parsed.y)}万`,
+          label: (ctx: any) => `${ctx.dataset.label}: ${formatMan(ctx.parsed.y)}`,
         },
       },
     },
@@ -211,7 +211,7 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact }) => {
             {baseSeries.filter(p => p.event).slice(0, 8).map((p, i) => (
               <div key={i} className="flex justify-between text-xs py-1 border-b border-gray-100 last:border-none">
                 <span className="text-gray-700">{p.age}歳 — {p.event}</span>
-                <span className="font-bold text-gray-900">¥{formatMan(p.assets)}万</span>
+                <span className="font-bold text-gray-900">{formatMan(p.assets)}</span>
               </div>
             ))}
           </div>
@@ -231,12 +231,12 @@ const MetricCard: React.FC<{
   <div className="bg-white border border-gray-200 rounded-xl p-3">
     <div className="text-xs text-gray-500 font-semibold">{label}</div>
     <div className={`text-xl font-extrabold mt-1 ${value >= 0 ? 'text-gray-900' : 'text-red-600'}`}>
-      ¥{formatMan(value)}万
+      {formatMan(value)}
     </div>
     {sub && <div className="text-[10px] text-gray-400 mt-0.5">{sub}</div>}
     {showDelta && Math.abs(delta) > 0.5 && (
       <div className={`text-[11px] font-bold mt-0.5 ${delta >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-        {delta >= 0 ? '▲' : '▼'} ¥{formatMan(Math.abs(delta))}万
+        {delta >= 0 ? '▲' : '▼'} {formatMan(Math.abs(delta))}
       </div>
     )}
   </div>
@@ -267,23 +267,23 @@ const MonteCarloPanel: React.FC<{ answers: Record<string, any> }> = ({ answers }
         <div className="font-bold text-gray-700">最終資産の分布:</div>
         <div className="flex justify-between py-1 border-b border-gray-100">
           <span className="text-gray-600">悲観(下位10%)</span>
-          <span className="font-bold">¥{formatMan(result.p10)}万</span>
+          <span className="font-bold">{formatMan(result.p10)}</span>
         </div>
         <div className="flex justify-between py-1 border-b border-gray-100">
           <span className="text-gray-600">保守(下位25%)</span>
-          <span className="font-bold">¥{formatMan(result.p25)}万</span>
+          <span className="font-bold">{formatMan(result.p25)}</span>
         </div>
         <div className="flex justify-between py-1 border-b border-gray-100">
           <span className="font-semibold text-gray-700">中央値</span>
-          <span className="font-extrabold text-blue-600">¥{formatMan(result.median)}万</span>
+          <span className="font-extrabold text-blue-600">{formatMan(result.median)}</span>
         </div>
         <div className="flex justify-between py-1 border-b border-gray-100">
           <span className="text-gray-600">楽観(上位25%)</span>
-          <span className="font-bold">¥{formatMan(result.p75)}万</span>
+          <span className="font-bold">{formatMan(result.p75)}</span>
         </div>
         <div className="flex justify-between py-1">
           <span className="text-gray-600">最良(上位10%)</span>
-          <span className="font-bold">¥{formatMan(result.p90)}万</span>
+          <span className="font-bold">{formatMan(result.p90)}</span>
         </div>
       </div>
 
