@@ -34,12 +34,13 @@ const ScenarioTour: React.FC<Props> = ({ answers, onClose, onApplyToReality }) =
   const baseSeries = useMemo(() => simulateFromAnswers(answers), [answers]);
   const baseMetrics = useMemo(() => getKeyMetrics(baseSeries), [baseSeries]);
 
-  // 全シナリオの個別予測 (採用前計算)
-  const scenarioMetrics = useMemo(() => {
-    const map: Record<string, ReturnType<typeof getKeyMetrics>> = {};
+  // 全シナリオの個別予測 (採用前計算) - series も保持してカード裏面のグラフで使う
+  const scenarioPredictions = useMemo(() => {
+    const map: Record<string, { series: ReturnType<typeof simulateFromAnswers>; metrics: ReturnType<typeof getKeyMetrics> }> = {};
     for (const s of scenarios) {
       const modified = { ...answers, ...s.modifications(answers) };
-      map[s.id] = getKeyMetrics(simulateFromAnswers(modified));
+      const series = simulateFromAnswers(modified);
+      map[s.id] = { series, metrics: getKeyMetrics(series) };
     }
     return map;
   }, [scenarios, answers]);
@@ -191,7 +192,7 @@ const ScenarioTour: React.FC<Props> = ({ answers, onClose, onApplyToReality }) =
               <div className="text-xs font-bold text-gray-700 mb-2">採用したシナリオ</div>
               <div className="space-y-2">
                 {scenarios.filter(s => decisions[s.id] === 'adopt').map(s => {
-                  const m = scenarioMetrics[s.id];
+                  const m = scenarioPredictions[s.id].metrics;
                   const d = m.assetsAt65 - baseMetrics.assetsAt65;
                   return (
                     <div key={s.id} className="flex items-center gap-2 text-xs">
@@ -240,7 +241,7 @@ const ScenarioTour: React.FC<Props> = ({ answers, onClose, onApplyToReality }) =
 
   // === Card ===
   const scenario = scenarios[step];
-  const metrics = scenarioMetrics[scenario.id];
+  const { series: modSeries, metrics } = scenarioPredictions[scenario.id];
   const diff = metrics.assetsAt65 - baseMetrics.assetsAt65;
   const diffPct = baseMetrics.assetsAt65 !== 0
     ? (diff / Math.abs(baseMetrics.assetsAt65)) * 100 : 0;
@@ -257,7 +258,6 @@ const ScenarioTour: React.FC<Props> = ({ answers, onClose, onApplyToReality }) =
   };
 
   // ミニグラフ
-  const modSeries = useMemo(() => simulateFromAnswers({ ...answers, ...scenario.modifications(answers) }), [scenario, answers]);
   const cardChartData = {
     labels: baseSeries.map(p => p.age + '歳'),
     datasets: [
