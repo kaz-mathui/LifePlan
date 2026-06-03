@@ -13,7 +13,7 @@ import { simulateFromAnswers, getKeyMetrics, formatMan } from './simulator';
 import PlanSelector from './PlanSelector';
 import MFImport from './MFImport';
 import CompletionCertificate from './CompletionCertificate';
-import ScenarioTour from './ScenarioTour';
+import ScenarioBoard from './ScenarioBoard';
 
 type ViewMode = 'today' | 'groups' | 'group_detail' | 'forecast' | 'tools';
 
@@ -188,7 +188,7 @@ const MissionHome: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
       {tourOpen && (
-        <ScenarioTour
+        <ScenarioBoard
           answers={answers}
           onClose={() => setTourOpen(false)}
           onApplyToReality={(updates) => {
@@ -321,14 +321,14 @@ const MissionHome: React.FC = () => {
             {/* シナリオツアー導線 (ヒーローバナー) */}
             <button
               onClick={() => setTourOpen(true)}
-              className="w-full rounded-2xl p-4 bg-gradient-to-br from-indigo-700 via-purple-700 to-pink-700 text-white shadow-lg text-left active:scale-[0.98] transition-transform"
+              className="w-full rounded-2xl p-4 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-lg text-left active:scale-[0.98] transition-transform"
             >
               <div className="flex items-center gap-3">
-                <div className="text-3xl">🎴</div>
+                <div className="text-3xl">🌅</div>
                 <div className="flex-1">
-                  <div className="text-base font-extrabold">シナリオツアー</div>
+                  <div className="text-base font-extrabold">もしも、の戦略ボード</div>
                   <div className="text-[11px] opacity-90 leading-tight mt-0.5">
-                    あり得た未来5つをタロット風カードでめくる体験
+                    あり得た未来をトグルで切り替え、効果を即座に確認
                   </div>
                 </div>
                 <div className="text-xl opacity-80">→</div>
