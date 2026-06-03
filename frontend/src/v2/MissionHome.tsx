@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import toast from 'react-hot-toast';
 import {
   pickTodayMissions, getProgress, getCoreProgress,
   QUESTIONS, CATEGORY_TO_GROUP, GROUPS, getGroupProgress,
@@ -8,9 +9,11 @@ import MissionCard from './MissionCard';
 import GroupProgress from './GroupProgress';
 import Forecast from './Forecast';
 import { useV2Answers } from './useV2Answers';
+import { simulateFromAnswers, getKeyMetrics, formatMan } from './simulator';
 import PlanSelector from './PlanSelector';
 import MFImport from './MFImport';
 import CompletionCertificate from './CompletionCertificate';
+import ScenarioTour from './ScenarioTour';
 
 type ViewMode = 'today' | 'groups' | 'group_detail' | 'forecast' | 'tools';
 
@@ -24,6 +27,7 @@ const MissionHome: React.FC = () => {
   const { answers, updateAnswer, loaded, syncing, uid } = useV2Answers(currentPlanId);
   const [mode, setMode] = useState<ViewMode>('today');
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
 
   // 「今日のミッション」関連 state
   // - todayQuotaList: 「今日のミッション」として固定された質問キー(順番崩れず)
@@ -137,8 +141,63 @@ const MissionHome: React.FC = () => {
   // ベース予測解放判定
   const baseUnlocked = core.percent >= 100;
 
+  // 質問回答時の差分通知: ベース解放後のみ。65歳資産の変化を toast 表示
+  const handleAnswerSave = (key: string, value: any) => {
+    const oldValue = answers[key];
+    const isFirstAnswer = oldValue == null || oldValue === '';
+    const beforeMetrics = baseUnlocked ? getKeyMetrics(simulateFromAnswers(answers)) : null;
+    updateAnswer(key, value);
+
+    if (beforeMetrics && beforeMetrics.assetsAt65 !== 0) {
+      const newAnswers = { ...answers, [key]: value };
+      const afterMetrics = getKeyMetrics(simulateFromAnswers(newAnswers));
+      const diff = afterMetrics.assetsAt65 - beforeMetrics.assetsAt65;
+      const pct = (diff / Math.abs(beforeMetrics.assetsAt65)) * 100;
+
+      // 30万円以上 or 0.5%以上の変化のみ通知
+      if (Math.abs(diff) > 30 || Math.abs(pct) > 0.5) {
+        const sign = diff >= 0 ? '+' : '';
+        const icon = diff >= 0 ? '📈' : '📉';
+        const color = diff >= 0 ? 'text-green-600' : 'text-red-600';
+        toast.custom(t => (
+          <div className={`${t.visible ? 'animate-in fade-in slide-in-from-top-2' : ''} bg-white rounded-2xl shadow-xl border border-gray-200 px-4 py-3 max-w-xs`}>
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">{icon}</div>
+              <div>
+                <div className="text-[10px] text-gray-500 font-semibold">65歳の資産予測</div>
+                <div className={`text-base font-extrabold ${color}`}>
+                  {sign}{formatMan(diff)}
+                </div>
+                <div className={`text-xs font-bold ${color}`}>
+                  {sign}{pct.toFixed(1)}% {isFirstAnswer ? '(初回反映)' : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        ), { duration: 2800, position: 'top-center' });
+      }
+    } else if (!baseUnlocked && isFirstAnswer) {
+      // ベース解放前: 残り何問でアンロックかを表示
+      const remaining = 12 - Math.min(12, Math.round(core.percent * 12 / 100));
+      if (remaining > 0 && remaining <= 11) {
+        toast(`コア質問 あと${remaining}問でベース予測がアンロック`, { icon: '⭐', duration: 1800 });
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
+      {tourOpen && (
+        <ScenarioTour
+          answers={answers}
+          onClose={() => setTourOpen(false)}
+          onApplyToReality={(updates) => {
+            Object.entries(updates).forEach(([k, v]) => updateAnswer(k, v));
+            toast.success(`${Object.keys(updates).length}件の戦略を反映しました`, { icon: '✨', duration: 2500 });
+          }}
+        />
+      )}
+
       {/* Header */}
       <header className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-gray-200">
         <div className="max-w-xl mx-auto px-4 py-3">
@@ -246,7 +305,7 @@ const MissionHome: React.FC = () => {
             todayAnsweredCount={todayAnsweredCount}
             overallPercent={overall.percent}
             baseUnlocked={baseUnlocked}
-            updateAnswer={updateAnswer}
+            updateAnswer={handleAnswerSave}
             handleSkip={handleSkip}
             handleUseEstimate={handleUseEstimate}
             addMoreMissions={addMoreMissions}
@@ -258,7 +317,26 @@ const MissionHome: React.FC = () => {
 
         {/* 予測タブ */}
         {mode === 'forecast' && baseUnlocked && (
-          <Forecast answers={answers} />
+          <div className="space-y-3">
+            {/* シナリオツアー導線 (ヒーローバナー) */}
+            <button
+              onClick={() => setTourOpen(true)}
+              className="w-full rounded-2xl p-4 bg-gradient-to-br from-indigo-700 via-purple-700 to-pink-700 text-white shadow-lg text-left active:scale-[0.98] transition-transform"
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-3xl">🎴</div>
+                <div className="flex-1">
+                  <div className="text-base font-extrabold">シナリオツアー</div>
+                  <div className="text-[11px] opacity-90 leading-tight mt-0.5">
+                    あり得た未来5つをタロット風カードでめくる体験
+                  </div>
+                </div>
+                <div className="text-xl opacity-80">→</div>
+              </div>
+            </button>
+
+            <Forecast answers={answers} />
+          </div>
         )}
 
         {/* ツールタブ */}
@@ -276,7 +354,7 @@ const MissionHome: React.FC = () => {
             answers={answers}
             onSelectGroup={(g) => { setSelectedGroup(g); setMode('group_detail'); }}
             onSelectQuestion={() => {}}
-            updateAnswer={updateAnswer}
+            updateAnswer={handleAnswerSave}
           />
         )}
 
@@ -285,7 +363,7 @@ const MissionHome: React.FC = () => {
           <GroupDetailView
             groupKey={selectedGroup}
             answers={answers}
-            onSave={updateAnswer}
+            onSave={handleAnswerSave}
             onBack={() => setMode('groups')}
           />
         )}

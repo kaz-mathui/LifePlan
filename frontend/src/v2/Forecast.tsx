@@ -20,24 +20,44 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact }) => {
   const baseMetrics = useMemo(() => getKeyMetrics(baseSeries), [baseSeries]);
   const weather = useMemo(() => getWeatherScores(baseSeries), [baseSeries]);
 
-  // What-if 状態
-  const [scenario, setScenario] = useState<ScenarioKey>('savings');
-  const currentScenario = SCENARIOS.find(s => s.key === scenario)!;
-  const [value, setValue] = useState<number>(currentScenario.baseValueFromAnswers(answers));
-  const baseDefault = currentScenario.baseValueFromAnswers(answers);
-  const isModified = Math.abs(value - baseDefault) > 1e-6;
+  // What-if 状態: 全シナリオの値を一括管理
+  const baseValues = useMemo(() => {
+    const r = {} as Record<ScenarioKey, number>;
+    SCENARIOS.forEach(s => { r[s.key] = s.baseValueFromAnswers(answers); });
+    return r;
+  }, [answers]);
 
-  const handleScenarioChange = (k: ScenarioKey) => {
-    setScenario(k);
-    setValue(SCENARIOS.find(s => s.key === k)!.baseValueFromAnswers(answers));
+  const ranges = useMemo(() => {
+    const r = {} as Record<ScenarioKey, { min: number; max: number }>;
+    SCENARIOS.forEach(s => { r[s.key] = s.rangeFromAnswers(answers); });
+    return r;
+  }, [answers]);
+
+  const [values, setValues] = useState<Record<ScenarioKey, number>>(baseValues);
+
+  // baseValues が変わったら values をリセット(answersが変わった時)
+  React.useEffect(() => {
+    setValues(baseValues);
+  }, [baseValues]);
+
+  const handleValueChange = (k: ScenarioKey, v: number) => {
+    setValues(prev => ({ ...prev, [k]: v }));
   };
-  const handleReset = () => setValue(currentScenario.baseValueFromAnswers(answers));
+  const handleResetAll = () => setValues(baseValues);
 
-  // 変更後系列
-  const modifiedAnswers = useMemo(
-    () => currentScenario.applyToAnswers(answers, value),
-    [currentScenario, value, answers]
-  );
+  const isModified = SCENARIOS.some(s => Math.abs(values[s.key] - baseValues[s.key]) > 1e-6);
+
+  // 全シナリオを順次適用して合成 modifiedAnswers
+  const modifiedAnswers = useMemo(() => {
+    let merged = { ...answers };
+    SCENARIOS.forEach(s => {
+      if (Math.abs(values[s.key] - baseValues[s.key]) > 1e-6) {
+        merged = s.applyToAnswers(merged, values[s.key]);
+      }
+    });
+    return merged;
+  }, [answers, values, baseValues]);
+
   const modSeries = useMemo(() => simulateFromAnswers(modifiedAnswers), [modifiedAnswers]);
   const modMetrics = useMemo(() => getKeyMetrics(modSeries), [modSeries]);
 
@@ -46,6 +66,8 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact }) => {
   const diff65 = modMetrics.assetsAt65 - baseMetrics.assetsAt65;
   const diffLast = modMetrics.assetsAtLast - baseMetrics.assetsAtLast;
   const diffMin = modMetrics.minAssets - baseMetrics.minAssets;
+  const diff65Pct = baseMetrics.assetsAt65 !== 0
+    ? (diff65 / Math.abs(baseMetrics.assetsAt65)) * 100 : 0;
 
   const chartData = useMemo(() => {
     const datasets: any[] = [];
@@ -173,7 +195,7 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact }) => {
           <div className="text-sm font-bold text-gray-900">資産推移(現在の物価価値)</div>
           {isModified && (
             <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full">
-              {currentScenario.icon} {currentScenario.format(value)} 適用中
+              {SCENARIOS.filter(s => Math.abs(values[s.key] - baseValues[s.key]) > 1e-6).length}つのシナリオ適用中
             </span>
           )}
         </div>
@@ -191,15 +213,16 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact }) => {
       {/* What-if コントロール(グラフ直下) */}
       {!compact && (
         <WhatIfControls
-          scenario={scenario}
-          value={value}
-          onScenarioChange={handleScenarioChange}
-          onValueChange={setValue}
+          values={values}
+          baseValues={baseValues}
+          ranges={ranges}
+          onValueChange={handleValueChange}
           diff65={diff65}
           diffLast={diffLast}
+          diff65Pct={diff65Pct}
           lastAge={metrics.lastAge}
           isModified={isModified}
-          onReset={handleReset}
+          onResetAll={handleResetAll}
         />
       )}
 
