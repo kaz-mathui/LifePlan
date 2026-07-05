@@ -17,8 +17,9 @@ interface ForecastProps {
 }
 
 /** Monte Carlo 成功確率 → 一言判定(🟢🟡🔴) */
-function getVerdict(prob: number, minAssets: number, minAge: number) {
-  const valleyNote = minAssets < 0 ? `${minAge}歳ごろに資産が底をつく試算です` : null;
+function getVerdict(prob: number, minAssets: number, depletionAge: number | null) {
+  const valleyNote = minAssets < 0 && depletionAge != null
+    ? `${depletionAge}歳ごろに資産が底をつく試算です` : null;
   if (prob >= 0.85) return { icon: '🟢', title: 'このプランは妥当です', sub: valleyNote ?? 'このままのペースで問題なさそうです' };
   if (prob >= 0.6) return { icon: '🟡', title: '概ね順調、改善余地あり', sub: valleyNote ?? '下のアクションプランで上積みを検討しましょう' };
   if (prob >= 0.4) return { icon: '🟠', title: '要調整です', sub: valleyNote ?? 'アクションプランの実行を検討してください' };
@@ -34,8 +35,8 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact, onOpenScenarioBoa
   // Monte Carlo は判定バナーと詳細パネルで共用(1回だけ計算)
   const mc = useMemo(() => runMonteCarlo(answers, 200), [answers]);
   const verdict = useMemo(
-    () => getVerdict(mc.successProbability, baseMetrics.minAssets, baseMetrics.minAge),
-    [mc.successProbability, baseMetrics.minAssets, baseMetrics.minAge]
+    () => getVerdict(mc.successProbability, baseMetrics.minAssets, baseMetrics.depletionAge),
+    [mc.successProbability, baseMetrics.minAssets, baseMetrics.depletionAge]
   );
 
   // What-if 状態: 全シナリオの値を一括管理

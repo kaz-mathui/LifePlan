@@ -528,12 +528,15 @@ export function getKeyMetrics(series: YearPoint[]) {
   const at65 = series.find(p => p.age === 65) || series.find(p => p.age === 64);
   const last = series[series.length - 1];
   const minPoint = series.reduce((m, p) => (p.assets < m.assets ? p : m), series[0]);
+  // 初めて資産がマイナスに転落する年齢(なければ null)。「底をつく」表示はこちらを使う
+  const zeroCross = series.find(p => p.assets < 0);
   return {
     assetsAt65: at65?.assets || 0,
     assetsAtLast: last?.assets || 0,
     lastAge: last?.age || 0,
     minAssets: minPoint.assets,
     minAge: minPoint.age,
+    depletionAge: zeroCross ? zeroCross.age : null,
   };
 }
 
