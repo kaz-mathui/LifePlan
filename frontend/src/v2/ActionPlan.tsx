@@ -33,10 +33,12 @@ interface ActionPlanProps {
   answers: Record<string, any>;
   baseAssetsAt65: number;
   baseSuccessProb: number;
+  /** 仮予測(標準値ベース)時は確率の断定表示を出さない */
+  provisional?: boolean;
   onOpenScenarioBoard?: () => void;
 }
 
-const ActionPlan: React.FC<ActionPlanProps> = ({ answers, baseAssetsAt65, baseSuccessProb, onOpenScenarioBoard }) => {
+const ActionPlan: React.FC<ActionPlanProps> = ({ answers, baseAssetsAt65, baseSuccessProb, provisional, onOpenScenarioBoard }) => {
   const actions = useMemo(() => {
     return ALL_SCENARIOS
       .filter(s => ACTION_LABELS[s.id] && s.condition(answers))
@@ -51,8 +53,9 @@ const ActionPlan: React.FC<ActionPlanProps> = ({ answers, baseAssetsAt65, baseSu
   }, [answers, baseAssetsAt65]);
 
   // 「全部やったらどこに着地するか」= 治療法の提示。表示中の施策を全て適用して再計算
+  // 仮予測時は標準値での断定になるため出さない
   const combined = useMemo(() => {
-    if (actions.length < 2) return null;
+    if (provisional || actions.length < 2) return null;
     let merged = { ...answers };
     actions.forEach(({ scenario }) => {
       merged = { ...merged, ...scenario.modifications(merged) };
@@ -64,7 +67,7 @@ const ActionPlan: React.FC<ActionPlanProps> = ({ answers, baseAssetsAt65, baseSu
       depletionAge: m.depletionAge,
       prob: mc.successProbability,
     };
-  }, [actions, answers]);
+  }, [actions, answers, provisional]);
 
   if (actions.length === 0) return null;
 

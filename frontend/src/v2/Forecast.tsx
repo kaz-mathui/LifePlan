@@ -243,6 +243,7 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact, provisional, onOp
         answers={answers}
         baseAssetsAt65={baseMetrics.assetsAt65}
         baseSuccessProb={mc.successProbability}
+        provisional={provisional}
         onOpenScenarioBoard={onOpenScenarioBoard}
       />
 
