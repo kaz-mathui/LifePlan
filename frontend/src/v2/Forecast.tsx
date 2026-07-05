@@ -314,6 +314,15 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact, provisional, onOp
 
       {/* Monte Carlo */}
       {!compact && <MonteCarloPanel answers={answers} result={mc} />}
+
+      {/* 免責(投資助言・保険募集に該当しないことの明示) */}
+      {!compact && (
+        <div className="text-[10px] text-gray-400 leading-relaxed px-1 pb-2">
+          本サービスは一般的な前提にもとづくシミュレーション(教育・情報提供目的)であり、投資助言・金融商品の勧誘・保険募集ではありません。
+          特定の金融商品を推奨することはありません。将来の結果を保証するものではなく、実際の判断はご自身の責任で行ってください。
+          計算前提は上の「計算の前提条件」からいつでも確認できます。
+        </div>
+      )}
     </div>
   );
 };
