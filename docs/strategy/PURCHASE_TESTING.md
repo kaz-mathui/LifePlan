@@ -74,7 +74,7 @@ python3 -m http.server 8877 --directory build
 
 - [顧客一覧](https://dashboard.stripe.com/test/customers) にテスト顧客が作成されている
 - [サブスクリプション](https://dashboard.stripe.com/test/subscriptions) が `トライアル中` になっている
-- 7日後に自動で `active`（テストなので請求は発生しない）
+- カード未登録のまま7日経過 → **自動キャンセル**（=「勝手に課金されない」の構造保証）。カード登録済みなら `active` に移行
 
 ## 既知の制約（テストモード）
 
