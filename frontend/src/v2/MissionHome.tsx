@@ -370,7 +370,9 @@ const MissionHome: React.FC = () => {
             <Forecast
               answers={answers}
               compact={!baseUnlocked}
+              provisional={!baseUnlocked}
               onOpenScenarioBoard={baseUnlocked ? () => setTourOpen(true) : undefined}
+              onOpenDenseEdit={() => setMode('groups')}
             />
           </div>
         )}

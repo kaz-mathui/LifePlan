@@ -13,7 +13,10 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip,
 interface ForecastProps {
   answers: Record<string, any>;
   compact?: boolean;
+  /** ロック中の仮予測(平均値ベース)。判定を「まだあなたのものではない」と明示する */
+  provisional?: boolean;
   onOpenScenarioBoard?: () => void;
+  onOpenDenseEdit?: () => void;
 }
 
 /** Monte Carlo 成功確率 → 一言判定(🟢🟡🔴) */
@@ -26,7 +29,7 @@ function getVerdict(prob: number, minAssets: number, depletionAge: number | null
   return { icon: '🔴', title: 'プランの見直しが必要です', sub: valleyNote ?? '収入・支出・退職時期のいずれかの調整が必要です' };
 }
 
-const Forecast: React.FC<ForecastProps> = ({ answers, compact, onOpenScenarioBoard }) => {
+const Forecast: React.FC<ForecastProps> = ({ answers, compact, provisional, onOpenScenarioBoard, onOpenDenseEdit }) => {
   // ベース系列(常に元の answers)
   const baseSeries = useMemo(() => simulateFromAnswers(answers), [answers]);
   const baseMetrics = useMemo(() => getKeyMetrics(baseSeries), [baseSeries]);
@@ -160,7 +163,9 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact, onOpenScenarioBoa
         <div className="flex items-center gap-4 mb-4">
           <span className="text-5xl">{weather.overall.icon}</span>
           <div>
-            <div className="text-xs opacity-75 font-bold uppercase tracking-wider">あなたの未来の天気</div>
+            <div className="text-xs opacity-75 font-bold uppercase tracking-wider">
+              {provisional ? '標準モデルの天気(仮)' : 'あなたの未来の天気'}
+            </div>
             <div className="text-2xl font-extrabold">{weather.overall.label}</div>
           </div>
         </div>
@@ -175,18 +180,30 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact, onOpenScenarioBoa
           </div>
         </div>
 
-        {/* 判定バナー: 「安全？危ない？」に一言で答える */}
-        <div className="mt-3 bg-white/15 rounded-xl p-3 flex items-center gap-3">
-          <span className="text-3xl">{verdict.icon}</span>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-extrabold leading-tight">{verdict.title}</div>
-            <div className="text-[11px] opacity-90 mt-0.5">{verdict.sub}</div>
+        {/* 判定バナー: 「安全？危ない？」に一言で答える。仮予測時は「まだあなたの判定ではない」と明示 */}
+        {provisional ? (
+          <div className="mt-3 bg-white/15 rounded-xl p-3 flex items-center gap-3">
+            <span className="text-3xl">❔</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-extrabold leading-tight">まだ、あなたの判定ではありません</div>
+              <div className="text-[11px] opacity-90 mt-0.5">
+                これは同世代の標準値での結果。コア12問に答えると、ここにあなたの判定(🟢〜🔴)と確率が出ます
+              </div>
+            </div>
           </div>
-          <div className="text-right shrink-0">
-            <div className="text-2xl font-extrabold">{Math.round(mc.successProbability * 100)}%</div>
-            <div className="text-[9px] opacity-75 leading-tight">寿命まで資金が<br />持つ確率</div>
+        ) : (
+          <div className="mt-3 bg-white/15 rounded-xl p-3 flex items-center gap-3">
+            <span className="text-3xl">{verdict.icon}</span>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-extrabold leading-tight">{verdict.title}</div>
+              <div className="text-[11px] opacity-90 mt-0.5">{verdict.sub}</div>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-2xl font-extrabold">{Math.round(mc.successProbability * 100)}%</div>
+              <div className="text-[9px] opacity-75 leading-tight">寿命まで資金が<br />持つ確率</div>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 主要数値(WhatIf 連動・デルタ表示) */}
@@ -225,6 +242,7 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact, onOpenScenarioBoa
       <ActionPlan
         answers={answers}
         baseAssetsAt65={baseMetrics.assetsAt65}
+        baseSuccessProb={mc.successProbability}
         onOpenScenarioBoard={onOpenScenarioBoard}
       />
 
@@ -282,6 +300,16 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact, onOpenScenarioBoa
 
       {/* 前提条件の開示(計算の透明性) */}
       {!compact && <AssumptionsPanel answers={answers} />}
+
+      {/* 精緻入力への導線(v1的な一覧編集を求める層向け) */}
+      {!compact && onOpenDenseEdit && (
+        <button
+          onClick={onOpenDenseEdit}
+          className="w-full py-3 rounded-2xl border-2 border-dashed border-gray-300 text-gray-600 text-xs font-bold active:scale-[0.98] transition-transform"
+        >
+          🔬 全項目を一覧で見直して精度を上げる →
+        </button>
+      )}
 
       {/* Monte Carlo */}
       {!compact && <MonteCarloPanel answers={answers} result={mc} />}

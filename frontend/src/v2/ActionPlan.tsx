@@ -7,7 +7,7 @@
  */
 import React, { useMemo } from 'react';
 import { ALL_SCENARIOS } from './scenarios';
-import { simulateFromAnswers, getKeyMetrics, formatMan } from './simulator';
+import { simulateFromAnswers, getKeyMetrics, formatMan, runMonteCarlo } from './simulator';
 
 const num = (v: any, d = 0): number => {
   const n = parseFloat(v);
@@ -22,15 +22,21 @@ const ACTION_LABELS: Record<string, string> = {
   risk_invest: '株式比率70%・実質リターン4%に見直す',
   career_up: '3年後の転職で年収+150万を狙う',
   sp_career: '配偶者の年収+100万を後押しする',
+  work_longer: '68歳まで働く(退職を3年延長)',
+  cost_down: '生活費を月2万円見直す',
 };
+
+const probIcon = (p: number) =>
+  p >= 0.85 ? '🟢' : p >= 0.6 ? '🟡' : p >= 0.4 ? '🟠' : '🔴';
 
 interface ActionPlanProps {
   answers: Record<string, any>;
   baseAssetsAt65: number;
+  baseSuccessProb: number;
   onOpenScenarioBoard?: () => void;
 }
 
-const ActionPlan: React.FC<ActionPlanProps> = ({ answers, baseAssetsAt65, onOpenScenarioBoard }) => {
+const ActionPlan: React.FC<ActionPlanProps> = ({ answers, baseAssetsAt65, baseSuccessProb, onOpenScenarioBoard }) => {
   const actions = useMemo(() => {
     return ALL_SCENARIOS
       .filter(s => ACTION_LABELS[s.id] && s.condition(answers))
@@ -43,6 +49,22 @@ const ActionPlan: React.FC<ActionPlanProps> = ({ answers, baseAssetsAt65, onOpen
       .sort((a, b) => b.delta65 - a.delta65)
       .slice(0, 3);
   }, [answers, baseAssetsAt65]);
+
+  // 「全部やったらどこに着地するか」= 治療法の提示。表示中の施策を全て適用して再計算
+  const combined = useMemo(() => {
+    if (actions.length < 2) return null;
+    let merged = { ...answers };
+    actions.forEach(({ scenario }) => {
+      merged = { ...merged, ...scenario.modifications(merged) };
+    });
+    const m = getKeyMetrics(simulateFromAnswers(merged));
+    const mc = runMonteCarlo(merged, 200);
+    return {
+      assetsAt65: m.assetsAt65,
+      depletionAge: m.depletionAge,
+      prob: mc.successProbability,
+    };
+  }, [actions, answers]);
 
   if (actions.length === 0) return null;
 
@@ -68,6 +90,36 @@ const ActionPlan: React.FC<ActionPlanProps> = ({ answers, baseAssetsAt65, onOpen
           </div>
         ))}
       </div>
+
+      {/* 合算効果 = 「対策すればこうなる」という着地点。悪い判定を治療法で終わらせる */}
+      {combined && (
+        <div className="mt-3 bg-gradient-to-br from-green-50 to-emerald-50 border border-green-300 rounded-xl p-3">
+          <div className="text-xs font-extrabold text-green-900">
+            💡 上の{actions.length}つをすべて実行した場合
+          </div>
+          <div className="mt-2 flex items-center justify-around text-center">
+            <div>
+              <div className="text-[10px] text-gray-500">寿命まで持つ確率</div>
+              <div className="text-lg font-extrabold text-gray-900">
+                {probIcon(baseSuccessProb)}{Math.round(baseSuccessProb * 100)}%
+                <span className="text-gray-400 mx-1">→</span>
+                {probIcon(combined.prob)}{Math.round(combined.prob * 100)}%
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] text-gray-500">65歳時の資産</div>
+              <div className="text-lg font-extrabold text-gray-900">{formatMan(combined.assetsAt65)}</div>
+            </div>
+          </div>
+          <div className="mt-1.5 text-[10px] text-green-800 leading-relaxed">
+            {combined.prob >= 0.6
+              ? '✓ 打ち手を積み重ねれば、現実的に立て直せる水準です。'
+              : combined.depletionAge != null
+                ? `この3つでも${combined.depletionAge}歳ごろに不足が残ります。退職時期・生活費・住まいの見直しを戦略ボードで組み合わせましょう。`
+                : '改善しますが、まだ余裕は薄めです。戦略ボードでさらに組み合わせを試しましょう。'}
+          </div>
+        </div>
+      )}
 
       {onOpenScenarioBoard && (
         <button
@@ -108,6 +160,11 @@ export const AssumptionsPanel: React.FC<{ answers: Record<string, any> }> = ({ a
         ? `${num(answers.p_estimate_monthly)}万/月(入力値)`
         : '加入区分から自動推定',
       isDefault: !answers.p_estimate_monthly,
+    },
+    {
+      label: '想定寿命(計画終了年齢)',
+      value: `${num(answers.b_target_lifespan, 90)}歳`,
+      isDefault: answers.b_target_lifespan == null || answers.b_target_lifespan === '',
     },
     {
       label: '物価',
