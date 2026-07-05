@@ -36,7 +36,7 @@ const requiredConfigKeys: Array<keyof typeof firebaseConfig> = [
 const missingKeys = requiredConfigKeys.filter(key => !firebaseConfig[key]);
 
 if (missingKeys.length > 0) {
-  const errorMessage = `Firebaseの必須の設定が.envファイルにありません。次のキーを確認してください: ${missingKeys.map(key => `REACT_APP_${key.replace(/([A-Z])/g, '_$1').toUpperCase()}`).join(', ')}`;
+  const errorMessage = `Firebaseの必須の設定が.envファイルにありません。次のキーを確認してください: ${missingKeys.map(key => `REACT_APP_FIREBASE_${key.replace(/([A-Z])/g, '_$1').toUpperCase()}`).join(', ')}`;
   console.error(errorMessage);
   // エラーをスローしてアプリケーションの実行を停止
   throw new Error(errorMessage);
