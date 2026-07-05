@@ -6,6 +6,7 @@ import {
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import WhatIfControls, { SCENARIOS, ScenarioKey } from './WhatIf';
+import ActionPlan, { AssumptionsPanel } from './ActionPlan';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler, Legend);
 
@@ -219,6 +220,13 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact, onOpenScenarioBoa
         )}
       </div>
 
+      {/* アクションプラン: 「で、何をすべき?」に答える(スクロール浅い位置に置く) */}
+      <ActionPlan
+        answers={answers}
+        baseAssetsAt65={baseMetrics.assetsAt65}
+        onOpenScenarioBoard={onOpenScenarioBoard}
+      />
+
       {/* グラフ + What-if コントロール(物理的にすぐ下に配置で因果が明示) */}
       <div className="bg-white border border-gray-200 rounded-2xl p-4">
         <div className="flex items-center justify-between mb-1">
@@ -270,6 +278,9 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact, onOpenScenarioBoa
           </div>
         </div>
       )}
+
+      {/* 前提条件の開示(計算の透明性) */}
+      {!compact && <AssumptionsPanel answers={answers} />}
 
       {/* Monte Carlo */}
       {!compact && <MonteCarloPanel answers={answers} result={mc} />}
