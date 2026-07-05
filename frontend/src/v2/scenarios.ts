@@ -195,6 +195,32 @@ export const ALL_SCENARIOS: TourScenario[] = [
     }),
   },
   {
+    id: 'work_longer',
+    title: 'もし68歳まで働いたら',
+    subtitle: '退職を3年延ばして収入期間を延長',
+    icon: '🧑‍💼',
+    category: 'career',
+    rationale: '収入期間の延長は最も確実性の高い改善策のため提案します',
+    impactHint: 'high',
+    condition: a => num(a.r_retire_age, 65) <= 66,
+    modifications: () => ({
+      r_retire_age: 68,
+    }),
+  },
+  {
+    id: 'cost_down',
+    title: 'もし生活費を月2万見直したら',
+    subtitle: '固定費の見直しで毎月2万円を将来に回す',
+    icon: '✂️',
+    category: 'housing',
+    rationale: '支出削減は今日から着手できる確実な打ち手のため提案します',
+    impactHint: 'high',
+    condition: a => num(a.ef_total_monthly, 20) >= 12,
+    modifications: a => ({
+      ef_total_monthly: Math.max(8, num(a.ef_total_monthly, 20) - 2),
+    }),
+  },
+  {
     id: 'kids',
     title: 'もし2人の子供を授かったら',
     subtitle: '子供の教育費を試算 (現役で2人)',
