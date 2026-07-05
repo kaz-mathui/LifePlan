@@ -410,7 +410,7 @@ const MissionHome: React.FC = () => {
           active={mode === 'forecast' && baseUnlocked}
         />
 
-        {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} />}
+        {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} answers={answers} />}
 
         {/* ツールタブ */}
         {mode === 'tools' && (

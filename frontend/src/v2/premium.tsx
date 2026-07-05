@@ -6,11 +6,13 @@
  * - プレミアム状態: billing/{uid}(クライアント書込禁止・バックエンドのみ更新)を購読
  * - 決済: バックエンド /api/billing/checkout → Stripe Checkout(7日トライアル)へリダイレクト
  */
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { API_BASE_URL } from '../constants';
+import { ALL_SCENARIOS } from './scenarios';
+import { simulateFromAnswers, getKeyMetrics, runMonteCarlo } from './simulator';
 
 export const PAYWALL_ENABLED = process.env.REACT_APP_PAYWALL === 'on';
 
@@ -177,15 +179,51 @@ export const AccountSection: React.FC<{ onOpenPaywall: () => void }> = ({ onOpen
   );
 };
 
+/** ActionPlanと同じ打ち手セット(表示上位3つの合算効果をペイウォールで見せる) */
+const PAYWALL_ACTION_IDS = new Set(['nisa_max', 'side_income', 'rent_down', 'risk_invest', 'career_up', 'sp_career', 'work_longer', 'cost_down']);
+
+const probIcon = (p: number) => (p >= 0.85 ? '🟢' : p >= 0.6 ? '🟡' : p >= 0.4 ? '🟠' : '🔴');
+
+/** answersから「現在の確率→打ち手3つ適用後の確率」を実計算(決済前に自分の数字で価値を見せる) */
+function useBeforeAfter(answers: Record<string, any> | undefined) {
+  return useMemo(() => {
+    if (!answers || Object.keys(answers).length === 0) return null;
+    try {
+      const base = getKeyMetrics(simulateFromAnswers(answers));
+      const beforeProb = runMonteCarlo(answers, 200).successProbability;
+      const actions = ALL_SCENARIOS
+        .filter(s => PAYWALL_ACTION_IDS.has(s.id) && s.condition(answers))
+        .map(s => {
+          const m = getKeyMetrics(simulateFromAnswers({ ...answers, ...s.modifications(answers) }));
+          return { s, delta: m.assetsAt65 - base.assetsAt65 };
+        })
+        .filter(x => x.delta > 10)
+        .sort((a, b) => b.delta - a.delta)
+        .slice(0, 3);
+      if (actions.length < 2) return null;
+      let merged = { ...answers };
+      actions.forEach(({ s }) => { merged = { ...merged, ...s.modifications(merged) }; });
+      const afterProb = runMonteCarlo(merged, 200).successProbability;
+      if (afterProb <= beforeProb + 0.01) return null; // 改善が見えない場合は出さない
+      return { beforeProb, afterProb, count: actions.length };
+    } catch {
+      return null;
+    }
+  }, [answers]);
+}
+
 interface PaywallModalProps {
   onClose: () => void;
+  /** 渡すと「あなたの場合 X%→Y%」の実データBefore/Afterを表示 */
+  answers?: Record<string, any>;
 }
 
 /** 正典プランの価格・世界観コピーをそのまま使ったペイウォール */
-export const PaywallModal: React.FC<PaywallModalProps> = ({ onClose }) => {
+export const PaywallModal: React.FC<PaywallModalProps> = ({ onClose, answers }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState<'annual' | 'monthly' | null>(null);
   const [error, setError] = useState(false);
+  const beforeAfter = useBeforeAfter(answers);
 
   const choose = async (plan: 'annual' | 'monthly') => {
     if (!user) { setError(true); return; }
@@ -214,6 +252,19 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ onClose }) => {
           アクションプランの打ち手を<b className="text-gray-700">自分で組み替えて</b>、「寿命まで持つ確率」がどこまで上がるかをその場で確認・保存できます。転職やFIREなど、あり得た未来の比較も。
         </div>
 
+        {/* あなた自身の数字でのBefore/After(推定ではなく実計算) */}
+        {beforeAfter && (
+          <div className="mt-3 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl p-3 text-center">
+            <div className="text-[10px] font-bold text-emerald-800">あなたの回答で実計算した例(打ち手{beforeAfter.count}つを重ねた場合)</div>
+            <div className="mt-1 text-xl font-extrabold text-gray-900">
+              {probIcon(beforeAfter.beforeProb)}{Math.round(beforeAfter.beforeProb * 100)}%
+              <span className="mx-2 text-gray-400">→</span>
+              {probIcon(beforeAfter.afterProb)}{Math.round(beforeAfter.afterProb * 100)}%
+            </div>
+            <div className="text-[10px] text-emerald-800">寿命まで資金が持つ確率。組み合わせ次第でさらに上げられます</div>
+          </div>
+        )}
+
         <div className="mt-4 space-y-2">
           <button
             onClick={() => choose('annual')}
@@ -222,7 +273,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ onClose }) => {
           >
             <div className="text-left">
               <div className="text-xs font-extrabold text-blue-900">年額プラン(おすすめ)</div>
-              <div className="text-[10px] text-blue-700">実質月332円・月払いより年1,780円おトク</div>
+              <div className="text-[10px] text-blue-700">実質月332円(1日約11円)・月払いより年1,780円おトク</div>
             </div>
             <div className="text-lg font-extrabold text-blue-900">
               {loading === 'annual' ? '…' : <>¥3,980<span className="text-[10px] font-normal">/年</span></>}
