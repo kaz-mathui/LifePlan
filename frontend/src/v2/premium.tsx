@@ -16,21 +16,34 @@ export const PAYWALL_ENABLED = process.env.REACT_APP_PAYWALL === 'on';
 
 const PREMIUM_STATUSES = new Set(['active', 'trialing']);
 
-export function usePremium(): { isPremium: boolean; status: string | null } {
+interface BillingInfo {
+  status: string | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+}
+
+export function usePremium(): { isPremium: boolean } & BillingInfo {
   const { user } = useAuth();
-  const [status, setStatus] = useState<string | null>(null);
+  const [info, setInfo] = useState<BillingInfo>({ status: null, currentPeriodEnd: null, cancelAtPeriodEnd: false });
 
   useEffect(() => {
-    if (!user?.uid) { setStatus(null); return; }
+    if (!user?.uid) { setInfo({ status: null, currentPeriodEnd: null, cancelAtPeriodEnd: false }); return; }
     const unsub = onSnapshot(
       doc(db, 'billing', user.uid),
-      snap => setStatus((snap.data()?.subscriptionStatus as string) || null),
-      () => setStatus(null),
+      snap => {
+        const d = snap.data();
+        setInfo({
+          status: (d?.subscriptionStatus as string) || null,
+          currentPeriodEnd: (d?.currentPeriodEnd as string) || null,
+          cancelAtPeriodEnd: !!d?.cancelAtPeriodEnd,
+        });
+      },
+      () => setInfo({ status: null, currentPeriodEnd: null, cancelAtPeriodEnd: false }),
     );
     return unsub;
   }, [user?.uid]);
 
-  return { isPremium: status != null && PREMIUM_STATUSES.has(status), status };
+  return { isPremium: info.status != null && PREMIUM_STATUSES.has(info.status), ...info };
 }
 
 /** Checkout開始(バックエンド経由でセッション作成→リダイレクト) */
@@ -95,6 +108,74 @@ export async function openCustomerPortal(idToken: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * アカウント/プレミアムセクション(ツールタブ)。
+ * 購入後の「居場所」: 会員状態・期限・解約ポータル。無料時はアップセル導線。
+ */
+export const AccountSection: React.FC<{ onOpenPaywall: () => void }> = ({ onOpenPaywall }) => {
+  const { user } = useAuth();
+  const { isPremium, status, currentPeriodEnd, cancelAtPeriodEnd } = usePremium();
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  const openPortal = async () => {
+    if (!user) return;
+    setPortalLoading(true);
+    const ok = await openCustomerPortal(await user.getIdToken());
+    if (!ok) setPortalLoading(false);
+  };
+
+  const periodEndText = currentPeriodEnd
+    ? new Date(currentPeriodEnd).toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric' })
+    : null;
+
+  if (isPremium) {
+    return (
+      <div className="bg-gradient-to-br from-indigo-600 to-purple-600 text-white rounded-2xl p-4">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">✨</span>
+          <div className="text-sm font-extrabold">
+            プレミアム会員{status === 'trialing' ? '(無料トライアル中)' : ''}
+          </div>
+        </div>
+        <div className="mt-1 text-[11px] opacity-90 leading-relaxed">
+          戦略ボード・プラン保存・全機能が使えます。
+          {periodEndText && (
+            cancelAtPeriodEnd
+              ? ` ${periodEndText} まで有効(更新停止済み)。`
+              : status === 'trialing'
+                ? ` 無料期間は ${periodEndText} まで。`
+                : ` 次回更新日: ${periodEndText}。`
+          )}
+        </div>
+        <button
+          onClick={openPortal}
+          disabled={portalLoading}
+          className="mt-3 w-full py-2.5 rounded-xl bg-white/15 text-white text-xs font-bold active:scale-[0.98] transition-transform disabled:opacity-60"
+        >
+          {portalLoading ? '開いています…' : '💳 お支払い管理・解約(いつでも1タップ)'}
+        </button>
+      </div>
+    );
+  }
+
+  if (!PAYWALL_ENABLED) return null;
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-4">
+      <div className="text-sm font-bold text-gray-900">✨ プレミアム</div>
+      <div className="mt-1 text-xs text-gray-500 leading-relaxed">
+        戦略ボードで複数の打ち手を組み合わせ、プランを保存・比較。年3,980円(月あたり332円)。
+      </div>
+      <button
+        onClick={onOpenPaywall}
+        className="mt-3 w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-xs font-bold active:scale-[0.98] transition-transform"
+      >
+        7日間無料で試す
+      </button>
+    </div>
+  );
+};
 
 interface PaywallModalProps {
   onClose: () => void;

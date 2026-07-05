@@ -38,24 +38,35 @@ const Auth: React.FC<AuthProps> = ({ auth }) => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-xl max-w-sm mx-auto">
-      <h2 className="text-2xl font-bold text-slate-800 mb-6">ログイン</h2>
-      <div className="w-full space-y-4">
-        <button
-        onClick={handleGoogleLogin}
-        className="flex items-center justify-center w-full px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-transform transform hover:scale-105"
-        >
-        <Icon as={FaGoogle} className="mr-3" />
-          Googleでログイン
-        </button>
+    <div className="flex flex-col items-center justify-center p-8 bg-white rounded-2xl shadow-xl max-w-sm mx-auto mt-10">
+      {/* ブランド + 価値訴求(初見で「何のアプリか」が分かるように) */}
+      <h1 className="text-2xl font-extrabold tracking-tight text-gray-900">
+        LifePlan <span className="text-blue-600">v2</span>
+      </h1>
+      <p className="mt-2 text-sm text-gray-600 text-center leading-relaxed">
+        老後のお金の不安に、<b>判定と処方箋</b>を。<br />
+        12問・3分であなたの未来を診断します。
+      </p>
+      <div className="w-full space-y-3 mt-6">
         <button
           onClick={handleAnonymousLogin}
-          className="flex items-center justify-center w-full px-6 py-3 bg-slate-600 text-white font-semibold rounded-lg shadow-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-transform transform hover:scale-105"
+          className="flex items-center justify-center w-full px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 active:scale-[0.98] transition-transform"
         >
           <Icon as={FaUserSecret} className="mr-3" />
-          匿名で利用する
+          登録なしで今すぐ診断する
+        </button>
+        <button
+          onClick={handleGoogleLogin}
+          className="flex items-center justify-center w-full px-6 py-3 bg-white text-gray-700 font-semibold rounded-xl border border-gray-300 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 active:scale-[0.98] transition-transform"
+        >
+          <Icon as={FaGoogle} className="mr-3 text-red-500" />
+          Googleでログイン
         </button>
       </div>
+      <p className="mt-4 text-[11px] text-gray-400 text-center leading-relaxed">
+        無料・登録不要で全ての診断が使えます。<br />
+        保険や投資信託の勧誘は一切ありません。
+      </p>
     </div>
   );
 };

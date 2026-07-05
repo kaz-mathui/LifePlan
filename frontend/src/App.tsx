@@ -230,9 +230,12 @@ const App: React.FC = () => {
       <header className="bg-white shadow-md sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">ライフプランシミュレーター</h1>
-              <a href="?v2" className="ml-3 px-2 py-1 text-xs font-bold bg-blue-100 text-blue-700 rounded-full">v2 試す →</a>
+            <div className="flex items-center shrink-0">
+              {/* v2と同一ブランド表記(モバイルで折り返さない) */}
+              <h1 className="text-lg font-extrabold tracking-tight text-gray-900 whitespace-nowrap">
+                LifePlan <span className="text-gray-400 text-sm font-bold">クイック診断</span>
+              </h1>
+              <a href="?v2" className="ml-2 px-2 py-1 text-xs font-bold bg-blue-100 text-blue-700 rounded-full whitespace-nowrap">v2へ →</a>
             </div>
             <div className="flex items-center space-x-4">
               <PlanManager

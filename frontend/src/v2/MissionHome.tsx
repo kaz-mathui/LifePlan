@@ -13,7 +13,7 @@ import { simulateFromAnswers, getKeyMetrics, formatMan } from './simulator';
 import PlanSelector from './PlanSelector';
 import MFImport from './MFImport';
 import AnxietySurvey from './AnxietySurvey';
-import { PAYWALL_ENABLED, usePremium, PaywallModal, useBillingReturn } from './premium';
+import { PAYWALL_ENABLED, usePremium, PaywallModal, useBillingReturn, AccountSection } from './premium';
 import CompletionCertificate from './CompletionCertificate';
 import ScenarioBoard from './ScenarioBoard';
 
@@ -227,6 +227,7 @@ const MissionHome: React.FC = () => {
           <div className="flex items-center justify-between">
             <h1 className="text-lg font-extrabold tracking-tight flex items-center gap-2">
               LifePlan <span className="text-blue-600">v2</span>
+              {isPremium && <span className="text-[10px] font-bold bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-2 py-0.5 rounded-full">✨ プレミアム</span>}
               {syncing && (
                 <span className="text-[10px] text-blue-500 font-semibold animate-pulse">同期中…</span>
               )}
@@ -413,6 +414,7 @@ const MissionHome: React.FC = () => {
         {/* ツールタブ */}
         {mode === 'tools' && (
           <div className="space-y-3">
+            <AccountSection onOpenPaywall={() => setPaywallOpen(true)} />
             <MFImport onApply={applyBulkUpdates} />
             {/* 完成証明書(全問完了時のみ) */}
             {overall.percent === 100 && <CompletionCertificate answers={answers} overall={overall} />}
