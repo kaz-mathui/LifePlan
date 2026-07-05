@@ -80,8 +80,14 @@ router.post('/checkout', async (req: Request, res: Response) => {
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price, quantity: 1 }],
+      // カード登録なしでトライアル開始できるようにする(最大の課金ブロッカー対策)。
+      // 期限までにカード未登録なら自動キャンセル=「勝手に課金されない」を構造で保証
+      payment_method_collection: 'if_required',
       subscription_data: {
         trial_period_days: 7,
+        trial_settings: {
+          end_behavior: { missing_payment_method: 'cancel' },
+        },
         metadata: { uid },
       },
       metadata: { uid },

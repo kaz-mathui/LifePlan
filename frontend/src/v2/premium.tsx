@@ -184,7 +184,14 @@ const PAYWALL_ACTION_IDS = new Set(['nisa_max', 'side_income', 'rent_down', 'ris
 
 const probIcon = (p: number) => (p >= 0.85 ? '🟢' : p >= 0.6 ? '🟡' : p >= 0.4 ? '🟠' : '🔴');
 
-/** answersから「現在の確率→打ち手3つ適用後の確率」を実計算(決済前に自分の数字で価値を見せる) */
+/** 打ち手の短縮ラベル(内訳表示用) */
+const SHORT_LABELS: Record<string, string> = {
+  nisa_max: 'NISA月10万', side_income: '副業月5万', rent_down: '家賃-2万',
+  risk_invest: '株式比率70%', career_up: '転職+150万', sp_career: '配偶者+100万',
+  work_longer: '68歳まで働く', cost_down: '生活費-2万',
+};
+
+/** answersから「現在→打ち手を1つずつ重ねた時の確率」を段階計算(極端な改善幅の根拠を開示する) */
 function useBeforeAfter(answers: Record<string, any> | undefined) {
   return useMemo(() => {
     if (!answers || Object.keys(answers).length === 0) return null;
@@ -201,11 +208,19 @@ function useBeforeAfter(answers: Record<string, any> | undefined) {
         .sort((a, b) => b.delta - a.delta)
         .slice(0, 3);
       if (actions.length < 2) return null;
+      // 1つずつ累積適用して段階確率を出す(「全部必須なのか?」に答える)
       let merged = { ...answers };
-      actions.forEach(({ s }) => { merged = { ...merged, ...s.modifications(merged) }; });
-      const afterProb = runMonteCarlo(merged, 200).successProbability;
+      const steps: Array<{ label: string; prob: number }> = [];
+      actions.forEach(({ s }) => {
+        merged = { ...merged, ...s.modifications(merged) };
+        steps.push({
+          label: SHORT_LABELS[s.id] || s.title,
+          prob: runMonteCarlo(merged, 200).successProbability,
+        });
+      });
+      const afterProb = steps[steps.length - 1].prob;
       if (afterProb <= beforeProb + 0.01) return null; // 改善が見えない場合は出さない
-      return { beforeProb, afterProb, count: actions.length };
+      return { beforeProb, afterProb, steps };
     } catch {
       return null;
     }
@@ -252,18 +267,35 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ onClose, answers }) 
           アクションプランの打ち手を<b className="text-gray-700">自分で組み替えて</b>、「寿命まで持つ確率」がどこまで上がるかをその場で確認・保存できます。転職やFIREなど、あり得た未来の比較も。
         </div>
 
-        {/* あなた自身の数字でのBefore/After(推定ではなく実計算) */}
+        {/* あなた自身の数字でのBefore/After(推定ではなく実計算・段階内訳つき) */}
         {beforeAfter && (
-          <div className="mt-3 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl p-3 text-center">
-            <div className="text-[10px] font-bold text-emerald-800">あなたの回答で実計算した例(打ち手{beforeAfter.count}つを重ねた場合)</div>
-            <div className="mt-1 text-xl font-extrabold text-gray-900">
-              {probIcon(beforeAfter.beforeProb)}{Math.round(beforeAfter.beforeProb * 100)}%
-              <span className="mx-2 text-gray-400">→</span>
-              {probIcon(beforeAfter.afterProb)}{Math.round(beforeAfter.afterProb * 100)}%
+          <div className="mt-3 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-300 rounded-xl p-3">
+            <div className="text-[10px] font-bold text-emerald-800 text-center">あなたの回答で実計算(寿命まで資金が持つ確率)</div>
+            <div className="mt-1.5 space-y-1">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-gray-600">いまのまま</span>
+                <span className="font-extrabold text-gray-900">{probIcon(beforeAfter.beforeProb)} {Math.round(beforeAfter.beforeProb * 100)}%</span>
+              </div>
+              {beforeAfter.steps.map((st, i) => (
+                <div key={i} className="flex justify-between items-center text-xs">
+                  <span className="text-gray-600">＋ {st.label}</span>
+                  <span className="font-extrabold text-gray-900">{probIcon(st.prob)} {Math.round(st.prob * 100)}%</span>
+                </div>
+              ))}
             </div>
-            <div className="text-[10px] text-emerald-800">寿命まで資金が持つ確率。組み合わせ次第でさらに上げられます</div>
+            <div className="mt-1.5 text-[10px] text-emerald-800 text-center">
+              1つずつ重ねた累積効果(Monte Carlo 200回試行)。全部やる必要はなく、組み合わせは自由に設計できます
+            </div>
           </div>
         )}
+
+        {/* 7日間でできること(有料の中身を具体化) */}
+        <div className="mt-3 grid grid-cols-2 gap-1.5 text-[10px] text-gray-600">
+          <div>✓ 打ち手の自由な組み合わせ試算</div>
+          <div>✓ プランの保存・比較(転職案/現状維持案…)</div>
+          <div>✓ 100問超の精密モードで精度UP</div>
+          <div>✓ MoneyForward CSV連携</div>
+        </div>
 
         <div className="mt-4 space-y-2">
           <button
@@ -291,8 +323,14 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ onClose, answers }) 
           </button>
         </div>
 
-        <div className="mt-2 text-center text-[11px] font-bold text-green-700">
-          どちらも7日間無料。期間中の解約は0円です
+        <div className="mt-2 bg-green-50 border border-green-300 rounded-xl p-2.5 text-center">
+          <div className="text-[11px] font-extrabold text-green-800">
+            🎫 カード登録なしで、7日間無料で試せます
+          </div>
+          <div className="mt-0.5 text-[10px] text-green-700 leading-relaxed">
+            期限が来ても<b>勝手に課金されることはありません</b>(自動で無料版に戻ります)。<br />
+            続けたくなった時だけ、カードを登録してください。
+          </div>
         </div>
         <div className="mt-1.5 text-center text-[11px] text-gray-500">
           FP相談は1回<b className="text-gray-700">3万円</b>。LifePlanなら<b className="text-gray-700">その1/8で1年間</b>、何度でも再診断できます
@@ -311,8 +349,9 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ onClose, answers }) 
         </button>
 
         <div className="mt-3 text-[10px] text-gray-400 leading-relaxed">
-          私たちは保険も投資信託も一切売りません。だからこの診断は信じられる——収益はあなたの購読だけです。
-          解約はいつでもマイページから1タップで可能です。
+          私たちは保険も投資信託も一切売りません。だからこの診断は信じられる——収益はあなたの購読だけです。<br />
+          決済は世界標準のStripeが処理し、カード情報がLifePlanに保存されることはありません。
+          解約は「ツール→お支払い管理→キャンセル」の3タップ。引き止め画面はありません。
         </div>
       </div>
     </div>
