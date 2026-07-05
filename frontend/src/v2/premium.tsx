@@ -211,7 +211,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ onClose }) => {
           複数の一手を重ねて、<br />「荒天」を自分の手で晴らす
         </div>
         <div className="mt-1 text-xs text-gray-500 leading-relaxed">
-          戦略ボードでは複数の打ち手を同時に組み合わせて、あなた専用の立て直しプランを設計・保存できます。
+          アクションプランの打ち手を<b className="text-gray-700">自分で組み替えて</b>、「寿命まで持つ確率」がどこまで上がるかをその場で確認・保存できます。転職やFIREなど、あり得た未来の比較も。
         </div>
 
         <div className="mt-4 space-y-2">
@@ -222,7 +222,7 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ onClose }) => {
           >
             <div className="text-left">
               <div className="text-xs font-extrabold text-blue-900">年額プラン(おすすめ)</div>
-              <div className="text-[10px] text-blue-700">実質月332円・33%おトク</div>
+              <div className="text-[10px] text-blue-700">実質月332円・月払いより年1,780円おトク</div>
             </div>
             <div className="text-lg font-extrabold text-blue-900">
               {loading === 'annual' ? '…' : <>¥3,980<span className="text-[10px] font-normal">/年</span></>}
@@ -242,6 +242,9 @@ export const PaywallModal: React.FC<PaywallModalProps> = ({ onClose }) => {
 
         <div className="mt-2 text-center text-[11px] font-bold text-green-700">
           どちらも7日間無料。期間中の解約は0円です
+        </div>
+        <div className="mt-1.5 text-center text-[11px] text-gray-500">
+          FP相談は1回<b className="text-gray-700">3万円</b>。LifePlanなら<b className="text-gray-700">その1/8で1年間</b>、何度でも再診断できます
         </div>
         {error && (
           <div className="mt-2 text-center text-[11px] font-bold text-red-600">

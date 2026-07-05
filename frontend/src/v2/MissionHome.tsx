@@ -235,8 +235,9 @@ const MissionHome: React.FC = () => {
                 <span className="text-[10px] text-gray-400 font-semibold">ローカルのみ</span>
               )}
             </h1>
+            {/* 条件付き質問で総数が動くため分母は出さない(ゴールが動いて見える問題の回避) */}
             <span className="text-xs text-gray-500 font-semibold">
-              {overall.answered} / {overall.total} ({overall.percent}%)
+              {overall.answered}問 回答済み ({overall.percent}%)
             </span>
           </div>
         </div>
@@ -252,8 +253,8 @@ const MissionHome: React.FC = () => {
         {/* プラン選択 (ログイン時のみ) */}
         {uid && <PlanSelector currentPlanId={currentPlanId} onChange={setCurrentPlanId} />}
 
-        {/* コア進捗(12問完了でベース予測解放) */}
-        {!baseUnlocked && (
+        {/* コア進捗(12問完了でベース予測解放)。予測タブでは警告トーンと混ざるため「今日」のみ表示 */}
+        {!baseUnlocked && mode === 'today' && (
           <div className="bg-gradient-to-br from-blue-600 to-blue-800 text-white rounded-2xl p-5 shadow-lg">
             <div className="text-xs opacity-80 font-bold uppercase tracking-wider mb-1">
               ⭐ コア質問の進捗
@@ -285,7 +286,7 @@ const MissionHome: React.FC = () => {
           </div>
         )}
 
-        {baseUnlocked && (
+        {baseUnlocked && mode === 'today' && (
           <>
             <div className="bg-gradient-to-br from-green-600 to-green-800 text-white rounded-2xl p-5 shadow-lg">
               <div className="text-xs opacity-80 font-bold uppercase tracking-wider mb-1">

@@ -204,6 +204,16 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact, provisional, onOp
             </div>
           </div>
         )}
+
+        {/* 感情ピーク(悪い判定)の直下に立て直し導線を直結する */}
+        {!provisional && mc.successProbability < 0.6 && onOpenScenarioBoard && (
+          <button
+            onClick={onOpenScenarioBoard}
+            className="mt-2 w-full py-2.5 rounded-xl bg-yellow-400 text-gray-900 text-xs font-extrabold active:scale-[0.98] transition-transform"
+          >
+            ⚡ この予報を立て直す →
+          </button>
+        )}
       </div>
 
       {/* 主要数値(WhatIf 連動・デルタ表示) */}
@@ -220,7 +230,8 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact, provisional, onOp
           delta={isModified ? diffLast : 0}
           showDelta={isModified}
         />
-        {!compact && (
+        {/* 谷が最終年と同値の場合は非表示(「90歳時の資産」と重複してダミーデータに見えるため) */}
+        {!compact && metrics.minAge !== metrics.lastAge && (
           <>
             <MetricCard
               label="谷の深さ"
