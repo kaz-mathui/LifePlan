@@ -12,13 +12,30 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip,
 interface ForecastProps {
   answers: Record<string, any>;
   compact?: boolean;
+  onOpenScenarioBoard?: () => void;
 }
 
-const Forecast: React.FC<ForecastProps> = ({ answers, compact }) => {
+/** Monte Carlo 成功確率 → 一言判定(🟢🟡🔴) */
+function getVerdict(prob: number, minAssets: number, minAge: number) {
+  const valleyNote = minAssets < 0 ? `${minAge}歳ごろに資産が底をつく試算です` : null;
+  if (prob >= 0.85) return { icon: '🟢', title: 'このプランは妥当です', sub: valleyNote ?? 'このままのペースで問題なさそうです' };
+  if (prob >= 0.6) return { icon: '🟡', title: '概ね順調、改善余地あり', sub: valleyNote ?? '下のアクションプランで上積みを検討しましょう' };
+  if (prob >= 0.4) return { icon: '🟠', title: '要調整です', sub: valleyNote ?? 'アクションプランの実行を検討してください' };
+  return { icon: '🔴', title: 'プランの見直しが必要です', sub: valleyNote ?? '収入・支出・退職時期のいずれかの調整が必要です' };
+}
+
+const Forecast: React.FC<ForecastProps> = ({ answers, compact, onOpenScenarioBoard }) => {
   // ベース系列(常に元の answers)
   const baseSeries = useMemo(() => simulateFromAnswers(answers), [answers]);
   const baseMetrics = useMemo(() => getKeyMetrics(baseSeries), [baseSeries]);
   const weather = useMemo(() => getWeatherScores(baseSeries), [baseSeries]);
+
+  // Monte Carlo は判定バナーと詳細パネルで共用(1回だけ計算)
+  const mc = useMemo(() => runMonteCarlo(answers, 200), [answers]);
+  const verdict = useMemo(
+    () => getVerdict(mc.successProbability, baseMetrics.minAssets, baseMetrics.minAge),
+    [mc.successProbability, baseMetrics.minAssets, baseMetrics.minAge]
+  );
 
   // What-if 状態: 全シナリオの値を一括管理
   const baseValues = useMemo(() => {
@@ -155,6 +172,19 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact }) => {
             <div className="font-bold">{weather.lifespan.icon} {weather.lifespan.label}</div>
           </div>
         </div>
+
+        {/* 判定バナー: 「安全？危ない？」に一言で答える */}
+        <div className="mt-3 bg-white/15 rounded-xl p-3 flex items-center gap-3">
+          <span className="text-3xl">{verdict.icon}</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-extrabold leading-tight">{verdict.title}</div>
+            <div className="text-[11px] opacity-90 mt-0.5">{verdict.sub}</div>
+          </div>
+          <div className="text-right shrink-0">
+            <div className="text-2xl font-extrabold">{Math.round(mc.successProbability * 100)}%</div>
+            <div className="text-[9px] opacity-75 leading-tight">寿命まで資金が<br />持つ確率</div>
+          </div>
+        </div>
       </div>
 
       {/* 主要数値(WhatIf 連動・デルタ表示) */}
@@ -242,7 +272,7 @@ const Forecast: React.FC<ForecastProps> = ({ answers, compact }) => {
       )}
 
       {/* Monte Carlo */}
-      {!compact && <MonteCarloPanel answers={answers} />}
+      {!compact && <MonteCarloPanel answers={answers} result={mc} />}
     </div>
   );
 };
@@ -265,9 +295,11 @@ const MetricCard: React.FC<{
   </div>
 );
 
-/** Monte Carlo シミュレーション結果パネル */
-const MonteCarloPanel: React.FC<{ answers: Record<string, any> }> = ({ answers }) => {
-  const result = useMemo(() => runMonteCarlo(answers, 200), [answers]);
+/** Monte Carlo シミュレーション結果パネル(result は親で1回だけ計算して受け取る) */
+const MonteCarloPanel: React.FC<{
+  answers: Record<string, any>;
+  result: ReturnType<typeof runMonteCarlo>;
+}> = ({ answers, result }) => {
   const probColor =
     result.successProbability >= 0.9 ? 'text-green-600' :
     result.successProbability >= 0.7 ? 'text-blue-600' :
