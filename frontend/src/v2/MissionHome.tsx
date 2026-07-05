@@ -13,7 +13,7 @@ import { simulateFromAnswers, getKeyMetrics, formatMan } from './simulator';
 import PlanSelector from './PlanSelector';
 import MFImport from './MFImport';
 import AnxietySurvey from './AnxietySurvey';
-import { PAYWALL_ENABLED, usePremium, PaywallModal } from './premium';
+import { PAYWALL_ENABLED, usePremium, PaywallModal, useBillingReturn } from './premium';
 import CompletionCertificate from './CompletionCertificate';
 import ScenarioBoard from './ScenarioBoard';
 
@@ -32,6 +32,16 @@ const MissionHome: React.FC = () => {
   const [tourOpen, setTourOpen] = useState(false);
   const [paywallOpen, setPaywallOpen] = useState(false);
   const { isPremium } = usePremium();
+  const billingReturn = useBillingReturn();
+
+  // Stripe決済からの復帰を通知
+  React.useEffect(() => {
+    if (billingReturn === 'success') {
+      toast.success('プレミアムへようこそ！戦略ボードが解放されました', { icon: '🎉', duration: 3500 });
+    } else if (billingReturn === 'failed') {
+      toast.error('決済の確認ができませんでした。反映まで少し時間がかかる場合があります');
+    }
+  }, [billingReturn]);
 
   // 戦略ボード = 有料ゲートの核(PAYWALL_ENABLED が off の間は全員通す)
   const openScenarioBoard = () => {

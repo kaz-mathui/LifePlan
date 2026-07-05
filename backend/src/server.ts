@@ -1,6 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import simulationRoutes from './routes/simulation';
+import billingRoutes, { handleWebhook } from './routes/billing';
 import admin from 'firebase-admin';
 
 // Heroku/GCPの環境変数からサービスアカウント情報を取得
@@ -51,6 +52,9 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+// Stripe Webhookは署名検証にraw bodyが必要なため、json パーサより前にマウント
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), handleWebhook);
+
 app.use(express.json()); // リクエストボディをJSONとしてパース
 
 // ルート
@@ -77,6 +81,7 @@ app.post('/api/plans', async (req, res) => {
 });
 
 app.use('/api/simulation', simulationRoutes);
+app.use('/api/billing', billingRoutes);
 
 // エラーハンドリングミドルウェア (簡易版)
 app.use((err: Error, req: Request, res: Response, next: NextFunction) => {

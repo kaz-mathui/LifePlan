@@ -5,5 +5,12 @@ service cloud.firestore {
     match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // 課金状態: 読み取りは本人のみ、書き込みはバックエンド(Admin SDK)のみ。
+    // users/ 配下に置くと本人が subscription_status を偽装できるため独立コレクションにする
+    match /billing/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if false;
+    }
   }
 }
