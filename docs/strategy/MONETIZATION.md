@@ -72,13 +72,24 @@
 | # | Size | 項目 | 状態 |
 |---|---|---|---|
 | 1 | S | 初回セッション末の不安計測1タップ | ✅ 2026-07-05 (AnxietySurvey.tsx, users/{uid}/surveys) |
-| 2 | M | Stripe Checkout + Customer Portal（**要Stripeアカウント＝オーナー作業**） | ⏳ |
+| 2 | M | Stripe Checkout + Customer Portal | ✅ テストモード 2026-07-06（E2E決済確認済み。本番化の残作業は下記） |
 | 3 | M | ScenarioBoard 有料ゲート | ✅ 骨格 2026-07-05 (premium.tsx, REACT_APP_PAYWALL=on で有効化。Stripe着弾まで無効) |
 | 4 | S | 仮予測フレーミング修正 | ✅ 2026-07-05 |
 | 5 | L | 履歴/前回差分+四半期ドリフト再診 | ⏳ 次スプリント最優先（継続ジレンマの解） |
 | 6 | S | 免責文 | ✅ 2026-07-05 (Forecast末尾) / 特商法・利用規約ページは⏳ |
 | 7 | M | 診断結果シェア画像生成 | ⏳ 次スプリント（配布の要） |
 | 8 | M | PDFレポート書き出し（980円） | ⏳ |
+
+## 課金の本番化チェックリスト（テストモード→本番）
+
+- [ ] 特商法・利用規約・プライバシーポリシーページ（Stripe審査に必要）
+- [ ] Stripe本番申請（本人確認・銀行口座）→ 審査通過
+- [ ] 本番環境に Product/Price を再作成（テストと本番は別空間）
+- [ ] Cloud Run backend に env 追加: `STRIPE_SECRET_KEY`(live) / `STRIPE_PRICE_ANNUAL` / `STRIPE_PRICE_MONTHLY` / `FRONTEND_URL` / `STRIPE_WEBHOOK_SECRET`
+- [ ] Stripeダッシュボードで Webhook endpoint 登録（`{backend}/api/billing/webhook`、subscription系イベント）
+- [ ] Customer Portal 設定（ダッシュボード > Settings > Billing > Customer portal で解約許可をON）
+- [ ] フロントビルドに `REACT_APP_PAYWALL=on`（cd.yml の build-arg 追加）
+- [ ] プロジェクト構成メモ: **ローカル=lifeplan-f73ae / 本番=prd-life-plan**（backend秘密鍵・GH Secrets・rulesすべてprd側で整合済み 2026-07-06）
 
 ## 全レビュアー共通の最重要警告
 
