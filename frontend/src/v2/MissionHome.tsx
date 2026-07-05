@@ -243,6 +243,21 @@ const MissionHome: React.FC = () => {
             <div className="mt-3 h-2 bg-white/20 rounded-full overflow-hidden">
               <div className="h-full bg-yellow-300 transition-all duration-500" style={{ width: `${core.percent}%` }} />
             </div>
+            {/* 待たせない導線: 仮予測は今すぐ見られる / MFインポートで一気に入力 */}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setMode('forecast')}
+                className="py-2 rounded-xl bg-white/15 text-white text-[11px] font-bold active:scale-[0.97] transition-transform"
+              >
+                🔮 仮予測を今すぐ見る
+              </button>
+              <button
+                onClick={() => setMode('tools')}
+                className="py-2 rounded-xl bg-white/15 text-white text-[11px] font-bold active:scale-[0.97] transition-transform"
+              >
+                📥 MFのCSVで一気に入力
+              </button>
+            </div>
           </div>
         )}
 
@@ -273,14 +288,12 @@ const MissionHome: React.FC = () => {
           >
             📍 今日
           </button>
-          {baseUnlocked && (
-            <button
-              onClick={() => setMode('forecast')}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg ${mode === 'forecast' ? 'bg-white text-gray-900 shadow' : 'text-gray-500'}`}
-            >
-              🔮 予測
-            </button>
-          )}
+          <button
+            onClick={() => setMode('forecast')}
+            className={`flex-1 py-2 text-xs font-bold rounded-lg ${mode === 'forecast' ? 'bg-white text-gray-900 shadow' : 'text-gray-500'}`}
+          >
+            🔮 {baseUnlocked ? '予測' : '仮予測'}
+          </button>
           <button
             onClick={() => setMode('groups')}
             className={`flex-1 py-2 text-xs font-bold rounded-lg ${mode === 'groups' ? 'bg-white text-gray-900 shadow' : 'text-gray-500'}`}
@@ -315,27 +328,50 @@ const MissionHome: React.FC = () => {
           />
         )}
 
-        {/* 予測タブ */}
-        {mode === 'forecast' && baseUnlocked && (
+        {/* 予測タブ (ロック中も「仮予測」として開放し、初回から価値を見せる) */}
+        {mode === 'forecast' && (
           <div className="space-y-3">
-            {/* シナリオツアー導線 (ヒーローバナー) */}
-            <button
-              onClick={() => setTourOpen(true)}
-              className="w-full rounded-2xl p-4 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-lg text-left active:scale-[0.98] transition-transform"
-            >
-              <div className="flex items-center gap-3">
-                <div className="text-3xl">🌅</div>
-                <div className="flex-1">
-                  <div className="text-base font-extrabold">もしも、の戦略ボード</div>
-                  <div className="text-[11px] opacity-90 leading-tight mt-0.5">
-                    あり得た未来をトグルで切り替え、効果を即座に確認
-                  </div>
+            {!baseUnlocked && (
+              <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4">
+                <div className="text-sm font-extrabold text-amber-900">⚡ これは平均値ベースの仮予測です</div>
+                <div className="text-xs text-amber-800 mt-1 leading-relaxed">
+                  未回答の項目は同世代の標準値で計算しています。
+                  コア質問あと<b>{core.total - core.answered}問</b>で「あなた仕様」のベース予測に切り替わり、
+                  以降は答えるほど精度が上がります。
                 </div>
-                <div className="text-xl opacity-80">→</div>
+                <button
+                  onClick={() => setMode('today')}
+                  className="mt-3 w-full py-2.5 rounded-xl bg-amber-500 text-white text-xs font-bold active:scale-[0.98] transition-transform"
+                >
+                  📍 今日の3問に答えて精度を上げる
+                </button>
               </div>
-            </button>
+            )}
 
-            <Forecast answers={answers} />
+            {/* シナリオツアー導線 (ヒーローバナー・解放後のみ) */}
+            {baseUnlocked && (
+              <button
+                onClick={() => setTourOpen(true)}
+                className="w-full rounded-2xl p-4 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-lg text-left active:scale-[0.98] transition-transform"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="text-3xl">🌅</div>
+                  <div className="flex-1">
+                    <div className="text-base font-extrabold">もしも、の戦略ボード</div>
+                    <div className="text-[11px] opacity-90 leading-tight mt-0.5">
+                      あり得た未来をトグルで切り替え、効果を即座に確認
+                    </div>
+                  </div>
+                  <div className="text-xl opacity-80">→</div>
+                </div>
+              </button>
+            )}
+
+            <Forecast
+              answers={answers}
+              compact={!baseUnlocked}
+              onOpenScenarioBoard={baseUnlocked ? () => setTourOpen(true) : undefined}
+            />
           </div>
         )}
 
