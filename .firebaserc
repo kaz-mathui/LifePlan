@@ -1,0 +1,6 @@
+{
+  "projects": {
+    "default": "prd-life-plan",
+    "dev": "lifeplan-f73ae"
+  }
+}

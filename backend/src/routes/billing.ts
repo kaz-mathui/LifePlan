@@ -13,9 +13,8 @@ import { Router, Request, Response } from 'express';
 import Stripe from 'stripe';
 import admin from 'firebase-admin';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-11-17.acacia' as any,
-});
+// apiVersionは指定しない(SDK v22組み込みのバージョンを使用)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '');
 
 const PRICES: Record<string, string | undefined> = {
   annual: process.env.STRIPE_PRICE_ANNUAL,
@@ -30,11 +29,15 @@ const router = Router();
 async function verifyAuth(req: Request): Promise<string | null> {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  if (!token) return null;
+  if (!token) {
+    console.warn('[billing/auth] Authorizationヘッダなし');
+    return null;
+  }
   try {
     const decoded = await admin.auth().verifyIdToken(token);
     return decoded.uid;
-  } catch {
+  } catch (e: any) {
+    console.warn('[billing/auth] verifyIdToken失敗:', e?.code, '|', String(e?.message).slice(0, 200), '| token頭20字:', token.slice(0, 20));
     return null;
   }
 }
