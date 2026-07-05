@@ -49,9 +49,10 @@ export function useV2Answers(planId: string = 'default') {
       // 1. ローカルキャッシュ即時表示
       try {
         const local = localStorage.getItem(lsKey(uid, planId));
-        if (local) {
-          const parsed = JSON.parse(local) as Answers;
-          if (!cancelled) setAnswersState(parsed);
+        const localParsed = local ? (JSON.parse(local) as Answers) : null;
+        // 空オブジェクトはキャッシュとして信用しない(空プラン自動作成によるクロバー対策)
+        if (localParsed && Object.keys(localParsed).length > 0) {
+          if (!cancelled) setAnswersState(localParsed);
         } else {
           // Phase 1 のレガシーキーがあれば取り込む(ワンタイム移行)
           const legacy = localStorage.getItem(legacyLsKey);
@@ -70,7 +71,8 @@ export function useV2Answers(planId: string = 'default') {
           const snap = await getDoc(ref);
           if (!cancelled && snap.exists()) {
             const data = snap.data() as V2PlanDoc;
-            if (data.answers) {
+            // 空のanswersは権威データとして扱わない(ローカルの回答を空で潰さない)
+            if (data.answers && Object.keys(data.answers).length > 0) {
               setAnswersState(data.answers);
               localStorage.setItem(lsKey(uid, planId), JSON.stringify(data.answers));
             }
@@ -93,7 +95,8 @@ export function useV2Answers(planId: string = 'default') {
     const unsub = onSnapshot(ref, (snap) => {
       if (snap.exists()) {
         const data = snap.data() as V2PlanDoc;
-        if (data.answers) {
+        // 空のanswersでローカル回答を上書きしない(クロバー対策)
+        if (data.answers && Object.keys(data.answers).length > 0) {
           setAnswersState(prev => {
             // 簡易差分判定: JSON 文字列で比較
             const same = JSON.stringify(prev) === JSON.stringify(data.answers);
