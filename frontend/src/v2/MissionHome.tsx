@@ -12,6 +12,8 @@ import { useV2Answers } from './useV2Answers';
 import { simulateFromAnswers, getKeyMetrics, formatMan } from './simulator';
 import PlanSelector from './PlanSelector';
 import MFImport from './MFImport';
+import AnxietySurvey from './AnxietySurvey';
+import { PAYWALL_ENABLED, usePremium, PaywallModal } from './premium';
 import CompletionCertificate from './CompletionCertificate';
 import ScenarioBoard from './ScenarioBoard';
 
@@ -28,6 +30,17 @@ const MissionHome: React.FC = () => {
   const [mode, setMode] = useState<ViewMode>('today');
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [tourOpen, setTourOpen] = useState(false);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const { isPremium } = usePremium();
+
+  // 戦略ボード = 有料ゲートの核(PAYWALL_ENABLED が off の間は全員通す)
+  const openScenarioBoard = () => {
+    if (PAYWALL_ENABLED && !isPremium) {
+      setPaywallOpen(true);
+    } else {
+      setTourOpen(true);
+    }
+  };
 
   // 「今日のミッション」関連 state
   // - todayQuotaList: 「今日のミッション」として固定された質問キー(順番崩れず)
@@ -351,7 +364,7 @@ const MissionHome: React.FC = () => {
             {/* シナリオツアー導線 (ヒーローバナー・解放後のみ) */}
             {baseUnlocked && (
               <button
-                onClick={() => setTourOpen(true)}
+                onClick={openScenarioBoard}
                 className="w-full rounded-2xl p-4 bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-lg text-left active:scale-[0.98] transition-transform"
               >
                 <div className="flex items-center gap-3">
@@ -371,11 +384,21 @@ const MissionHome: React.FC = () => {
               answers={answers}
               compact={!baseUnlocked}
               provisional={!baseUnlocked}
-              onOpenScenarioBoard={baseUnlocked ? () => setTourOpen(true) : undefined}
+              onOpenScenarioBoard={baseUnlocked ? openScenarioBoard : undefined}
               onOpenDenseEdit={() => setMode('groups')}
             />
           </div>
         )}
+
+        {/* North Star計測: 本予測を初めて見た直後に不安の増減を聞く */}
+        <AnxietySurvey
+          uid={uid}
+          answers={answers}
+          answeredCount={overall.answered}
+          active={mode === 'forecast' && baseUnlocked}
+        />
+
+        {paywallOpen && <PaywallModal onClose={() => setPaywallOpen(false)} />}
 
         {/* ツールタブ */}
         {mode === 'tools' && (
